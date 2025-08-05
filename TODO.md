@@ -17,6 +17,23 @@
   - [ ] Integrate a crash reporting system (e.g., Sentry or custom solution)
   - [ ] Set up `CI/CD pipelines` for automated unit tests, headless world-gen fuzzing, and performance regression alerts.
 
+- [ ] **Memory Management & Performance**
+  - [ ] Memory Pool Allocators - Custom allocators for frequently allocated objects (chunks, entities, particles)
+  - [ ] Garbage Collection Tuning - JVM GC optimization for low-latency gameplay
+  - [ ] Asset Streaming Pipeline - Progressive loading of distant world content
+  - [ ] Texture Compression - DXT/BC compression for GPU memory efficiency
+
+- [ ] **Input & Control Systems**
+  - [ ] Input Abstraction Layer - Unified keyboard, mouse, gamepad, and touch input
+  - [ ] Keybinding System - Remappable controls with conflict detection
+  - [ ] Input Buffering - Frame-perfect input handling for combat
+  - [ ] Gesture Recognition - Touch gestures for mobile/tablet support
+
+- [ ] **Threading & Concurrency**
+  - [ ] Job System - Work-stealing thread pool for parallel tasks
+  - [ ] Lock-Free Data Structures - For high-frequency inter-thread communication
+  - [ ] Thread-Safe World Access - Safe concurrent access to world data
+
 - [ ] **Voxel Engine Architecture**
   - [ ] **Chunk System**
     - [ ] Implement `Chunk` (e.g., 32x256x32) and `ChunkColumn` data structures.
@@ -39,8 +56,39 @@
 - [ ] **Rendering Pipeline**
   - [ ] **Core Graphics Abstraction**
     - [ ] Abstract OpenGL calls behind a `Renderer` class to simplify drawing calls.
-    - [ ] Implement a `Texture Atlas` for all block textures.
     - [ ] Implement a `Shader Manager` to load, compile, and bind shaders.
+
+  - [ ] **Dynamic Texture Atlas System**
+    - [ ] **Runtime Atlas Generation**
+      - [ ] Implement dynamic texture atlas that can grow at runtime
+      - [ ] Support multiple atlas pages when single atlas becomes full
+      - [ ] Automatic texture packing algorithm (bin packing, guillotine, shelf algorithms)
+      - [ ] Power-of-2 atlas sizing with configurable maximum dimensions
+    - [ ] **Texture Registration & Management**
+      - [ ] Texture registry system for registering new textures by string ID
+      - [ ] Automatic UV coordinate calculation and caching
+      - [ ] Texture dependency tracking (which blocks/items use which textures)
+      - [ ] Hot-reloading of individual textures without rebuilding entire atlas
+    - [ ] **Multi-Format Support**
+      - [ ] Support for different texture types (diffuse, normal, specular, emission)
+      - [ ] Automatic mipmap generation for atlas textures
+      - [ ] Texture compression support (DXT/BC formats)
+      - [ ] Animation support for animated textures (frame-based atlasing)
+    - [ ] **Content Pipeline Integration**
+      - [ ] Asset pipeline that scans for new textures in resource packs
+      - [ ] Automatic atlas rebuilding when new content is added
+      - [ ] Texture validation and error reporting for malformed textures
+      - [ ] Support for different resolution textures (16x16, 32x32, 64x64, etc.)
+    - [ ] **Performance Optimization**
+      - [ ] Texture streaming for large atlases
+      - [ ] GPU memory usage monitoring and optimization
+      - [ ] Batch texture uploads to minimize GPU stalls
+      - [ ] Atlas defragmentation for long-running games
+    - [ ] **Modding Support**
+      - [ ] API for mods to register custom textures
+      - [ ] Namespace system to prevent texture ID conflicts
+      - [ ] Override system for replacing existing textures
+      - [ ] Texture pack compatibility layer
   - [ ] **Physically Based Rendering (PBR) Foundation**
     - [ ] Design a PBR material system for blocks and entities (Albedo, Normal, Metallic, Roughness, AO).
     - [ ] Update the texture atlas to support PBR material textures (e.g., using multiple render targets or texture arrays).
@@ -184,12 +232,383 @@
   - [ ] Implement a text-command parser for admin commands (`/tp`, `/give`, `/weather`, etc.).
   - [ ] Implement server-side Lua scripting hooks early so all later systems are scriptable.
 
+- [ ] **Block-/Sky-Light Engine**
+  - [ ] Incremental flood-fill lighting with queued relight updates
+  - [ ] Separate sky light vs. emissive block light channels
+  - [ ] Relight on block add/remove, world height changes, or time-of-day
+
+- [ ] **Random-Tick Scheduler**
+  - [ ] Global tick list for crop growth, leaf decay, fire spread, coral death, etc.
+  - [ ] `/gamerule randomTickSpeed` equivalent for debugging or servers
+
+- [ ] **Tile/Block-Entity Manager**
+  - [ ] Registry, per-chunk lists, save/restore, and tick updates for "active" blocks (chests, furnaces, ropes, pumps, etc.)
+
+- [ ] **Gamerule Framework & /gamerule Command**
+  - [ ] Data-driven toggles (mobGriefing, keepInventory, doWeatherCycle, etc.) exposed to scripts/admins
+
+- [ ] **Loot-Table System**
+  - [ ] JSON-defined block drops, mob drops, chest loot, fishing tables, quest rewards
+  - [ ] Context parameters (tool enchant, player luck, biome) with random weighted rolls
+
+- [ ] **Tag & Registry Data Sets**
+  - [ ] #wooden_planks, #ship_hulls, #biome_tropical JSON tag groups usable by AI, recipes, and loot tables
+
+- [ ] **Resource Pack / Client Pack Loader**
+  - [ ] Override textures, models, sounds, language files, shaders, and UI layouts
+  - [ ] Server "push" with SHA-1 validation + opt-in prompt (like Minecraft server packs)
+
+- [ ] **World Border & Safe Spawn Logic**
+  - [ ] Configurable border shape/size, damage and bounce behavior, fog outside border
+  - [ ] Spawn-point safety checks (solid ground, light level, non-hazardous)
+
+- [ ] **Biome Color Blending & Heightmaps**
+  - [ ] Grass/foliage/water tint interpolation across chunk edges
+  - [ ] Per-chunk heightmaps for quicker collision, pathfinding, and skylight queries
+
+- [ ] **Debug / Benchmark World Types**
+  - [ ] "Superflat" presets (flat ocean, debug world with every block, void) for profiling and test cases
+
+- [ ] **Event Bus & Data-Driven Function Scheduler**
+  - [ ] Central publish/subscribe for block updates, entity events, weather changes—exposed to Lua/data packs
+  - [ ] In-game `/schedule function <tick>` like Minecraft's datapack scheduler
+
+- [ ] **Block-State & Model System**
+  - [ ] JSON-driven blockstates/ + models/ definitions (variants, axis, waterlogged)
+  - [ ] Automatic variant picking + baked quad cache at load time
+
+- [ ] **Voxel-Shape & Picking Library**
+  - [ ] Concave / composite collision shapes per block state
+  - [ ] Ray-cast "outline" selection box renderer
+
+- [ ] **Attribute & Modifier Framework**
+  - [ ] Generic attributes (attackDamage, maxHealth, movementSpeed) stored on entities
+  - [ ] Stackable item/armor/skill modifiers with UUID demotion rules
+
+- [ ] **Statistics Tracker**
+  - [ ] Per-player counters (blocks mined, distance sailed, fish caught)
+  - [ ] JSON export + scoreboard criteria hooks
+
+- [ ] **Sound-Event Registry & Mixer**
+  - [ ] Data-driven soundevents.json, category mixer (Master, Weather, Music, Blocks, UI)
+  - [ ] Positional attenuation & occlusion masks (below deck muffling, cave reverb)
+
+- [ ] **Particle & Event Packet Codec**
+  - [ ] Unified particle factory keyed by string ID; server → client spawn packets with minimal payload
+
+- [ ] **Server-Properties & World-Defaults Loader**
+  - [ ] server.properties style file: view-distance, sim-distance, seed override, whitelist mode, motd
+
+- [ ] **Chunk Loading & Generation Pipeline**
+  - [ ] **Multi-Threaded World Generation**
+    - [ ] Separate threads for terrain generation, decoration, and lighting
+    - [ ] Proper dependency handling between generation stages
+    - [ ] Generation queue with priority system based on player proximity
+  - [ ] **Dynamic Chunk Loading System**
+    - [ ] Chunk loading radius based on player movement and view distance
+    - [ ] Predictive loading for fast-moving players (ships at full sail)
+    - [ ] Smooth chunk transitions without stuttering
+  - [ ] **Spawn Chunk Management**
+    - [ ] Always-loaded chunks around world spawn point
+    - [ ] Configurable spawn chunk radius
+    - [ ] Persistent entity processing in spawn chunks
+  - [ ] **Chunk Ticket System**
+    - [ ] Force-loading chunks for contraptions, bases, and important areas
+    - [ ] Ticket types: player, entity, structure, redstone-equivalent
+    - [ ] Automatic ticket cleanup when sources are removed
+
+- [ ] **Block Update System**
+  - [ ] **Block Update Queue**
+    - [ ] Ordered block updates for chain reactions (like redstone propagation)
+    - [ ] Priority system for critical updates vs. cosmetic updates
+    - [ ] Update batching to prevent cascade lag
+  - [ ] **Neighbor Update System**
+    - [ ] Blocks automatically notify adjacent blocks of state changes
+    - [ ] Efficient neighbor lookup with caching
+    - [ ] Support for diagonal and extended neighbor ranges
+  - [ ] **Block Update Suppression**
+    - [ ] Performance optimization for mass block changes
+    - [ ] Configurable suppression rules for different block types
+    - [ ] Update compression for identical consecutive updates
+
+- [ ] **Enhanced Entity System**
+  - [ ] **Entity Cramming Prevention**
+    - [ ] Limit number of entities in same block space
+    - [ ] Configurable cramming limits per entity type
+    - [ ] Damage or teleportation when cramming limits exceeded
+  - [ ] **Entity Activation Range**
+    - [ ] Reduce AI processing for entities far from players
+    - [ ] Different activation ranges for different entity types
+    - [ ] Gradual AI reduction rather than complete shutdown
+  - [ ] **Persistent Entity Data**
+    - [ ] Entities remember state across chunk unloads/reloads
+    - [ ] Proper serialization of complex entity states
+    - [ ] Entity aging and lifecycle management
+
+- [ ] **Dynamic Resource/Datapack Reload (F3+T equivalent)**
+  - [ ] Hot-swap textures, lang files, loot tables, recipes without reboot
+
+- [ ] **Data-Fixer / Version Upgrade Graph**
+  - [ ] Fine-grained NBT transformers for blocks, entities, items when a save jumps multiple versions
+
+- [ ] **Scheduled Tick Queue (non-random)**
+  - [ ] Per-chunk priority lists for fluid updates, redstone repeaters, rope pulleys, crop maturation
+
+- [ ] **Block-Event Bus & Notifier**
+  - [ ] One-tick callback for note-block pings, comparator updates, structural-integrity checks
+
+- [ ] **Generic Capability System (Forge-style)**
+  - [ ] Attach arbitrary data to blocks/items/entities without subclass explosion—vital for mods
+
+- [ ] **Data-Driven Game Rules Registry**
+  - [ ] Auto-generate /gamerule help pages from JSON spec; persistent per-world NBT store
+
+- [ ] **Minecraft-Style Spawning System**
+  - [ ] **Spawn Categories & Caps**
+    - [ ] Entity categories: hostile, passive, ambient, water_creature, water_ambient
+    - [ ] Per-category spawn caps (global and per-player limits)
+    - [ ] Spawn cap enforcement with oldest entity removal when exceeded
+  - [ ] **Spawn Rules & Conditions**
+    - [ ] Light level requirements (hostile spawn in darkness, passive in light)
+    - [ ] Block type requirements (specific blocks for specific creatures)
+    - [ ] Biome-specific spawn lists with weighted probabilities
+    - [ ] Height/depth restrictions for different entity types
+    - [ ] Player proximity rules (minimum/maximum distance from players)
+  - [ ] **Spawn Attempt Algorithm**
+    - [ ] Random chunk selection within spawn radius around players
+    - [ ] Random position selection within chunks for spawn attempts
+    - [ ] Spawn condition validation (light, block, biome, caps)
+    - [ ] Pack spawning (spawn multiple entities of same type together)
+  - [ ] **Structure-Based Spawning**
+    - [ ] Special spawn rules for dungeons, shipwrecks, and ruins
+    - [ ] Spawner blocks with configurable entity types and rates
+    - [ ] Boss spawning in specific locations (Kraken in deep ocean)
+  - [ ] **Spawn Timing & Frequency**
+    - [ ] Configurable spawn tick intervals (every N ticks)
+    - [ ] Time-of-day spawn modifiers (more hostiles at night)
+    - [ ] Moon phase effects on spawn rates
+    - [ ] Difficulty scaling affecting spawn frequency and pack sizes
+  - [ ] **Maritime-Specific Spawning**
+    - [ ] Ocean depth-based creature spawning (surface vs. deep sea)
+    - [ ] Ship-based spawning (pirates, sea monsters attracted to ships)
+    - [ ] Island-specific spawning rules
+    - [ ] Weather-based spawn modifiers (storms attract certain creatures)
+  - [ ] **Performance Optimization**
+    - [ ] Spawn attempt batching to reduce per-tick overhead
+    - [ ] Chunk-based spawn tracking to avoid redundant checks
+    - [ ] Despawning rules for entities far from players
+    - [ ] Spawn rate throttling based on server performance
+
 - [ ] **Debug / Inspector Modes**
   - [ ] Implement a debug overlay for wire-frame and collision visualization.
   - [ ] Implement a real-time profiler HUD to inspect performance.
 
 - [ ] **Replay & Spectator Recorder**
   - [ ] Implement deterministic packet capture and demo playback for bug reporting and cinematics.
+
+- [ ] **NBT-Equivalent Binary Tag Library**
+  - [ ] **Core Data Serialization**
+    - [ ] Full type set (byte, short, int, long, float, double, string, list, compound)
+    - [ ] Endian rules and cross-platform compatibility
+    - [ ] Streaming reader/writer for large data structures
+    - [ ] Compression wrappers (zstd, gzip) with configurable levels
+  - [ ] **Version Management**
+    - [ ] Deterministic serialization for reproducible saves
+    - [ ] Version tagging for forward/backward compatibility
+    - [ ] Schema validation and error reporting
+
+- [ ] **Global Registry & ID Remap System**
+  - [ ] **Central Registry Architecture**
+    - [ ] Generic `Registry<T>` for Blocks, Items, Entities, Biomes, Sounds, etc.
+    - [ ] Runtime namespaced IDs (`modid:block_name`) with conflict resolution
+    - [ ] Automatic ID assignment and persistence across sessions
+  - [ ] **Content Migration**
+    - [ ] On-load remapping for removed/renamed content
+    - [ ] Missing content fallback strategies (substitute blocks, warning logs)
+    - [ ] Registry synchronization between client and server
+
+- [ ] **Brigadier-Style Command Parser**
+  - [ ] **Command Infrastructure**
+    - [ ] Lexer/grammar with abstract syntax tree generation
+    - [ ] Node tree structure for complex command hierarchies
+    - [ ] Real-time suggestion cache with fuzzy matching
+  - [ ] **Permission & Execution**
+    - [ ] Permission hooks with role-based access control
+    - [ ] Context-aware argument validation
+    - [ ] Auto-complete integration for chat interface
+
+- [ ] **Deterministic Tick & Timebase Manager**
+  - [ ] **Fixed-Step Tick System**
+    - [ ] Consistent 20 TPS (50ms per tick) game loop
+    - [ ] Lag-compensating catch-up loop with maximum tick debt
+    - [ ] Per-system tick phases (logic, network, render-prep)
+  - [ ] **Synchronization**
+    - [ ] Deterministic random number generation per tick
+    - [ ] Tick-perfect timing for redstone-equivalent systems
+    - [ ] Network tick synchronization for multiplayer
+
+- [ ] **Entity Mount/Vehicle Graph System**
+  - [ ] **Hierarchy Management**
+    - [ ] Parent/child passenger hierarchy with depth limits
+    - [ ] Mount/dismount validation and safety checks
+    - [ ] Recursive position/rotation inheritance
+  - [ ] **Network Synchronization**
+    - [ ] Efficient sync packets for mount relationships
+    - [ ] Client-side prediction for smooth mounting
+    - [ ] Dismount safety (prevent clipping into blocks)
+
+- [ ] **Entity DataFixer-Upper System**
+  - [ ] **Version Migration**
+    - [ ] Versioned transformers for entity NBT data
+    - [ ] Block state migration for world format changes
+    - [ ] Item data transformation for recipe/crafting changes
+  - [ ] **Migration Pipeline**
+    - [ ] Automatic detection of data version mismatches
+    - [ ] Batch processing for large world migrations
+    - [ ] Rollback capability for failed migrations
+
+- [ ] **Crash Report Generator**
+  - [ ] **Diagnostic Collection**
+    - [ ] Automatic thread dump with stack traces
+    - [ ] Mod list with versions and dependencies
+    - [ ] Last 32 KB of game log with timestamps
+    - [ ] System info (CPU, GPU, memory, OS version)
+  - [ ] **Report Generation**
+    - [ ] Structured crash report format
+    - [ ] Integration with crash reporting services (Sentry)
+    - [ ] User-friendly error descriptions
+
+- [ ] **Animated Texture & Model Ticker**
+  - [ ] **Animation Framework**
+    - [ ] `.mcmeta`-style frame sequences with timing data
+    - [ ] Tick-driven state swapping for block/item textures
+    - [ ] Memory-efficient frame caching
+  - [ ] **Integration**
+    - [ ] Furnace flames, beacon beams, bubbling cauldrons
+    - [ ] Animated water, lava, and magical effects
+    - [ ] Performance optimization for many animated textures
+
+- [ ] **Block State Animation Hooks**
+  - [ ] **Model Predicates**
+    - [ ] Property-based model switching (open/closed, lit/unlit)
+    - [ ] Smooth transitions between block states
+    - [ ] Custom animation curves and timing
+  - [ ] **Maritime Applications**
+    - [ ] Sails furled/unfurled based on wind conditions
+    - [ ] Rope tension visualization
+    - [ ] Door/trapdoor/hatch animations
+
+- [ ] **Difficulty & World Options Registry**
+  - [ ] **Difficulty System**
+    - [ ] Difficulty enum (Peaceful, Easy, Normal, Hard, Hardcore)
+    - [ ] Mob spawning and damage modifiers per difficulty
+    - [ ] Server commands `/difficulty`, `/hardcore`
+  - [ ] **World Generation Options**
+    - [ ] Amplified terrain, large biomes, custom presets
+    - [ ] Persistence in `level.meta` with migration support
+    - [ ] Runtime difficulty changes with proper validation
+
+- [ ] **Recipe Unlock Triggers**
+  - [ ] **Unlock Conditions**
+    - [ ] Automatic unlocks based on inventory pickup
+    - [ ] Advancement-based recipe discovery
+    - [ ] Manual unlock via `/recipe give` command
+  - [ ] **Integration**
+    - [ ] Recipe book filtering and search
+    - [ ] Crafting suggestion system
+    - [ ] Progress tracking for complex recipes
+
+- [ ] **Passive Ambient Sound Engine**
+  - [ ] **Environmental Audio**
+    - [ ] Biome/height/light dependent sound loops
+    - [ ] Cave ambience (dripstone, echoes, distant sounds)
+    - [ ] Maritime ambience (gull cries, creaking masts, wind)
+  - [ ] **Dynamic System**
+    - [ ] Random delay and variation in ambient sounds
+    - [ ] Weather-based audio modifications
+    - [ ] Distance-based volume falloff and occlusion
+
+- [ ] **Dimension-Travel Manager**
+  - [ ] **Portal Detection & Management**
+    - [ ] Block-built portal detection with pattern recognition
+    - [ ] Coordinate scaling rules between dimensions
+    - [ ] Persistence of cross-world passenger stacks
+  - [ ] **Safe Travel System**
+    - [ ] Safe-spawn search in destination dimension
+    - [ ] Provisional chunk pre-load to prevent void deaths
+    - [ ] Portal linking and validation
+
+- [ ] **Simulation-Distance Split**
+  - [ ] **Performance Optimization**
+    - [ ] Separate simulation distance slider from render distance
+    - [ ] AI/redstone/tile entity tick radius control
+    - [ ] Per-player negotiation with server caps
+  - [ ] **Dynamic Adjustment**
+    - [ ] Server load-based automatic adjustment
+    - [ ] Client preference synchronization
+
+- [ ] **Pack Priority & Filtering Stack**
+  - [ ] **Resource Pack Management**
+    - [ ] Vanilla-style pack.mcmeta format with pack_format versioning
+    - [ ] User-controlled drag-to-reorder priority list
+    - [ ] File-path filters for resource hiding/overriding
+  - [ ] **Datapack Integration**
+    - [ ] Lower pack resource removal capability
+    - [ ] Conflict resolution and warning system
+
+- [ ] **Autosave & Flush Scheduler**
+  - [ ] **Save Management**
+    - [ ] autosaveInterval gamerule with configurable timing
+    - [ ] Staggered per-chunk flush to avoid frame spikes
+    - [ ] /save hold & /save query commands
+  - [ ] **Performance Optimization**
+    - [ ] Background save threading
+    - [ ] Save progress indicators
+
+- [ ] **Portal/Entity Re-Entry Cooldown & Velocity Dampening**
+  - [ ] **Portal Safety**
+    - [ ] Prevents "portal ping-pong" loops
+    - [ ] Configurable cooldown timers per portal type
+  - [ ] **Physics Preservation**
+    - [ ] Motion vector preservation across dimensions
+    - [ ] Optional velocity scale factors
+    - [ ] Momentum conservation for maritime vehicles
+
+- [ ] **Custom Skin / Cape / Cosmetic Loader**
+  - [ ] **Player Customization**
+    - [ ] UUID-based skin cache with fallback system
+    - [ ] Server "player-head" texture push capability
+    - [ ] Client toggle for third-party capes (OptiFine-style)
+  - [ ] **Maritime Cosmetics**
+    - [ ] Custom ship flags and sails
+    - [ ] Crew uniform customization
+
+- [ ] **Server MOTD & Icon Pipeline**
+  - [ ] **Server Branding**
+    - [ ] 64×64 PNG favicon support
+    - [ ] Color-code MOTD parsing with formatting
+    - [ ] Live update without restart via /motd set command
+  - [ ] **Dynamic Content**
+    - [ ] Player count and server status display
+    - [ ] Seasonal/event-based MOTD rotation
+
+- [ ] **Hashed Chat Signing & Report Opt-Out**
+  - [ ] **Chat Security (1.19+ parity)**
+    - [ ] Per-player key-pair generation and management
+    - [ ] Signed chat packets with verification
+    - [ ] Server config to enforce/relax signing requirements
+  - [ ] **Reporting System**
+    - [ ] "Modified" tag handling for unsigned messages
+    - [ ] Player report opt-out mechanisms
+
+- [ ] **Debug Hotkeys & Crash-Safe Shortcuts**
+  - [ ] **Developer Tools**
+    - [ ] F3 + Shift + S: manual save flush
+    - [ ] F3 + Ctrl + C: forced crash with full debug dump
+    - [ ] F3 + various: chunk borders, hitboxes, light levels
+  - [ ] **Crash Safety**
+    - [ ] Emergency save before forced crashes
+    - [ ] Debug state preservation
 
 ---
 
@@ -250,6 +669,18 @@
   - [ ] Build a `dynamic ocean-life simulation` (schooling fish, sharks, whales, bioluminescent plankton at night).
   - [ ] Develop `advanced sea-creature AI` with group hunting, fleeing, breeding, and territorial behaviors.
   - [ ] Implement `floating debris & buoy physics` after battles, useful for scavenging materials.
+
+- [ ] **Advanced AI & Behavior**
+  - [ ] Behavior Tree System - Visual scripting for complex AI behaviors
+  - [ ] Goal-Oriented Action Planning (GOAP) - Dynamic AI decision making
+  - [ ] Crowd Simulation - Large-scale NPC movement in ports
+  - [ ] Animal Migration Patterns - Seasonal creature movement across the world
+
+- [ ] **Environmental Storytelling**
+  - [ ] Procedural Ruins Generator - Ancient civilizations with lore implications
+  - [ ] Message in a Bottle System - Player-to-player asynchronous communication
+  - [ ] Graffiti/Carving System - Players leave marks on islands and ships
+  - [ ] Archaeological Discovery - Dig sites with historical artifacts
 
 - [ ] **Villager-like NPC Civics**
   - [ ] Implement procedural island settlements that evolve over time (build, trade, repopulate).
@@ -395,6 +826,55 @@
   - [ ] Add a `fishing & harpooning mini-game` with rarity tiers and trophy mounts.
   - [ ] Introduce `diving gear / oxygen system` for wreck salvage and coral-reef exploration.
 
+- [ ] **JSON-Driven Recipe & Smelting System**
+  - [ ] Shapeless, shaped, furnace, blasting, smoking, smithing, stone-cutting equivalents
+
+- [ ] **Sleeping / Time-Skip Logic**
+  - [ ] Bed entity, spawn-point set, night-skip vote in multiplayer
+
+- [ ] **Advanced Crafting & Automation**
+  - [ ] Blueprint System - Save and share ship/building designs
+  - [ ] Automation Blocks - Conveyor belts, sorters, and item pipes
+  - [ ] Quality/Durability System - Items degrade and can be of varying quality
+  - [ ] Repair & Maintenance Mechanics - Tools and equipment need upkeep
+
+- [ ] **Advanced Inventory Systems**
+  - [ ] **Container Synchronization**
+    - [ ] Multi-player chest/inventory sync with conflict resolution
+    - [ ] Real-time inventory updates across all viewers
+    - [ ] Proper locking mechanisms to prevent item duplication
+  - [ ] **Inventory Sorting & Management**
+    - [ ] Built-in sorting algorithms for containers (type, rarity, alphabetical)
+    - [ ] Quick-stack functionality to move items to nearby containers
+    - [ ] Search and filter system for large inventories
+  - [ ] **Item Stack Merging**
+    - [ ] Automatic item combination logic for stackable items
+    - [ ] Smart pickup that prioritizes existing stacks
+    - [ ] Overflow handling when containers become full
+  - [ ] **Hopper-Style Item Transport**
+    - [ ] Item movement between containers with configurable filters
+    - [ ] Directional item flow with visual indicators
+    - [ ] Item sorting and distribution networks
+
+- [ ] **Enhanced World Interaction**
+  - [ ] **Block Breaking & Placement**
+    - [ ] Block breaking particles with material-specific effects
+    - [ ] Block placement validation (collision, support, permissions)
+    - [ ] Progressive breaking stages with visual feedback
+  - [ ] **Multi-Block Structure Detection**
+    - [ ] Recognize patterns like ship designs, buildings, contraptions
+    - [ ] Structure validation and completion checking
+    - [ ] Template-based structure assistance and guides
+  - [ ] **Advanced Physics Interaction**
+    - [ ] Realistic item dropping with physics simulation
+    - [ ] Block-to-block interaction (water flow, fire spread, etc.)
+    - [ ] Environmental effects on placed blocks (weathering, growth)
+
+- [ ] **Social & Communication**
+  - [ ] Shanty Composition Tool - Players create custom sea shanties
+  - [ ] Crew Personality System - Individual crew members with backstories
+  - [ ] Reputation Visualization - Visual indicators of player standing
+
 ---
 
 ## **Phase 4: The Pirate's Dominion**
@@ -463,6 +943,18 @@
     - [ ] Seasonal trade goods and limited-time offers
     - [ ] Trade route protection missions
 
+- [ ] **Advanced Economy**
+  - [ ] Stock Market System - Trading company shares fluctuate
+  - [ ] Insurance System - Protect valuable cargo and ships
+  - [ ] Banking & Loans - Credit system for large purchases
+  - [ ] Economic Warfare - Blockades affect regional prices
+
+- [ ] **Dynamic Events**
+  - [ ] Plague Outbreaks - Disease spreads between ports, affecting trade
+  - [ ] Political Upheavals - Governments change, affecting faction relations
+  - [ ] Natural Disasters - Earthquakes, tsunamis reshape the world
+  - [ ] Pirate Legends - Procedural famous pirates with unique ships and crews
+
 ---
 
 ## **Phase 5: The Shared, Endless Ocean**
@@ -491,6 +983,50 @@
 - [ ] **Modding Support**
   - [ ] Expose a scripting API (Lua is a good choice).
   - [ ] Ensure all game content (blocks, items, entities) is defined in external data files.
+
+- [ ] **Scoreboard / Team / Boss Bar Systems**
+  - [ ] Objectives (dummy, stat, trigger, criteria) and per-player scores
+  - [ ] Team color prefixes, friendly-fire toggle, visibility rules
+  - [ ] Boss bars API for Kraken fight, world events, or custom mods
+
+- [ ] **Client–Server Pack-Format Negotiation**
+  - [ ] Pack versioning, feature flags, graceful errors when a client lacks required content
+
+- [ ] **Persistent Title / Action-Bar / Toast Messaging**
+  - [ ] Engine support for full-screen titles, action-bar hints, advancement toasts, and system overlay messages
+
+- [ ] **Network Entity Data Tracker**
+  - [ ] Compact bit-packed tracker for syncing entity metadata (pose, health, animation, custom flags) with delta compression
+
+- [ ] **Client Interpolation & Prediction Smoothing**
+  - [ ] Per-entity position/rotation lerp with packet-loss compensation
+
+- [ ] **Chat Component & Translation Key Framework**
+  - [ ] Rich JSON chat with hover/click events, style codes, and locale keys
+
+- [ ] **Encryption & Compression Handshake**
+  - [ ] AES-encrypted login phase + per-packet zlib/deflate threshold just like vanilla
+
+- [ ] **World Border Fog & Damage**
+
+- [ ] **Server Performance Optimizations**
+  - [ ] **Per-Player View Distance**
+    - [ ] Individual render distances to optimize server performance
+    - [ ] Dynamic view distance adjustment based on server load
+    - [ ] Client-side view distance negotiation with server limits
+  - [ ] **Mob Cap Management**
+    - [ ] Global entity limits per category (hostile, passive, ambient)
+    - [ ] Per-chunk entity density limits
+    - [ ] Intelligent mob spawning based on player distribution
+  - [ ] **Chunk Garbage Collection**
+    - [ ] Automatic cleanup of unused chunks after timeout
+    - [ ] Memory pressure-based chunk unloading
+    - [ ] Configurable chunk retention policies
+  - [ ] **Network Optimization**
+    - [ ] Packet batching and compression for bulk operations
+    - [ ] Priority queuing for critical vs. cosmetic updates
+    - [ ] Bandwidth throttling per player connection
+  - [ ] Expanding/shrinking borders with interpolation, client-side red overlay & pushback force
 
 - [ ] **Seasonal Event Framework**
   - [ ] Ship a seasonal event framework (e.g., Ghost Ship Halloween, Festival of Sails) that can inject timed quests and cosmetics.
@@ -521,6 +1057,18 @@
     - [ ] Automated defense systems for bases
     - [ ] Scheduled crew actions and maintenance
     - [ ] Logic gates using maritime mechanisms
+
+- [ ] **Advanced Social Features**
+  - [ ] Guild/Company System - Large player organizations with ranks
+  - [ ] Cross-Server Trading - Economic connections between servers
+  - [ ] Server Clusters - Multiple connected worlds with travel between them
+  - [ ] Spectator Broadcasting - Stream battles to other players
+
+- [ ] **Competitive Systems**
+  - [ ] Ranked PvP Seasons - Competitive sailing and combat rankings
+  - [ ] Tournament System - Organized events with prizes
+  - [ ] Leaderboards - Various categories (wealth, exploration, combat)
+  - [ ] Achievement Sharing - Social media integration for accomplishments
 
 ---
 
@@ -558,11 +1106,72 @@
   - [ ] Finalize all art assets, sounds, and music.
   - [ ] Prepare marketing materials and community channels.
 
+- [ ] **World-Save Defragmenter & Vacuum Command**
+  - [ ] Offline utility that compacts .oreg free-lists, reorders chunks, verifies CRCs
+
+- [ ] **Background Resource Streaming**
+  - [ ] Lazy load textures, models, and audio as the camera approaches new biomes/structures to cut RAM use
+
+- [ ] **Built-in Block/Item State Diagram Exporter**
+  - [ ] Generates DOT/PNG of all block states (like Minecraft's blockstates/), invaluable for QA and modders
+
+- [ ] **Flat-World & Structure Preset JSONs**
+  - [ ] Same infrastructure as Minecraft's preset code so modders can ship "shipyard test world", "ocean only", etc.
+
 - [ ] **Localization Pipeline**
   - [ ] Implement Crowdin-ready string tables and glyph fallback testing.
 
 - [ ] **Comprehensive Accessibility**
   - [ ] Implement a screen-reader friendly UI hierarchy, d/Deaf subtitle channels for ambient cues, and color-blind material swaps.
+
+- [ ] **Tick-Time Budget Profiler**
+  - [ ] Per-section pie chart (network, AI, lighting, world-gen) toggleable via debug screen
+
+- [ ] **Debug Screen Overlays**
+  - [ ] Chunk borders (F3+G), hitbox toggle (F3+B), light map (F3+L) for internal testers
+
+- [ ] **Text-to-Speech Narrator & UI Scaling**
+  - [ ] System TTS of chat/tool-tips; 25% increment GUI scale presets
+
+- [ ] **Advanced Analytics**
+  - [ ] Heatmap Generation - Player movement and interaction patterns
+  - [ ] A/B Testing Framework - Test different game mechanics
+  - [ ] Player Retention Analysis - Understand why players leave/stay
+  - [ ] Balance Monitoring - Automated detection of overpowered strategies
+
+- [ ] **Content Creation Tools**
+  - [ ] In-Game Screenshot Mode - Advanced photo tools with filters
+  - [ ] Video Recording - Built-in replay recording and editing
+  - [ ] 3D Model Exporter - Export ships for 3D printing
+  - [ ] Map Editor - Create custom scenarios and challenges
+
+- [ ] **Platform-Specific Features**
+  - [ ] Steam Workshop Integration - Easy mod sharing
+  - [ ] Discord Rich Presence - Show current activity in Discord
+  - [ ] Twitch Integration - Viewer interaction with streamers' games
+
+- [ ] **Security & Anti-Cheat**
+  - [ ] Server-Side Validation - All critical actions verified server-side
+  - [ ] Statistical Anomaly Detection - Identify impossible player actions
+  - [ ] Replay Analysis - Automated cheat detection from recorded gameplay
+  - [ ] Hardware Fingerprinting - Track banned players across accounts
+
+- [ ] **Accessibility Enhancements**
+  - [ ] Colorblind Support - Alternative visual indicators beyond color
+  - [ ] Motor Impairment Support - One-handed play options
+  - [ ] Cognitive Accessibility - Simplified UI modes and tutorials
+  - [ ] Hearing Impairment Support - Visual sound indicators and subtitles
+
+- [ ] **In-Game Bug Reporter**
+  - [ ] **Integrated Reporting System**
+    - [ ] Keybind opens pre-filled crash log interface
+    - [ ] Automatic screenshot capture at time of report
+    - [ ] System info and mod list collection
+    - [ ] One-click upload to crash reporting service
+  - [ ] **Community Testing Support**
+    - [ ] Debug.zip equivalent with world state snapshot
+    - [ ] Reproduction steps template and guidance
+    - [ ] Integration with issue tracking systems
 
 - [ ] **Live-Ops Telemetry**
   - [ ] Implement anonymous game-event analytics and opt-in heat-maps for world-gen balance.

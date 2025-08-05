@@ -29,7 +29,7 @@
     - [ ] Develop a separate meshing algorithm for transparent blocks (water).
     - [ ] Implement a `Vertex Array Object` (VAO) pool for chunk meshes.
     - [ ] Implement a dynamic `Level of Detail (LOD)` system for distant chunks (e.g., using impostors or simplified meshes).
-  - [ ] **Advanced Voxel Physics**
+    - [ ] **Advanced Voxel Physics**
     - [ ] Implement a `Fluid Dynamics` system for water/lava (tick-based, spreading).
     - [ ] Design a `Structural Integrity` system (e.g., flood-fill check from a support block to see if blocks should break).
     - [ ] Implement `cloth & rope physics` for sails, rigging, and player swing-ropes (wind-driven deformation, collision with masts).
@@ -89,6 +89,30 @@
   - [ ] Implement a 3D physics engine with AABB collision detection and response.
   - [ ] Implement a `BuoyancyComponent` that applies upward force based on water displacement.
 
+- [ ] **Advanced Ocean Physics & Simulation**
+  - [ ] **Tidal System Implementation**
+    - [ ] Real-time tidal cycles (20-minute intervals)
+    - [ ] Tidal pool generation with unique resources
+    - [ ] Dynamic water level changes affecting navigation
+    - [ ] Tidal power generation mechanics for advanced machinery
+  - [ ] **Ocean Depth Zones**
+    - [ ] Surface layer (0-10 blocks) with weather effects
+    - [ ] Thermocline (10-50 blocks) with temperature mechanics
+    - [ ] Abyssal zone (50-200 blocks) with bioluminescent creatures
+    - [ ] Hadal depths (200+ blocks) with extreme pressure mechanics
+  - [ ] **Marine Ecosystem Simulation**
+    - [ ] Plankton population affecting water clarity and fish spawns
+    - [ ] Dynamic fish school migration patterns
+    - [ ] Predator-prey relationships with realistic hunting behaviors
+    - [ ] Ecosystem balance mechanics (overfishing consequences)
+
+- [ ] **Enhanced Block & Material System**
+  - [ ] **Living Materials**
+    - [ ] Self-repairing "Living Wood" blocks that require care
+    - [ ] Coral blocks that grow over time
+    - [ ] Weathering system for materials (rust, decay, patina)
+    - [ ] Material fatigue and stress mechanics for ship hulls
+
 - [ ] **UI/UX Framework**
   - [ ] Build a scene-graph based UI system.
   - [ ] Implement TrueType font rendering (e.g., using `lwjgl-stb`).
@@ -101,6 +125,60 @@
 - [ ] **World Persistence & Rollback**
   - [ ] Implement a region-file format with journaling and auto-backup.
   - [ ] Create an in-game `/rollback` admin command.
+
+- [ ] **World-Save Architecture**
+  - [ ] **World Root Layout**
+    - [ ] Define `/saves/<WorldName>/` directory structure
+      - [ ] `region/` – chunk/region binaries
+      - [ ] `playerdata/` – per-UUID player files
+      - [ ] `data/` – global maps, structures, world events
+      - [ ] `dimension/<DimName>/region/` for alternate realms
+      - [ ] `session.lock` + write-ahead log
+  - [ ] **Region-File Format (`.oreg`)**
+    - [ ] Fixed 32 × 32 chunk tiles per file
+    - [ ] 8 KB header (chunk offsets, timestamps, compression flags)
+    - [ ] Chunk payloads Zstandard-compressed NBT/CBOR
+    - [ ] Sparse free-list to reduce fragmentation
+  - [ ] **Chunk Serialization Layer**
+    - [ ] Versioned schemas allowing future block-ID remaps
+    - [ ] Async read/write queue with main-thread back-pressure
+  - [ ] **Level Metadata (`level.meta`)**
+    - [ ] Store seed, rules, time, weather, generator settings
+    - [ ] Dual format: human-readable JSON + fast binary mirror
+  - [ ] **Player-Data Files**
+    - [ ] UUID-named (`<uuid>.odp`) inventories, XP, effects, last location, bound ship, advancements
+  - [ ] **Global Map & Advancements Storage**
+    - [ ] `data/maps/` – PNG + palette per explored chart
+    - [ ] `advancements.dat` – compressed JSON toast progress
+  - [ ] **Write-Ahead Journaling**
+    - [ ] Append-only log of block/entity changes, committed every N ticks
+    - [ ] Crash-safe recovery routine at boot
+  - [ ] **Snapshot / Auto-Backup System**
+    - [ ] `snapshots/<timestamp>/` zstd-tarballs
+    - [ ] Configurable interval & retention
+  - [ ] **Save Compression & Encryption Options**
+    - [ ] Toggle: none / lz4 / zstd
+    - [ ] Optional AES-GCM encryption for server realms
+  - [ ] **World-Save API for Mods**
+    - [ ] Reserved NBT "capability" tags in chunks & player files
+    - [ ] `/data <namespace> get|set` command for scripts
+
+- [ ] **Migration & Distribution Tooling**
+  - [ ] **Version-Upgrade Migrator**
+    - [ ] Auto-detect old chunk schema → remap & bump header version
+  - [ ] **World Export / Import**
+    - [ ] Pack selected dimensions into `.odysseyWorld` archive
+    - [ ] Optionally strip playerdata for sharing
+  - [ ] **Delta-Patch Generator**
+    - [ ] Create binary diff between two snapshots for lightweight updates
+  - [ ] **Cloud-Sync Hooks**
+    - [ ] Auth upload/download of zipped snapshots (Steam Cloud, Dropbox, custom URL)
+  - [ ] **Corruption Scanner & Repair CLI**
+    - [ ] Verify region headers, CRC chunk payloads, rebuild free-list
+  - [ ] **External Editor Spec & Samples**
+    - [ ] Publish `.oreg`/`.odp` format docs + reference parser code
+  - [ ] **Lock & Conflict Detection**
+    - [ ] `session.lock` heartbeat with PID/host to block concurrent writes
 
 - [ ] **Command Console & Scripting Hooks**
   - [ ] Implement a text-command parser for admin commands (`/tp`, `/give`, `/weather`, etc.).
@@ -184,6 +262,28 @@
 - [ ] **Redstone-Class "Mechanics"**
   - [ ] Implement rope-and-pulley logic blocks (cranks, counterweights, valves) for ship automation and island contraptions.
 
+- [ ] **Dynamic Island Evolution**
+  - [ ] **Geological Activity System**
+    - [ ] Volcanic eruption events creating/destroying islands
+    - [ ] Coastal erosion mechanics changing shorelines over time
+    - [ ] Coral reef growth expanding shallow areas
+    - [ ] Rare tectonic events reshaping archipelagos
+  - [ ] **Advanced Biome Types**
+    - [ ] Bioluminescent underwater caverns with unique resources
+    - [ ] Floating magical islands that drift with currents
+    - [ ] Bone islands (fossilized sea creature skeletons)
+    - [ ] Storm-touched isles with permanent magical weather
+    - [ ] Temporal anomaly islands with time dilation effects
+    - [ ] Mirage islands that appear/disappear based on conditions
+    - [ ] Magnetic anomaly islands disrupting navigation
+
+- [ ] **Minecraft-Inspired Systems**
+  - [ ] **Redstone-Equivalent: Rope & Pulley Logic**
+    - [ ] Mechanical power transmission via rope systems
+    - [ ] Pulley blocks for lifting heavy ship components
+    - [ ] Crank-operated machinery for ship automation
+    - [ ] Counterweight systems for drawbridges and gates
+
 - [ ] **Alternate Realms (Dimensions)**
   - [ ] Create design documents for "Davy Jones' Locker" (underworld) and "Sky Trade Winds" (sky islands) transport gateways.
 
@@ -215,6 +315,19 @@
   - [ ] Implement placement validation and snapping for ship components.
   - [ ] Implement a `Sail Controller` for raising/lowering/angling sails.
   - [ ] Link ship physics to its components (more weight = slower, more sails = faster).
+
+- [ ] **Advanced Ship Building**
+  - [ ] **Hull Architecture Variants**
+    - [ ] Catamaran designs (stable, fast, vulnerable to side attacks)
+    - [ ] Deep keel ships (storm-resistant, slower, more cargo)
+    - [ ] Armored sections (iron-plated deflection, added weight)
+    - [ ] Modular damage system with realistic repair requirements
+  - [ ] **Multi-Propulsion Systems**
+    - [ ] Steam engine integration with coal consumption
+    - [ ] Magical crystal-powered propulsion
+    - [ ] Hybrid wind/steam systems with efficiency bonuses
+    - [ ] Maintenance schedules for different propulsion types
+
 - [ ] **Combat Mechanics**
   - [ ] **Melee:** Implement attack combos, stamina consumption, and directional attacks.
   - [ ] **Ranged:** Implement projectile physics for arrows.
@@ -258,6 +371,18 @@
 
 - [ ] **Enchanting / Upgrades**
   - [ ] Implement runic carving for weapons and figure-head buffs for ships.
+
+- [ ] **Minecraft-Style Progression Improvements**
+  - [ ] **Tool Durability & Enchanting System**
+    - [ ] Ship component enchanting (faster sails, stronger hulls)
+    - [ ] Tool enchanting for maritime tools (better fishing, diving)
+    - [ ] Curse enchantments with negative but interesting effects
+    - [ ] Enchanting table equivalent using sea crystals
+  - [ ] **Potion/Brewing System for Maritime**
+    - [ ] Scurvy prevention tonics
+    - [ ] Storm-sight potions for better navigation
+    - [ ] Water-breathing elixirs for diving
+    - [ ] Courage potions affecting crew morale
 
 - [ ] **Experience & Leveling**
   - [ ] Implement XP or "Renown" orbs from combat, exploration, and crafting.
@@ -304,13 +429,6 @@
 - [ ] **Land Claim & Anti-Grief**
   - [ ] Provide `player land-claim / anti-grief protections` with configurable island deeds and hierarchy of permissions.
 
-- [ ] **Ship Maintenance & Upgrades**
-  - [ ] Implement `ship maintenance & upgrade framework` (keel reinforcement, copper plating, mast upgrades, auxiliary steam engine tier).
-  - [ ] Introduce `ship insurance / rebuild contracts` so players can pay to recover or instant-replace a lost vessel at a friendly port.
-
-- [ ] **Land Claim & Anti-Grief**
-  - [ ] Provide `player land-claim / anti-grief protections` with configurable island deeds and hierarchy of permissions.
-
 - [ ] **Economy & Automation**
   - [ ] Implement island warehouses with hopper-like chutes and cranes.
   - [ ] Implement buy-orders, auctions, and embargoes.
@@ -324,6 +442,27 @@
 - [ ] **Dynamic Law System**
   - [ ] Implement bounties, letters-of-marque, and court-martial events.
 
+- [ ] **Fleet Command & Strategy**
+  - [ ] **Squadron Management System**
+    - [ ] Multi-ship formation tactics with combat bonuses
+    - [ ] Supply line establishment between ships and bases
+    - [ ] Visual flag communication system for coordination
+    - [ ] AI captain hiring with unique personalities and skills
+
+- [ ] **Advanced Settlement Systems**
+  - [ ] **Dynamic Town Evolution**
+    - [ ] NPC settlements that grow based on trade relationships
+    - [ ] Cultural development influenced by player actions
+    - [ ] Settlement specialization (fishing, mining, crafting hubs)
+    - [ ] Political relationships between different settlements
+
+- [ ] **Minecraft-Inspired Social Systems**
+  - [ ] **Villager-Style Trading Evolution**
+    - [ ] Dynamic pricing based on supply/demand
+    - [ ] Reputation-based trade unlocks
+    - [ ] Seasonal trade goods and limited-time offers
+    - [ ] Trade route protection missions
+
 ---
 
 ## **Phase 5: The Shared, Endless Ocean**
@@ -331,10 +470,15 @@
 *Focus: Multiplayer, endgame content, and ensuring long-term replayability.*
 
 - [ ] **Multiplayer Networking**
-  - [ ] Build a dedicated server application.
-  - [ ] Implement a full suite of network messages for all game actions.
-  - [ ] Implement `Client-Side Prediction` and `Server Reconciliation` for smooth player movement.
-  - [ ] Stress-test the server with simulated clients.
+  - [ ] Implement integrated server architecture (client can host server locally like Minecraft)
+  - [ ] Build "Open to LAN" functionality for local network multiplayer
+  - [ ] Create "Create Server" option that runs server on player's PC
+  - [ ] Implement optional dedicated server mode for advanced users
+  - [ ] Implement a full suite of network messages for all game actions
+  - [ ] Implement `Client-Side Prediction` and `Server Reconciliation` for smooth player movement
+  - [ ] Add server discovery and direct IP connection options
+  - [ ] Implement port forwarding detection and UPnP support for hosting
+  - [ ] Stress-test the integrated server with multiple connected clients
 - [ ] **Multiplayer Gameplay**
   - [ ] Implement a `Fleet` system for players to form alliances.
   - [ ] Implement permissions for shared ships and settlements.
@@ -364,6 +508,20 @@
   - [ ] Implement spatial VoIP with ship-deck occlusion for emergent boarding banter.
   - [ ] Implement `procedural world events` (volcanic eruptions, merchant convoys, sea monster migrations, whirlpools, tsunamis, seaquakes) that alter economies and exploration routes and create temporary loot zones.
 
+- [ ] **Advanced Multiplayer Features**
+  - [ ] **Cross-Server World Events**
+    - [ ] Global kraken migrations affecting all servers
+    - [ ] Seasonal events with server-wide cooperation requirements
+    - [ ] Inter-server trade and diplomacy systems
+    - [ ] Shared world discoveries and map contributions
+
+- [ ] **Minecraft-Inspired Technical Features**
+  - [ ] **Command Block Equivalent: Ship Automation**
+    - [ ] Programmable ship behavior for trade routes
+    - [ ] Automated defense systems for bases
+    - [ ] Scheduled crew actions and maintenance
+    - [ ] Logic gates using maritime mechanisms
+
 ---
 
 ## **Phase 6: The Final Polish**
@@ -380,6 +538,21 @@
 - [ ] **Content Creation Tools**
   - [ ] Offer a `Photo Mode` with free camera, depth-of-field slider, and time-of-day scrubbing for screenshots.
   - [ ] Add `VR first-person support` with motion-controller sailing and cannon aiming experiments (ultimate, experimental goal).
+
+- [ ] **Advanced Graphics & Immersion**
+  - [ ] **Complementary Shaders Integration**
+    - [ ] Dynamic water caustics and refraction
+    - [ ] Volumetric fog and atmospheric scattering
+    - [ ] Advanced shadow mapping for ship interiors
+    - [ ] Realistic material aging and weathering effects
+
+- [ ] **Accessibility & Quality of Life**
+  - [ ] **Minecraft-Style Creative Tools**
+    - [ ] WorldEdit-equivalent for large ship construction
+    - [ ] Schematic saving/loading for ship designs
+    - [ ] Creative mode with instant block placement
+    - [ ] Structure blocks for repeatable builds
+
 - [ ] **Launch Readiness**
   - [ ] Rigorous bug fixing.
   - [ ] Finalize all art assets, sounds, and music.

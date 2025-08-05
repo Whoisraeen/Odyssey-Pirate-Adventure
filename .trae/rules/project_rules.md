@@ -1,0 +1,1 @@
+Do not name files Advanced or enhanced. Upgrade the existing codebase when you have to generate new code and only create a new Java class when it is nessasry. If a Java class already exists, upgrade it.

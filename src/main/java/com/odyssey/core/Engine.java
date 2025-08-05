@@ -140,6 +140,9 @@ public class Engine {
         // Update input
         inputManager.update();
         
+        // Handle camera controls
+        updateCameraControls(deltaTime);
+        
         // Update game state
         gameStateManager.update(deltaTime);
         
@@ -159,15 +162,68 @@ public class Engine {
     }
     
     /**
+     * Handle camera movement and rotation controls
+     */
+    private void updateCameraControls(double deltaTime) {
+        var camera = renderer.getCamera();
+        float moveSpeed = 50.0f; // units per second
+        float rotateSpeed = 90.0f; // degrees per second
+        
+        // Movement controls (WASD)
+        if (inputManager.isKeyPressed(GLFW_KEY_W)) {
+            camera.moveForward((float) (moveSpeed * deltaTime));
+        }
+        if (inputManager.isKeyPressed(GLFW_KEY_S)) {
+            camera.moveBackward((float) (moveSpeed * deltaTime));
+        }
+        if (inputManager.isKeyPressed(GLFW_KEY_A)) {
+            camera.moveLeft((float) (moveSpeed * deltaTime));
+        }
+        if (inputManager.isKeyPressed(GLFW_KEY_D)) {
+            camera.moveRight((float) (moveSpeed * deltaTime));
+        }
+        if (inputManager.isKeyPressed(GLFW_KEY_SPACE)) {
+            camera.moveUp((float) (moveSpeed * deltaTime));
+        }
+        if (inputManager.isKeyPressed(GLFW_KEY_LEFT_SHIFT)) {
+            camera.moveDown((float) (moveSpeed * deltaTime));
+        }
+        
+        // Rotation controls (arrow keys)
+        if (inputManager.isKeyPressed(GLFW_KEY_LEFT)) {
+            camera.rotateY((float) (rotateSpeed * deltaTime));
+        }
+        if (inputManager.isKeyPressed(GLFW_KEY_RIGHT)) {
+            camera.rotateY((float) (-rotateSpeed * deltaTime));
+        }
+        if (inputManager.isKeyPressed(GLFW_KEY_UP)) {
+            camera.rotateX((float) (rotateSpeed * deltaTime));
+        }
+        if (inputManager.isKeyPressed(GLFW_KEY_DOWN)) {
+            camera.rotateX((float) (-rotateSpeed * deltaTime));
+        }
+        
+        // Mouse look (if right mouse button is held)
+        if (inputManager.isMouseButtonPressed(GLFW_MOUSE_BUTTON_RIGHT)) {
+            float mouseSensitivity = 0.1f;
+            camera.rotateY((float) (-inputManager.getMouseDeltaX() * mouseSensitivity));
+            camera.rotateX((float) (-inputManager.getMouseDeltaY() * mouseSensitivity));
+        }
+    }
+    
+    /**
      * Render the current frame
      */
     private void render() {
-        renderer.beginFrame();
+        renderer.beginFrame(deltaTime);
+        
+        // Render the basic scene (ocean and test cubes)
+        renderer.renderScene();
         
         // Render world
         world.render(renderer);
         
-        // Render ocean
+        // Render ocean system (additional ocean effects)
         oceanSystem.render(renderer);
         
         // Render weather effects

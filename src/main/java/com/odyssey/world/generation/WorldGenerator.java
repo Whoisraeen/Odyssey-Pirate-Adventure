@@ -611,7 +611,7 @@ public class WorldGenerator {
         
         // Underground caves
         if (y < terrainHeight - 10) {
-            float caveValue = caveNoise.octaveNoise(x * 0.02f, y * 0.02f, z * 0.02f, 3, 0.5f);
+            float caveValue = caveNoise.octaveNoise(x * 0.02f + y * 0.01f, z * 0.02f + y * 0.01f, 3, 0.5f);
             if (caveValue > 0.6f) {
                 return BlockType.AIR; // Cave space
             }
@@ -659,9 +659,9 @@ public class WorldGenerator {
         float waterEffect = Math.max(0, 30.0f - distanceToWater * 0.1f);
         
         // Add noise
-        float humidityNoise = humidityNoise.octaveNoise(x * 0.002f, z * 0.002f, 3, 0.5f);
+        float humidityNoiseValue = humidityNoise.octaveNoise(x * 0.002f, z * 0.002f, 3, 0.5f);
         
-        return Math.max(10, Math.min(100, baseHumidity + waterEffect + humidityNoise * 20));
+        return Math.max(10, Math.min(100, baseHumidity + waterEffect + humidityNoiseValue * 20));
     }
     
     public List<Island> getNearbyIslands(Vector2f position, float radius) {

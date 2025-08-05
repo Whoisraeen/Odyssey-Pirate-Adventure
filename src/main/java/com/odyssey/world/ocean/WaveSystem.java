@@ -109,7 +109,7 @@ public class WaveSystem {
             float amplitude = calculateSpectrumAmplitude(frequency);
             
             // Add some randomness to direction (±30 degrees from wind)
-            float directionVariation = (float)(Math.random() - 0.5) * Math.PI / 3;
+            float directionVariation = (float)(Math.random() - 0.5) * (float)Math.PI / 3;
             Vector2f direction = new Vector2f(
                 (float)Math.cos(Math.atan2(windDirection.z, windDirection.x) + directionVariation),
                 (float)Math.sin(Math.atan2(windDirection.z, windDirection.x) + directionVariation)
@@ -125,8 +125,8 @@ public class WaveSystem {
         float g = 9.81f; // Gravity
         float peakFrequency = 0.4f * g / windStrength;
         
-        float spectrum = alpha * g * g / (Math.pow(2 * Math.PI * frequency, 5)) * 
-                        (float)Math.exp(-1.25f * Math.pow(peakFrequency / frequency, 4));
+        float spectrum = alpha * g * g / (float)Math.pow(2 * Math.PI * frequency, 5) * 
+                        (float)Math.exp(-1.25f * (float)Math.pow(peakFrequency / frequency, 4));
         
         return (float)Math.sqrt(2 * spectrum * 0.1f); // Convert to amplitude
     }
@@ -138,7 +138,7 @@ public class WaveSystem {
             float amplitude = 0.5f + (float)Math.random() * 1.0f;
             
             // Random direction not aligned with local wind
-            float angle = (float)Math.random() * 2 * Math.PI;
+            float angle = (float)Math.random() * 2 * (float)Math.PI;
             Vector2f direction = new Vector2f((float)Math.cos(angle), (float)Math.sin(angle));
             
             swellComponents.add(new SwellComponent(amplitude, wavelength, direction));

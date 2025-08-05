@@ -20,35 +20,36 @@ public class Renderer {
     
     private final GameConfig config;
     
-    // Matrices
-    private Matrix4f projectionMatrix;
-    private Matrix4f viewMatrix;
-    private Matrix4f modelMatrix;
+    // Camera system
+    private Camera camera;
     
-    // Camera
-    private Vector3f cameraPosition;
-    private Vector3f cameraRotation;
+    // Shaders
+    private Shader basicShader;
+    private Shader oceanShader;
+    
+    // Meshes
+    private Mesh cubeMesh;
+    private Mesh planeMesh;
+    
+    // Matrices
+    private Matrix4f modelMatrix;
     
     // Rendering state
     private boolean wireframeMode = false;
-    private float fieldOfView = 70.0f;
-    private float nearPlane = 0.1f;
-    private float farPlane = 1000.0f;
+    
+    // Lighting
+    private Vector3f lightDirection = new Vector3f(0.3f, -0.7f, 0.2f).normalize();
+    private Vector3f lightColor = new Vector3f(1.0f, 0.95f, 0.8f);
+    private Vector3f ambientColor = new Vector3f(0.3f, 0.4f, 0.6f);
     
     public Renderer(GameConfig config) {
         this.config = config;
-        this.projectionMatrix = new Matrix4f();
-        this.viewMatrix = new Matrix4f();
+        this.camera = new Camera();
         this.modelMatrix = new Matrix4f();
-        this.cameraPosition = new Vector3f(0, 10, 0);
-        this.cameraRotation = new Vector3f(0, 0, 0);
     }
     
-    public void initialize() {
+    public void initialize() throws Exception {
         logger.info("Initializing renderer...");
-        
-        // Set up projection matrix
-        updateProjectionMatrix(config.getWindowWidth(), config.getWindowHeight());
         
         // Enable depth testing
         glEnable(GL_DEPTH_TEST);
@@ -63,15 +64,72 @@ public class Renderer {
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         
+        // Set clear color (ocean blue)
+        glClearColor(0.1f, 0.3f, 0.8f, 1.0f);
+        
+        // Initialize camera
+        camera = new Camera();
+        camera.setPosition(0.0f, 80.0f, 50.0f);  // Position above and behind the scene
+        camera.setRotation(-20.0f, 0.0f, 0.0f);  // Look down slightly
+        camera.setFieldOfView(70.0f);
+        camera.update(0.0);  // Force immediate update of matrices
+        
+        // Set initial aspect ratio (will be updated in beginFrame)
+        camera.setAspectRatio(1920.0f / 1080.0f);
+        
+        // Initialize shaders
+        initializeShaders();
+        
+        // Initialize meshes
+        initializeMeshes();
+        
         logger.info("Renderer initialized successfully");
     }
     
-    public void beginFrame() {
+    private void initializeShaders() {
+        try {
+            // Basic shader for solid objects
+            basicShader = new Shader();
+            basicShader.createVertexShader(getBasicVertexShader());
+            basicShader.createFragmentShader(getBasicFragmentShader());
+            basicShader.link();
+            
+            // Ocean shader for water rendering
+            oceanShader = new Shader();
+            oceanShader.createVertexShader(getOceanVertexShader());
+            oceanShader.createFragmentShader(getOceanFragmentShader());
+            oceanShader.link();
+            
+            logger.info("Shaders initialized successfully");
+        } catch (Exception e) {
+            logger.error("Failed to initialize shaders", e);
+            throw new RuntimeException("Shader initialization failed", e);
+        }
+    }
+    
+    private void initializeMeshes() {
+        cubeMesh = Mesh.createCube();
+        planeMesh = Mesh.createPlane(50.0f);
+        logger.info("Meshes initialized successfully");
+    }
+    
+    public void beginFrame(double deltaTime) {
+        // Update viewport
+        int[] viewport = new int[4];
+        glGetIntegerv(GL_VIEWPORT, viewport);
+        int width = viewport[2];
+        int height = viewport[3];
+        
+        if (width > 0 && height > 0) {
+            camera.setAspectRatio((float) width / height);
+            glViewport(0, 0, width, height);
+        }
+        
         // Clear the screen
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         
-        // Update view matrix based on camera
-        updateViewMatrix();
+        // Update camera
+        camera.update(deltaTime);
         
         // Set wireframe mode if enabled
         if (wireframeMode) {
@@ -89,69 +147,9 @@ public class Renderer {
         }
     }
     
-    private void updateProjectionMatrix(int width, int height) {
-        float aspectRatio = (float) width / height;
-        projectionMatrix.setPerspective((float) Math.toRadians(fieldOfView), aspectRatio, nearPlane, farPlane);
-    }
-    
-    private void updateViewMatrix() {
-        viewMatrix.identity()
-                .rotateX((float) Math.toRadians(cameraRotation.x))
-                .rotateY((float) Math.toRadians(cameraRotation.y))
-                .rotateZ((float) Math.toRadians(cameraRotation.z))
-                .translate(-cameraPosition.x, -cameraPosition.y, -cameraPosition.z);
-    }
-    
     public void updateProjection(int width, int height) {
-        updateProjectionMatrix(width, height);
+        camera.setAspectRatio((float) width / height);
         glViewport(0, 0, width, height);
-    }
-    
-    // Camera controls
-    public void setCameraPosition(float x, float y, float z) {
-        cameraPosition.set(x, y, z);
-    }
-    
-    public void setCameraRotation(float x, float y, float z) {
-        cameraRotation.set(x, y, z);
-    }
-    
-    public void moveCameraRelative(float forward, float right, float up) {
-        // Calculate movement direction based on camera rotation
-        float yaw = (float) Math.toRadians(cameraRotation.y);
-        float pitch = (float) Math.toRadians(cameraRotation.x);
-        
-        Vector3f forwardDir = new Vector3f(
-            (float) Math.sin(yaw) * (float) Math.cos(pitch),
-            (float) -Math.sin(pitch),
-            (float) -Math.cos(yaw) * (float) Math.cos(pitch)
-        );
-        
-        Vector3f rightDir = new Vector3f(
-            (float) Math.cos(yaw),
-            0,
-            (float) Math.sin(yaw)
-        );
-        
-        Vector3f upDir = new Vector3f(0, 1, 0);
-        
-        cameraPosition.add(
-            forwardDir.x * forward + rightDir.x * right + upDir.x * up,
-            forwardDir.y * forward + rightDir.y * right + upDir.y * up,
-            forwardDir.z * forward + rightDir.z * right + upDir.z * up
-        );
-    }
-    
-    public void rotateCameraRelative(float deltaX, float deltaY) {
-        cameraRotation.y += deltaX;
-        cameraRotation.x += deltaY;
-        
-        // Clamp pitch to prevent flipping
-        cameraRotation.x = Math.max(-90, Math.min(90, cameraRotation.x));
-        
-        // Normalize yaw
-        while (cameraRotation.y > 180) cameraRotation.y -= 360;
-        while (cameraRotation.y < -180) cameraRotation.y += 360;
     }
     
     // Rendering utilities
@@ -176,37 +174,253 @@ public class Renderer {
         }
     }
     
-    public void cleanup() {
-        logger.info("Cleaning up renderer resources");
-        // Cleanup will be implemented when we have actual resources to clean up
+    public void renderScene() {
+        // Render ocean plane
+        renderOcean();
+        
+        // Render some test cubes for visual feedback
+        renderTestCubes();
+        
+        // Render debug information if enabled
+        if (config.isDebugMode()) {
+            renderDebugInfo();
+        }
     }
     
-    // Getters and setters
-    public Matrix4f getProjectionMatrix() { return new Matrix4f(projectionMatrix); }
-    public Matrix4f getViewMatrix() { return new Matrix4f(viewMatrix); }
-    public Matrix4f getModelMatrix() { return new Matrix4f(modelMatrix); }
+    private void renderOcean() {
+        // Render ocean using ocean shader
+        oceanShader.bind();
+        
+        // Set uniforms
+        oceanShader.setUniform("projectionMatrix", camera.getProjectionMatrix());
+        oceanShader.setUniform("viewMatrix", camera.getViewMatrix());
+        oceanShader.setUniform("lightDirection", lightDirection);
+        oceanShader.setUniform("lightColor", lightColor);
+        oceanShader.setUniform("ambientColor", ambientColor);
+        oceanShader.setUniform("cameraPosition", camera.getPosition());
+        oceanShader.setUniform("time", (float) (System.currentTimeMillis() / 1000.0));
+        
+        // Render ocean plane at sea level
+        modelMatrix.identity().translate(0, 64, 0).scale(200);
+        oceanShader.setUniform("modelMatrix", modelMatrix);
+        
+        planeMesh.render();
+        
+        oceanShader.unbind();
+    }
     
-    public Vector3f getCameraPosition() { return new Vector3f(cameraPosition); }
-    public Vector3f getCameraRotation() { return new Vector3f(cameraRotation); }
+    private void renderTestCubes() {
+        basicShader.bind();
+        
+        // Set uniforms
+        basicShader.setUniform("projectionMatrix", camera.getProjectionMatrix());
+        basicShader.setUniform("viewMatrix", camera.getViewMatrix());
+        basicShader.setUniform("lightDirection", lightDirection);
+        basicShader.setUniform("lightColor", lightColor);
+        basicShader.setUniform("ambientColor", ambientColor);
+        
+        // Render a grid of test cubes above the ocean
+        for (int x = -2; x <= 2; x++) {
+            for (int z = -2; z <= 2; z++) {
+                modelMatrix.identity().translate(x * 20, 75, z * 20).scale(3);
+                basicShader.setUniform("modelMatrix", modelMatrix);
+                
+                // Different colors for different positions
+                float r = (x + 2) / 4.0f;
+                float g = (z + 2) / 4.0f;
+                float b = 0.5f;
+                basicShader.setUniform("objectColor", new Vector3f(r, g, b));
+                
+                cubeMesh.render();
+            }
+        }
+        
+        basicShader.unbind();
+    }
+    
+    private void renderDebugInfo() {
+        // Render debug information like camera position, FPS, etc.
+        // This could be implemented with a debug UI system later
+        if (config.isDebugMode()) {
+            Vector3f pos = camera.getPosition();
+            logger.debug("Camera position: ({:.2f}, {:.2f}, {:.2f})", pos.x, pos.y, pos.z);
+        }
+    }
+    
+    public void cleanup() {
+        logger.info("Cleaning up renderer resources");
+        
+        if (basicShader != null) {
+            basicShader.cleanup();
+        }
+        if (oceanShader != null) {
+            oceanShader.cleanup();
+        }
+        if (cubeMesh != null) {
+            cubeMesh.cleanup();
+        }
+        if (planeMesh != null) {
+            planeMesh.cleanup();
+        }
+    }
+    
+    // Shader source code
+    private String getBasicVertexShader() {
+        return """
+            #version 330 core
+            
+            layout (location = 0) in vec3 position;
+            layout (location = 1) in vec3 normal;
+            layout (location = 2) in vec2 texCoord;
+            
+            uniform mat4 projectionMatrix;
+            uniform mat4 viewMatrix;
+            uniform mat4 modelMatrix;
+            
+            out vec3 fragPos;
+            out vec3 fragNormal;
+            out vec2 fragTexCoord;
+            
+            void main() {
+                vec4 worldPos = modelMatrix * vec4(position, 1.0);
+                fragPos = worldPos.xyz;
+                fragNormal = mat3(transpose(inverse(modelMatrix))) * normal;
+                fragTexCoord = texCoord;
+                
+                gl_Position = projectionMatrix * viewMatrix * worldPos;
+            }
+            """;
+    }
+    
+    private String getBasicFragmentShader() {
+        return """
+            #version 330 core
+            
+            in vec3 fragPos;
+            in vec3 fragNormal;
+            in vec2 fragTexCoord;
+            
+            uniform vec3 lightDirection;
+            uniform vec3 lightColor;
+            uniform vec3 ambientColor;
+            uniform vec3 objectColor;
+            
+            out vec4 fragColor;
+            
+            void main() {
+                vec3 normal = normalize(fragNormal);
+                vec3 lightDir = normalize(-lightDirection);
+                
+                // Ambient lighting
+                vec3 ambient = ambientColor;
+                
+                // Diffuse lighting
+                float diff = max(dot(normal, lightDir), 0.0);
+                vec3 diffuse = diff * lightColor;
+                
+                vec3 result = (ambient + diffuse) * objectColor;
+                fragColor = vec4(result, 1.0);
+            }
+            """;
+    }
+    
+    private String getOceanVertexShader() {
+        return """
+            #version 330 core
+            
+            layout (location = 0) in vec3 position;
+            layout (location = 1) in vec3 normal;
+            layout (location = 2) in vec2 texCoord;
+            
+            uniform mat4 projectionMatrix;
+            uniform mat4 viewMatrix;
+            uniform mat4 modelMatrix;
+            uniform float time;
+            
+            out vec3 fragPos;
+            out vec3 fragNormal;
+            out vec2 fragTexCoord;
+            out float waveHeight;
+            
+            void main() {
+                vec3 pos = position;
+                
+                // Create waves
+                float wave1 = sin(pos.x * 0.1 + time * 2.0) * 0.5;
+                float wave2 = cos(pos.z * 0.15 + time * 1.5) * 0.3;
+                float wave3 = sin((pos.x + pos.z) * 0.08 + time * 2.5) * 0.2;
+                
+                waveHeight = wave1 + wave2 + wave3;
+                pos.y += waveHeight;
+                
+                vec4 worldPos = modelMatrix * vec4(pos, 1.0);
+                fragPos = worldPos.xyz;
+                fragNormal = normal;
+                fragTexCoord = texCoord;
+                
+                gl_Position = projectionMatrix * viewMatrix * worldPos;
+            }
+            """;
+    }
+    
+    private String getOceanFragmentShader() {
+        return """
+            #version 330 core
+            
+            in vec3 fragPos;
+            in vec3 fragNormal;
+            in vec2 fragTexCoord;
+            in float waveHeight;
+            
+            uniform vec3 lightDirection;
+            uniform vec3 lightColor;
+            uniform vec3 ambientColor;
+            uniform vec3 cameraPosition;
+            uniform float time;
+            
+            out vec4 fragColor;
+            
+            void main() {
+                vec3 normal = normalize(fragNormal);
+                vec3 lightDir = normalize(-lightDirection);
+                vec3 viewDir = normalize(cameraPosition - fragPos);
+                
+                // Ocean colors
+                vec3 deepWater = vec3(0.0, 0.2, 0.4);
+                vec3 shallowWater = vec3(0.0, 0.4, 0.6);
+                vec3 foam = vec3(0.8, 0.9, 1.0);
+                
+                // Mix colors based on wave height
+                float waveIntensity = abs(waveHeight) * 2.0;
+                vec3 waterColor = mix(deepWater, shallowWater, waveIntensity);
+                if (waveHeight > 0.4) {
+                    waterColor = mix(waterColor, foam, (waveHeight - 0.4) * 2.0);
+                }
+                
+                // Ambient lighting
+                vec3 ambient = ambientColor * 0.6;
+                
+                // Diffuse lighting
+                float diff = max(dot(normal, lightDir), 0.0);
+                vec3 diffuse = diff * lightColor * 0.8;
+                
+                // Specular lighting (water reflection)
+                vec3 reflectDir = reflect(-lightDir, normal);
+                float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
+                vec3 specular = spec * lightColor * 0.5;
+                
+                vec3 result = (ambient + diffuse + specular) * waterColor;
+                fragColor = vec4(result, 0.8);
+            }
+            """;
+    }
+    
+    // Camera interface
+    public Camera getCamera() { return camera; }
+    
+    // Getters and setters
+    public Matrix4f getModelMatrix() { return new Matrix4f(modelMatrix); }
     
     public boolean isWireframeMode() { return wireframeMode; }
     public void setWireframeMode(boolean wireframeMode) { this.wireframeMode = wireframeMode; }
-    
-    public float getFieldOfView() { return fieldOfView; }
-    public void setFieldOfView(float fieldOfView) { 
-        this.fieldOfView = fieldOfView;
-        updateProjectionMatrix(config.getWindowWidth(), config.getWindowHeight());
-    }
-    
-    public float getNearPlane() { return nearPlane; }
-    public void setNearPlane(float nearPlane) { 
-        this.nearPlane = nearPlane;
-        updateProjectionMatrix(config.getWindowWidth(), config.getWindowHeight());
-    }
-    
-    public float getFarPlane() { return farPlane; }
-    public void setFarPlane(float farPlane) { 
-        this.farPlane = farPlane;
-        updateProjectionMatrix(config.getWindowWidth(), config.getWindowHeight());
-    }
 }

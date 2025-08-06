@@ -1,6 +1,7 @@
 package com.odyssey.world.chunk;
 
 import org.joml.Vector3f;
+import org.joml.Matrix4f;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,16 +16,188 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 import java.util.concurrent.TimeUnit;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicInteger;
+import com.odyssey.graphics.LODTextureAtlasManager.LODLevel;
 
 /**
  * Manages Level of Detail (LOD) for chunks based on distance from player.
  * Provides different rendering qualities to optimize performance for distant chunks.
+ * Implements hierarchical LOD with multiple resolution tiers similar to Distant Horizons.
  * 
  * @author Odyssey Team
  * @since 1.0.0
  */
 public class ChunkLOD {
     private static final Logger logger = LoggerFactory.getLogger(ChunkLOD.class);
+    
+    /**
+     * Represents a hierarchical LOD region that aggregates multiple chunks.
+     * Supports 2x2, 4x4, 8x8, and larger chunk blocks for extreme distances.
+     */
+    public static class HierarchicalLODRegion {
+        private final int regionX;
+        private final int regionZ;
+        private final int regionSize; // Size in chunks (2, 4, 8, 16, etc.)
+        private final LODLevel lodLevel;
+        private final float[] aggregatedVertices;
+        private final int[] aggregatedIndices;
+        private final byte[] compressedTerrainData;
+        private final long lastUpdateTime;
+        private final AtomicBoolean isGenerating = new AtomicBoolean(false);
+        
+        /**
+         * Creates a hierarchical LOD region.
+         * 
+         * @param regionX region X coordinate (in region units)
+         * @param regionZ region Z coordinate (in region units)
+         * @param regionSize size of region in chunks (power of 2)
+         * @param lodLevel LOD level for this region
+         * @param vertices aggregated vertex data
+         * @param indices aggregated index data
+         * @param compressedData compressed terrain representation
+         */
+        public HierarchicalLODRegion(int regionX, int regionZ, int regionSize, 
+                                   LODLevel lodLevel, float[] vertices, int[] indices,
+                                   byte[] compressedData) {
+            this.regionX = regionX;
+            this.regionZ = regionZ;
+            this.regionSize = regionSize;
+            this.lodLevel = lodLevel;
+            this.aggregatedVertices = vertices != null ? vertices.clone() : new float[0];
+            this.aggregatedIndices = indices != null ? indices.clone() : new int[0];
+            this.compressedTerrainData = compressedData != null ? compressedData.clone() : new byte[0];
+            this.lastUpdateTime = System.currentTimeMillis();
+        }
+        
+        public int getRegionX() { return regionX; }
+        public int getRegionZ() { return regionZ; }
+        public int getRegionSize() { return regionSize; }
+        public LODLevel getLodLevel() { return lodLevel; }
+        public float[] getAggregatedVertices() { return aggregatedVertices.clone(); }
+        public int[] getAggregatedIndices() { return aggregatedIndices.clone(); }
+        public byte[] getCompressedTerrainData() { return compressedTerrainData.clone(); }
+        public long getLastUpdateTime() { return lastUpdateTime; }
+        public boolean isGenerating() { return isGenerating.get(); }
+        public void setGenerating(boolean generating) { isGenerating.set(generating); }
+        
+        /**
+         * Gets the world coordinates covered by this region.
+         * 
+         * @return array of [minX, minZ, maxX, maxZ] in world coordinates
+         */
+        public int[] getWorldBounds() {
+            int chunkSize = ChunkPosition.CHUNK_SIZE;
+            int minX = regionX * regionSize * chunkSize;
+            int minZ = regionZ * regionSize * chunkSize;
+            int maxX = minX + (regionSize * chunkSize);
+            int maxZ = minZ + (regionSize * chunkSize);
+            return new int[]{minX, minZ, maxX, maxZ};
+        }
+    }
+    
+    /**
+     * Manages pre-computed LOD mesh caching for extreme distances.
+     */
+    public static class LODMeshCache {
+        private final Map<String, HierarchicalLODRegion> regionCache = new ConcurrentHashMap<>();
+        private final ReentrantReadWriteLock cacheLock = new ReentrantReadWriteLock();
+        private final AtomicLong cacheHits = new AtomicLong(0);
+        private final AtomicLong cacheMisses = new AtomicLong(0);
+        private final int maxCacheSize;
+        
+        public LODMeshCache(int maxCacheSize) {
+            this.maxCacheSize = maxCacheSize;
+        }
+        
+        /**
+         * Gets a cached LOD region.
+         * 
+         * @param regionKey unique key for the region
+         * @return cached region or null if not found
+         */
+        public HierarchicalLODRegion getCachedRegion(String regionKey) {
+            cacheLock.readLock().lock();
+            try {
+                HierarchicalLODRegion region = regionCache.get(regionKey);
+                if (region != null) {
+                    cacheHits.incrementAndGet();
+                } else {
+                    cacheMisses.incrementAndGet();
+                }
+                return region;
+            } finally {
+                cacheLock.readLock().unlock();
+            }
+        }
+        
+        /**
+         * Caches a LOD region.
+         * 
+         * @param regionKey unique key for the region
+         * @param region the region to cache
+         */
+        public void cacheRegion(String regionKey, HierarchicalLODRegion region) {
+            cacheLock.writeLock().lock();
+            try {
+                if (regionCache.size() >= maxCacheSize) {
+                    evictOldestRegion();
+                }
+                regionCache.put(regionKey, region);
+            } finally {
+                cacheLock.writeLock().unlock();
+            }
+        }
+        
+        /**
+         * Evicts the oldest cached region.
+         */
+        private void evictOldestRegion() {
+            String oldestKey = null;
+            long oldestTime = Long.MAX_VALUE;
+            
+            for (Map.Entry<String, HierarchicalLODRegion> entry : regionCache.entrySet()) {
+                if (entry.getValue().getLastUpdateTime() < oldestTime) {
+                    oldestTime = entry.getValue().getLastUpdateTime();
+                    oldestKey = entry.getKey();
+                }
+            }
+            
+            if (oldestKey != null) {
+                regionCache.remove(oldestKey);
+            }
+        }
+        
+        /**
+         * Gets cache statistics.
+         * 
+         * @return array of [hits, misses, size, hitRatio]
+         */
+        public double[] getCacheStats() {
+            long hits = cacheHits.get();
+            long misses = cacheMisses.get();
+            double hitRatio = (hits + misses) > 0 ? (double) hits / (hits + misses) : 0.0;
+            return new double[]{hits, misses, regionCache.size(), hitRatio};
+        }
+        
+        /**
+         * Clears the cache.
+         */
+        public void clear() {
+            cacheLock.writeLock().lock();
+            try {
+                regionCache.clear();
+                cacheHits.set(0);
+                cacheMisses.set(0);
+            } finally {
+                cacheLock.writeLock().unlock();
+            }
+        }
+    }
     
     /**
      * Represents far terrain mesh data for distant chunks.
@@ -99,80 +272,7 @@ public class ChunkLOD {
         public long getTimestamp() { return timestamp; }
     }
     
-    /**
-     * Different levels of detail for chunk rendering.
-     */
-    public enum LODLevel {
-        /** Full detail - all blocks rendered with full geometry */
-        FULL(0, 1.0f, "Full Detail", 1),
-        
-        /** High detail - minor optimizations, some small details removed */
-        HIGH(1, 0.8f, "High Detail", 1),
-        
-        /** Medium detail - noticeable simplification, merged geometry */
-        MEDIUM(2, 0.5f, "Medium Detail", 2),
-        
-        /** Low detail - heavily simplified, impostor-like rendering */
-        LOW(3, 0.3f, "Low Detail", 4),
-        
-        /** Minimal detail - basic shape only, used for very distant chunks */
-        MINIMAL(4, 0.1f, "Minimal Detail", 8),
-        
-        /** Far terrain - ultra-simplified mesh for extreme distances */
-        FAR_TERRAIN(5, 0.05f, "Far Terrain", 16),
-        
-        /** Impostor - 2D billboard representation for horizon chunks */
-        IMPOSTOR(6, 0.01f, "Impostor", 32);
-        
-        private final int level;
-        private final float qualityFactor;
-        private final String description;
-        private final int blockReductionFactor;
-        
-        LODLevel(int level, float qualityFactor, String description, int blockReductionFactor) {
-            this.level = level;
-            this.qualityFactor = qualityFactor;
-            this.description = description;
-            this.blockReductionFactor = blockReductionFactor;
-        }
-        
-        /**
-         * Gets the numeric level (0 = highest quality).
-         * 
-         * @return the LOD level
-         */
-        public int getLevel() {
-            return level;
-        }
-        
-        /**
-         * Gets the quality factor (1.0 = full quality, 0.0 = no quality).
-         * 
-         * @return the quality factor
-         */
-        public float getQualityFactor() {
-            return qualityFactor;
-        }
-        
-        /**
-         * Gets the human-readable description.
-         * 
-         * @return the description
-         */
-        public String getDescription() {
-            return description;
-        }
-        
-        /**
-         * Gets the block reduction factor for mesh simplification.
-         * Higher values mean more aggressive simplification.
-         * 
-         * @return the block reduction factor
-         */
-        public int getBlockReductionFactor() {
-            return blockReductionFactor;
-        }
-    }
+    // LODLevel enum is now imported from LODTextureAtlasManager for consistency
     
     /**
      * Configuration for LOD distance thresholds.
@@ -276,6 +376,11 @@ public class ChunkLOD {
     
     // Disk cache directory for persistent LOD data
     private final Path cacheDirectory;
+    
+    // Advanced LOD features
+    private final LODTransitionManager transitionManager;
+    private final LODTextureAtlasManager textureAtlasManager;
+    private final ProceduralDetailInjector detailInjector;
     private final boolean diskCacheEnabled;
     
     /**
@@ -320,9 +425,15 @@ public class ChunkLOD {
             this.cacheDirectory = null;
         }
         
-        logger.info("Initialized ChunkLOD with distances: Full={}, High={}, Medium={}, Low={}, Minimal={}",
+        // Initialize advanced LOD features
+        this.transitionManager = new LODTransitionManager(1920, 1080, 500); // Default screen size and 500ms transitions
+        this.textureAtlasManager = new LODTextureAtlasManager(LODTextureAtlasManager.AtlasConfig.createDefault());
+        this.detailInjector = new ProceduralDetailInjector(ProceduralDetailInjector.DetailConfig.createDefault());
+        
+        logger.info("Initialized ChunkLOD with distances: Full={}, High={}, Medium={}, Low={}, Minimal={}, Far={}, Impostor={}",
                 config.fullDetailDistance, config.highDetailDistance, config.mediumDetailDistance,
-                config.lowDetailDistance, config.minimalDetailDistance);
+                config.lowDetailDistance, config.minimalDetailDistance, config.farTerrainDistance, config.impostorDistance);
+        logger.info("Advanced LOD features enabled: Seamless transitions, Occlusion culling, Texture atlases, Procedural details");
     }
     
     /**
@@ -356,7 +467,7 @@ public class ChunkLOD {
         // Determine LOD level based on distance
         LODLevel level;
         if (distance <= config.fullDetailDistance) {
-            level = LODLevel.FULL;
+            level = LODLevel.ULTRA;  // Map FULL to ULTRA
         } else if (distance <= config.highDetailDistance) {
             level = LODLevel.HIGH;
         } else if (distance <= config.mediumDetailDistance) {
@@ -365,13 +476,9 @@ public class ChunkLOD {
             level = LODLevel.LOW;
         } else if (distance <= config.minimalDetailDistance) {
             level = LODLevel.MINIMAL;
-        } else if (distance <= config.farTerrainDistance) {
-            level = LODLevel.FAR_TERRAIN;
-        } else if (distance <= config.impostorDistance) {
-            level = LODLevel.IMPOSTOR;
         } else {
-            // Beyond maximum render distance
-            return null;
+            // Beyond maximum render distance - use minimal for far terrain and impostor
+            level = LODLevel.MINIMAL;
         }
         
         // Cache the result
@@ -479,7 +586,7 @@ public class ChunkLOD {
      */
     public static float getMeshComplexityFactor(LODLevel level) {
         switch (level) {
-            case FULL:
+            case ULTRA:
                 return 1.0f;
             case HIGH:
                 return 0.8f;
@@ -489,10 +596,6 @@ public class ChunkLOD {
                 return 0.3f;
             case MINIMAL:
                 return 0.1f;
-            case FAR_TERRAIN:
-                return 0.05f;
-            case IMPOSTOR:
-                return 0.01f;
             default:
                 return 1.0f;
         }
@@ -878,12 +981,655 @@ public class ChunkLOD {
     }
     
     /**
-     * Clears all caches including far terrain and impostor data.
+     * Clears all caches (LOD, far terrain, and impostor).
      */
     public void clearAllCaches() {
-        lodCache.clear();
+        clearCache();
         farTerrainCache.clear();
         impostorCache.clear();
-        logger.debug("Cleared all LOD caches");
+        hierarchicalLODCache.clear();
+        logger.info("Cleared all LOD caches");
+    }
+    
+    // ========== TEMPORAL LOD UPDATE SYSTEM ==========
+    
+    /**
+     * Manages temporal LOD updates to spread work across multiple frames.
+     */
+    public static class TemporalLODUpdater {
+        private final List<ChunkPosition> pendingUpdates = Collections.synchronizedList(new ArrayList<>());
+        private final AtomicInteger currentUpdateIndex = new AtomicInteger(0);
+        private final int updatesPerFrame;
+        private final long updateIntervalMs;
+        private long lastUpdateTime = 0;
+        
+        /**
+         * Creates a temporal LOD updater.
+         * 
+         * @param updatesPerFrame maximum updates to process per frame
+         * @param updateIntervalMs minimum interval between update cycles
+         */
+        public TemporalLODUpdater(int updatesPerFrame, long updateIntervalMs) {
+            this.updatesPerFrame = updatesPerFrame;
+            this.updateIntervalMs = updateIntervalMs;
+        }
+        
+        /**
+         * Adds a chunk position for LOD update.
+         * 
+         * @param position chunk position to update
+         */
+        public void scheduleUpdate(ChunkPosition position) {
+            if (!pendingUpdates.contains(position)) {
+                pendingUpdates.add(position);
+            }
+        }
+        
+        /**
+         * Processes pending LOD updates for this frame.
+         * 
+         * @param chunkLOD the LOD system to update
+         * @param playerPosition current player position
+         * @return number of updates processed
+         */
+        public int processUpdates(ChunkLOD chunkLOD, Vector3f playerPosition) {
+            long currentTime = System.currentTimeMillis();
+            if (currentTime - lastUpdateTime < updateIntervalMs) {
+                return 0;
+            }
+            
+            int processed = 0;
+            int startIndex = currentUpdateIndex.get();
+            
+            for (int i = 0; i < updatesPerFrame && !pendingUpdates.isEmpty(); i++) {
+                int index = (startIndex + i) % pendingUpdates.size();
+                if (index >= pendingUpdates.size()) break;
+                
+                ChunkPosition position = pendingUpdates.get(index);
+                if (position != null) {
+                    // Update LOD level for this chunk
+                    chunkLOD.determineLODLevel(position, playerPosition);
+                    processed++;
+                }
+            }
+            
+            // Remove processed updates
+            if (processed > 0) {
+                int endIndex = Math.min(startIndex + processed, pendingUpdates.size());
+                pendingUpdates.subList(startIndex, endIndex).clear();
+                currentUpdateIndex.set(0);
+            }
+            
+            lastUpdateTime = currentTime;
+            return processed;
+        }
+        
+        /**
+         * Gets the number of pending updates.
+         * 
+         * @return pending update count
+         */
+        public int getPendingUpdateCount() {
+            return pendingUpdates.size();
+        }
+        
+        /**
+         * Clears all pending updates.
+         */
+        public void clearPendingUpdates() {
+            pendingUpdates.clear();
+            currentUpdateIndex.set(0);
+        }
+    }
+    
+    // ========== PERFORMANCE MONITORING SYSTEM ==========
+    
+    /**
+     * Monitors LOD system performance and provides auto-adjustment capabilities.
+     */
+    public static class LODPerformanceMonitor {
+        private final AtomicLong totalLODCalculations = new AtomicLong(0);
+        private final AtomicLong totalLODTime = new AtomicLong(0);
+        private final AtomicLong frameCount = new AtomicLong(0);
+        private final AtomicLong lastFrameTime = new AtomicLong(System.nanoTime());
+        private final List<Long> frameTimes = Collections.synchronizedList(new ArrayList<>());
+        private final int maxFrameHistory = 60; // Keep 60 frames of history
+        
+        private volatile boolean autoAdjustmentEnabled = true;
+        private volatile float targetFrameTime = 16.67f; // 60 FPS target
+        private volatile float lodDistanceMultiplier = 1.0f;
+        
+        /**
+         * Records the start of a LOD calculation.
+         * 
+         * @return start time in nanoseconds
+         */
+        public long startLODCalculation() {
+            return System.nanoTime();
+        }
+        
+        /**
+         * Records the end of a LOD calculation.
+         * 
+         * @param startTime start time from startLODCalculation()
+         */
+        public void endLODCalculation(long startTime) {
+            long duration = System.nanoTime() - startTime;
+            totalLODCalculations.incrementAndGet();
+            totalLODTime.addAndGet(duration);
+        }
+        
+        /**
+         * Records frame timing for performance monitoring.
+         */
+        public void recordFrame() {
+            long currentTime = System.nanoTime();
+            long lastTime = lastFrameTime.getAndSet(currentTime);
+            long frameTime = currentTime - lastTime;
+            
+            synchronized (frameTimes) {
+                frameTimes.add(frameTime);
+                if (frameTimes.size() > maxFrameHistory) {
+                    frameTimes.remove(0);
+                }
+            }
+            
+            frameCount.incrementAndGet();
+            
+            // Auto-adjust LOD distances if enabled
+            if (autoAdjustmentEnabled && frameCount.get() % 60 == 0) {
+                adjustLODDistances();
+            }
+        }
+        
+        /**
+         * Automatically adjusts LOD distances based on performance.
+         */
+        private void adjustLODDistances() {
+            float avgFrameTime = getAverageFrameTime();
+            
+            if (avgFrameTime > targetFrameTime * 1.2f) {
+                // Performance is poor, reduce LOD distances
+                lodDistanceMultiplier = Math.max(0.5f, lodDistanceMultiplier * 0.95f);
+                logger.info("LOD performance adjustment: reducing distances (multiplier: {})", 
+                           lodDistanceMultiplier);
+            } else if (avgFrameTime < targetFrameTime * 0.8f) {
+                // Performance is good, increase LOD distances
+                lodDistanceMultiplier = Math.min(2.0f, lodDistanceMultiplier * 1.05f);
+                logger.info("LOD performance adjustment: increasing distances (multiplier: {})", 
+                           lodDistanceMultiplier);
+            }
+        }
+        
+        /**
+         * Gets the average frame time in milliseconds.
+         * 
+         * @return average frame time
+         */
+        public float getAverageFrameTime() {
+            synchronized (frameTimes) {
+                if (frameTimes.isEmpty()) {
+                    return 0.0f;
+                }
+                
+                long total = 0;
+                for (Long frameTime : frameTimes) {
+                    total += frameTime;
+                }
+                
+                return (total / frameTimes.size()) / 1_000_000.0f; // Convert to milliseconds
+            }
+        }
+        
+        /**
+         * Gets the average LOD calculation time in microseconds.
+         * 
+         * @return average LOD calculation time
+         */
+        public double getAverageLODTime() {
+            long calculations = totalLODCalculations.get();
+            if (calculations == 0) {
+                return 0.0;
+            }
+            
+            return (totalLODTime.get() / calculations) / 1000.0; // Convert to microseconds
+        }
+        
+        /**
+         * Gets comprehensive performance statistics.
+         * 
+         * @return performance stats as formatted string
+         */
+        public String getPerformanceStats() {
+            return String.format(
+                "LOD Performance: Avg Frame: %.2fms, Avg LOD Calc: %.2fμs, " +
+                "Total Calculations: %d, Distance Multiplier: %.2f",
+                getAverageFrameTime(),
+                getAverageLODTime(),
+                totalLODCalculations.get(),
+                lodDistanceMultiplier
+            );
+        }
+        
+        /**
+         * Gets the current LOD distance multiplier.
+         * 
+         * @return distance multiplier
+         */
+        public float getLODDistanceMultiplier() {
+            return lodDistanceMultiplier;
+        }
+        
+        /**
+         * Sets whether auto-adjustment is enabled.
+         * 
+         * @param enabled true to enable auto-adjustment
+         */
+        public void setAutoAdjustmentEnabled(boolean enabled) {
+            this.autoAdjustmentEnabled = enabled;
+        }
+        
+        /**
+         * Sets the target frame time for auto-adjustment.
+         * 
+         * @param targetFrameTime target frame time in milliseconds
+         */
+        public void setTargetFrameTime(float targetFrameTime) {
+            this.targetFrameTime = targetFrameTime;
+        }
+        
+        /**
+         * Resets all performance statistics.
+         */
+        public void reset() {
+            totalLODCalculations.set(0);
+            totalLODTime.set(0);
+            frameCount.set(0);
+            synchronized (frameTimes) {
+                frameTimes.clear();
+            }
+            lodDistanceMultiplier = 1.0f;
+        }
+    }
+    
+    // ========== INSTANCE FIELDS FOR NEW SYSTEMS ==========
+    
+    /** Hierarchical LOD cache for chunk aggregation */
+    private final LODMeshCache hierarchicalLODCache = new LODMeshCache(1000);
+    
+    /** Temporal LOD updater for spreading work across frames */
+    private final TemporalLODUpdater temporalUpdater = new TemporalLODUpdater(10, 16);
+    
+    /** Performance monitor for auto-adjustment */
+    private final LODPerformanceMonitor performanceMonitor = new LODPerformanceMonitor();
+    
+    // ========== NEW PUBLIC METHODS ==========
+    
+    /**
+     * Gets a hierarchical LOD region for the specified area.
+     * 
+     * @param regionX region X coordinate
+     * @param regionZ region Z coordinate
+     * @param regionSize size in chunks (power of 2)
+     * @param playerPosition current player position
+     * @return hierarchical LOD region or null if not available
+     */
+    public HierarchicalLODRegion getHierarchicalLODRegion(int regionX, int regionZ, 
+                                                         int regionSize, Vector3f playerPosition) {
+        String regionKey = regionX + "_" + regionZ + "_" + regionSize;
+        
+        // Check cache first
+        HierarchicalLODRegion cached = hierarchicalLODCache.getCachedRegion(regionKey);
+        if (cached != null) {
+            return cached;
+        }
+        
+        // Generate new region asynchronously
+        generateHierarchicalLODRegionAsync(regionX, regionZ, regionSize, playerPosition);
+        
+        return null; // Will be available in cache after generation
+    }
+    
+    /**
+     * Generates a hierarchical LOD region asynchronously.
+     * 
+     * @param regionX region X coordinate
+     * @param regionZ region Z coordinate
+     * @param regionSize size in chunks
+     * @param playerPosition current player position
+     */
+    private void generateHierarchicalLODRegionAsync(int regionX, int regionZ, 
+                                                   int regionSize, Vector3f playerPosition) {
+        backgroundProcessor.submit(() -> {
+            try {
+                // Calculate distance to determine LOD level
+                float centerX = (regionX + regionSize / 2.0f) * ChunkPosition.CHUNK_SIZE;
+                float centerZ = (regionZ + regionSize / 2.0f) * ChunkPosition.CHUNK_SIZE;
+                float distance = (float) Math.sqrt(
+                    Math.pow(playerPosition.x - centerX, 2) + 
+                    Math.pow(playerPosition.z - centerZ, 2)
+                ) / ChunkPosition.CHUNK_SIZE;
+                
+                LODLevel lodLevel = determineLODLevelForDistance(distance);
+                
+                // Generate simplified mesh for the region
+                float[] vertices = generateRegionVertices(regionX, regionZ, regionSize, lodLevel);
+                int[] indices = generateRegionIndices(regionSize, lodLevel);
+                byte[] compressedData = compressRegionTerrain(regionX, regionZ, regionSize);
+                
+                HierarchicalLODRegion region = new HierarchicalLODRegion(
+                    regionX, regionZ, regionSize, lodLevel, vertices, indices, compressedData
+                );
+                
+                String regionKey = regionX + "_" + regionZ + "_" + regionSize;
+                hierarchicalLODCache.cacheRegion(regionKey, region);
+                
+            } catch (Exception e) {
+                logger.error("Failed to generate hierarchical LOD region: {}", e.getMessage());
+            }
+        });
+    }
+    
+    /**
+     * Determines LOD level based on distance.
+     * 
+     * @param distance distance from player
+     * @return appropriate LOD level
+     */
+    private LODLevel determineLODLevelForDistance(float distance) {
+        float multiplier = performanceMonitor.getLODDistanceMultiplier();
+        
+        if (distance <= config.fullDetailDistance * multiplier) {
+            return LODLevel.FULL;
+        } else if (distance <= config.highDetailDistance * multiplier) {
+            return LODLevel.HIGH;
+        } else if (distance <= config.mediumDetailDistance * multiplier) {
+            return LODLevel.MEDIUM;
+        } else if (distance <= config.lowDetailDistance * multiplier) {
+            return LODLevel.LOW;
+        } else if (distance <= config.minimalDetailDistance * multiplier) {
+            return LODLevel.MINIMAL;
+        } else if (distance <= config.farTerrainDistance * multiplier) {
+            return LODLevel.FAR_TERRAIN;
+        } else {
+            return LODLevel.IMPOSTOR;
+        }
+    }
+    
+    /**
+     * Generates vertices for a hierarchical LOD region.
+     * 
+     * @param regionX region X coordinate
+     * @param regionZ region Z coordinate
+     * @param regionSize size in chunks
+     * @param lodLevel LOD level to use
+     * @return vertex array
+     */
+    private float[] generateRegionVertices(int regionX, int regionZ, int regionSize, LODLevel lodLevel) {
+        int resolution = Math.max(2, 16 / lodLevel.getBlockReductionFactor());
+        List<Float> vertexList = new ArrayList<>();
+        
+        for (int z = 0; z <= resolution; z++) {
+            for (int x = 0; x <= resolution; x++) {
+                float worldX = regionX * regionSize * ChunkPosition.CHUNK_SIZE + 
+                              (x * regionSize * ChunkPosition.CHUNK_SIZE) / resolution;
+                float worldZ = regionZ * regionSize * ChunkPosition.CHUNK_SIZE + 
+                              (z * regionSize * ChunkPosition.CHUNK_SIZE) / resolution;
+                float height = 64.0f; // Simplified height calculation
+                
+                vertexList.add(worldX);
+                vertexList.add(height);
+                vertexList.add(worldZ);
+            }
+        }
+        
+        float[] vertices = new float[vertexList.size()];
+        for (int i = 0; i < vertexList.size(); i++) {
+            vertices[i] = vertexList.get(i);
+        }
+        return vertices;
+    }
+    
+    /**
+     * Generates indices for a hierarchical LOD region.
+     * 
+     * @param regionSize size in chunks
+     * @param lodLevel LOD level to use
+     * @return index array
+     */
+    private int[] generateRegionIndices(int regionSize, LODLevel lodLevel) {
+        int resolution = Math.max(2, 16 / lodLevel.getBlockReductionFactor());
+        List<Integer> indexList = new ArrayList<>();
+        
+        for (int z = 0; z < resolution; z++) {
+            for (int x = 0; x < resolution; x++) {
+                int topLeft = z * (resolution + 1) + x;
+                int topRight = topLeft + 1;
+                int bottomLeft = (z + 1) * (resolution + 1) + x;
+                int bottomRight = bottomLeft + 1;
+                
+                // First triangle
+                indexList.add(topLeft);
+                indexList.add(bottomLeft);
+                indexList.add(topRight);
+                
+                // Second triangle
+                indexList.add(topRight);
+                indexList.add(bottomLeft);
+                indexList.add(bottomRight);
+            }
+        }
+        
+        return indexList.stream().mapToInt(Integer::intValue).toArray();
+    }
+    
+    /**
+     * Compresses terrain data for a region.
+     * 
+     * @param regionX region X coordinate
+     * @param regionZ region Z coordinate
+     * @param regionSize size in chunks
+     * @return compressed terrain data
+     */
+    private byte[] compressRegionTerrain(int regionX, int regionZ, int regionSize) {
+        // Simplified compression - in a real implementation, this would
+        // aggregate actual chunk data and compress it
+        byte[] data = new byte[regionSize * regionSize];
+        for (int i = 0; i < data.length; i++) {
+            data[i] = (byte) (64 + (i % 32)); // Simplified height data
+        }
+        return data;
+    }
+    
+    /**
+     * Processes temporal LOD updates for this frame.
+     * 
+     * @param playerPosition current player position
+     * @return number of updates processed
+     */
+    public int processTemporalUpdates(Vector3f playerPosition) {
+        performanceMonitor.recordFrame();
+        return temporalUpdater.processUpdates(this, playerPosition);
+    }
+    
+    /**
+     * Schedules a chunk for temporal LOD update.
+     * 
+     * @param position chunk position to update
+     */
+    public void scheduleTemporalUpdate(ChunkPosition position) {
+        temporalUpdater.scheduleUpdate(position);
+    }
+    
+    /**
+     * Gets the performance monitor for this LOD system.
+     * 
+     * @return performance monitor
+     */
+    public LODPerformanceMonitor getPerformanceMonitor() {
+        return performanceMonitor;
+    }
+    
+    /**
+     * Gets hierarchical LOD cache statistics.
+     * 
+     * @return cache statistics
+     */
+    public double[] getHierarchicalCacheStats() {
+        return hierarchicalLODCache.getCacheStats();
+    }
+    
+    // Advanced LOD feature access methods
+    
+    /**
+     * Gets the LOD transition manager for seamless transitions.
+     * 
+     * @return transition manager
+     */
+    public LODTransitionManager getTransitionManager() {
+        return transitionManager;
+    }
+    
+    /**
+     * Gets the texture atlas manager for distance-based texture optimization.
+     * 
+     * @return texture atlas manager
+     */
+    public LODTextureAtlasManager getTextureAtlasManager() {
+        return textureAtlasManager;
+    }
+    
+    /**
+     * Gets the procedural detail injector for adding surface details.
+     * 
+     * @return procedural detail injector
+     */
+    public ProceduralDetailInjector getProceduralDetailInjector() {
+        return detailInjector;
+    }
+    
+    /**
+     * Updates the view-projection matrix for occlusion culling.
+     * 
+     * @param viewMatrix the view matrix
+     * @param projectionMatrix the projection matrix
+     */
+    public void updateViewProjectionMatrix(Matrix4f viewMatrix, Matrix4f projectionMatrix) {
+        transitionManager.updateViewProjectionMatrix(viewMatrix, projectionMatrix);
+    }
+    
+    /**
+     * Tests if a chunk is occluded and can be culled.
+     * 
+     * @param chunkPosition the chunk position
+     * @param chunkSize the chunk size in world units
+     * @param chunkHeight the chunk height
+     * @return true if the chunk is occluded
+     */
+    public boolean isChunkOccluded(ChunkPosition chunkPosition, float chunkSize, float chunkHeight) {
+        return transitionManager.isChunkOccluded(chunkPosition, chunkSize, chunkHeight);
+    }
+    
+    /**
+     * Updates the occlusion buffer with rendered depth data.
+     * 
+     * @param depthBuffer the depth buffer from rendering
+     */
+    public void updateOcclusionBuffer(float[] depthBuffer) {
+        transitionManager.updateOcclusionBuffer(depthBuffer);
+    }
+    
+    /**
+     * Starts a LOD transition for a chunk.
+     * 
+     * @param chunkPosition the chunk position
+     * @param fromLevel the current LOD level
+     * @param toLevel the target LOD level
+     * @return the created transition
+     */
+    public LODTransitionManager.LODTransition startLODTransition(ChunkPosition chunkPosition, 
+                                                               LODLevel fromLevel, 
+                                                               LODLevel toLevel) {
+        return transitionManager.startTransition(chunkPosition, fromLevel, toLevel);
+    }
+    
+    /**
+     * Gets the active transition for a chunk.
+     * 
+     * @param chunkPosition the chunk position
+     * @return the active transition or null if none
+     */
+    public LODTransitionManager.LODTransition getActiveTransition(ChunkPosition chunkPosition) {
+        return transitionManager.getActiveTransition(chunkPosition);
+    }
+    
+    /**
+     * Updates all active LOD transitions.
+     * 
+     * @return number of active transitions
+     */
+    public int updateLODTransitions() {
+        return transitionManager.updateTransitions();
+    }
+    
+    /**
+     * Gets the appropriate texture atlas level for a chunk at a given distance.
+     * 
+     * @param atlasName atlas name
+     * @param distance viewing distance
+     * @return the appropriate atlas level or null if atlas not found
+     */
+    public LODTextureAtlasManager.TextureAtlas.AtlasLevel getTextureAtlasForDistance(String atlasName, float distance) {
+        return textureAtlasManager.getAtlasLevelForDistance(atlasName, distance);
+    }
+    
+    /**
+     * Gets the appropriate texture atlas level for a specific LOD level.
+     * 
+     * @param atlasName atlas name
+     * @param lodLevel LOD level
+     * @return the appropriate atlas level or null if atlas not found
+     */
+    public LODTextureAtlasManager.TextureAtlas.AtlasLevel getTextureAtlasForLOD(String atlasName, LODLevel lodLevel) {
+        return textureAtlasManager.getAtlasLevelForLOD(atlasName, lodLevel);
+    }
+    
+    /**
+     * Generates procedural details for a chunk.
+     * 
+     * @param chunkPosition chunk position
+     * @param terrainData terrain height data
+     * @param chunkSize chunk size in world units
+     * @param lodLevel current LOD level
+     * @return list of procedural details
+     */
+    public List<ProceduralDetailInjector.ProceduralDetail> generateProceduralDetails(ChunkPosition chunkPosition, 
+                                                                                    float[][] terrainData, 
+                                                                                    float chunkSize, 
+                                                                                    LODLevel lodLevel) {
+        return detailInjector.generateDetails(chunkPosition, terrainData, chunkSize, lodLevel);
+    }
+    
+    /**
+     * Gets comprehensive LOD system statistics.
+     * 
+     * @return formatted statistics string
+     */
+    public String getLODSystemStats() {
+        StringBuilder stats = new StringBuilder();
+        stats.append("=== LOD System Statistics ===\n");
+        stats.append(String.format("Cache Size: %d entries\n", getCacheSize()));
+        stats.append(String.format("Far Terrain Cache: %d entries\n", getFarTerrainCacheSize()));
+        stats.append(String.format("Impostor Cache: %d entries\n", getImpostorCacheSize()));
+        stats.append(String.format("Active Transitions: %d\n", transitionManager.getActiveTransitionCount()));
+        stats.append(String.format("Texture Atlas Memory: %s\n", textureAtlasManager.getMemoryUsageStats()));
+        stats.append(String.format("Procedural Details Cached: %d chunks, %d total details\n", 
+                                 detailInjector.getCachedChunkCount(), detailInjector.getTotalCachedDetails()));
+        
+        double[] hierarchicalStats = getHierarchicalCacheStats();
+        stats.append(String.format("Hierarchical Cache: %.0f hits, %.0f misses, %.0f entries, %.1f%% hit rate\n",
+                                 hierarchicalStats[0], hierarchicalStats[1], hierarchicalStats[2], hierarchicalStats[3] * 100));
+        
+        return stats.toString();
     }
 }

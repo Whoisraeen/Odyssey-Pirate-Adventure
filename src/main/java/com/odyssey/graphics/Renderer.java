@@ -1,6 +1,13 @@
 package com.odyssey.graphics;
 
 import com.odyssey.core.GameConfig;
+import com.odyssey.graphics.LightingSystem;
+import com.odyssey.graphics.MaterialManager;
+import com.odyssey.graphics.Mesh;
+import com.odyssey.graphics.Shader;
+import com.odyssey.graphics.ShaderManager;
+import com.odyssey.graphics.TextureAtlasManager;
+import com.odyssey.world.ocean.OceanSystem;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.slf4j.Logger;
@@ -14,18 +21,21 @@ import static org.lwjgl.opengl.GL30.*;
 /**
  * Main renderer for The Odyssey.
  * Handles all rendering operations including voxel world, ocean, ships, and effects.
+ * Uses a centralized shader management system for improved performance and maintainability.
  */
 public class Renderer {
     private static final Logger logger = LoggerFactory.getLogger(Renderer.class);
     
     private final GameConfig config;
     
-    // Camera system
+    // Core rendering systems
     private Camera camera;
-    
-    // Shaders
-    private Shader basicShader;
-    private Shader oceanShader;
+    private ShaderManager shaderManager;
+    private MaterialManager materialManager;
+    private BatchRenderer batchRenderer;
+    private TextureAtlasManager textureAtlasManager;
+    private LightingSystem lightingSystem;
+    private OceanSystem oceanSystem;
     
     // Meshes
     private Mesh cubeMesh;
@@ -46,11 +56,47 @@ public class Renderer {
         this.config = config;
         this.camera = new Camera();
         this.modelMatrix = new Matrix4f();
+        this.shaderManager = new ShaderManager(config.isDebugMode());
+        this.materialManager = new MaterialManager();
+        this.batchRenderer = new BatchRenderer();
+        this.textureAtlasManager = new TextureAtlasManager();
+          this.lightingSystem = new LightingSystem();
     }
     
     public void initialize() throws Exception {
         logger.info("Initializing renderer...");
         
+        // Initialize OpenGL state
+        initializeOpenGLState();
+        
+        // Initialize camera
+        initializeCamera();
+        
+        // Initialize shader system
+        initializeShaders();
+        
+        // Initialize material system
+        initializeMaterials();
+        
+        // Initialize texture atlas system
+        initializeTextureAtlases();
+        
+        // Initialize lighting system
+        initializeLighting();
+        
+        // Initialize ocean system
+        initializeOceanSystem();
+        
+        // Initialize meshes
+        initializeMeshes();
+        
+        logger.info("Renderer initialized successfully");
+    }
+    
+    /**
+     * Initializes OpenGL rendering state.
+     */
+    private void initializeOpenGLState() {
         // Enable depth testing
         glEnable(GL_DEPTH_TEST);
         glDepthFunc(GL_LESS);
@@ -67,7 +113,13 @@ public class Renderer {
         // Set clear color (ocean blue)
         glClearColor(0.1f, 0.3f, 0.8f, 1.0f);
         
-        // Initialize camera
+        logger.debug("OpenGL state initialized");
+    }
+    
+    /**
+     * Initializes the camera system.
+     */
+    private void initializeCamera() {
         camera = new Camera();
         camera.setPosition(0.0f, 80.0f, 50.0f);  // Position above and behind the scene
         camera.setRotation(-20.0f, 0.0f, 0.0f);  // Look down slightly
@@ -77,28 +129,16 @@ public class Renderer {
         // Set initial aspect ratio (will be updated in beginFrame)
         camera.setAspectRatio(1920.0f / 1080.0f);
         
-        // Initialize shaders
-        initializeShaders();
-        
-        // Initialize meshes
-        initializeMeshes();
-        
-        logger.info("Renderer initialized successfully");
+        logger.debug("Camera initialized");
     }
     
+    /**
+     * Initializes the shader system and loads built-in shaders.
+     */
     private void initializeShaders() {
         try {
-            // Basic shader for solid objects
-            basicShader = new Shader();
-            basicShader.createVertexShader(getBasicVertexShader());
-            basicShader.createFragmentShader(getBasicFragmentShader());
-            basicShader.link();
-            
-            // Ocean shader for water rendering
-            oceanShader = new Shader();
-            oceanShader.createVertexShader(getOceanVertexShader());
-            oceanShader.createFragmentShader(getOceanFragmentShader());
-            oceanShader.link();
+            // Load all built-in shaders through the shader manager
+            shaderManager.loadBuiltinShaders();
             
             logger.info("Shaders initialized successfully");
         } catch (Exception e) {
@@ -106,6 +146,41 @@ public class Renderer {
             throw new RuntimeException("Shader initialization failed", e);
         }
     }
+    
+    /**
+     * Initializes the material system with default materials.
+     */
+    private void initializeMaterials() {
+        materialManager.initialize();
+    }
+    
+    /**
+     * Initializes the texture atlas system with default textures.
+     */
+    private void initializeTextureAtlases() {
+        textureAtlasManager.preloadDefaultTextures();
+    }
+    
+    /**
+     * Initializes the lighting system with default lights.
+     */
+    private void initializeLighting() {
+        lightingSystem.initialize();
+    }
+    
+    /**
+      * Initializes the ocean system with advanced water rendering.
+      */
+     private void initializeOceanSystem() {
+         try {
+             oceanSystem = new OceanSystem(config, shaderManager);
+             oceanSystem.initialize();
+             logger.info("Ocean system initialized successfully");
+         } catch (Exception e) {
+             logger.error("Failed to initialize ocean system", e);
+             oceanSystem = null; // Fall back to simple ocean rendering
+         }
+     }
     
     private void initializeMeshes() {
         cubeMesh = Mesh.createCube();
@@ -118,6 +193,17 @@ public class Renderer {
     }
     
     public void beginFrame(double deltaTime, float clearR, float clearG, float clearB, float clearA) {
+        // Check for shader hot-reloading in debug mode
+        if (config.isDebugMode()) {
+            shaderManager.checkForUpdates();
+        }
+        
+        // Update animated materials
+        materialManager.update(deltaTime);
+        
+        // Update lighting system
+        lightingSystem.updateLights(camera.getViewMatrix(), camera.getProjectionMatrix());
+        
         // Update viewport
         int[] viewport = new int[4];
         glGetIntegerv(GL_VIEWPORT, viewport);
@@ -200,7 +286,31 @@ public class Renderer {
         }
     }
     
-    private void renderOcean() {
+    /**
+     * Renders the ocean surface using the advanced water shader system.
+     */
+    public void renderOcean() {
+        // The ocean rendering is now handled by the OceanSystem
+        // This method is kept for compatibility but delegates to the ocean system
+        if (oceanSystem != null) {
+            oceanSystem.render(this);
+        } else {
+            // Fallback to simple ocean rendering if ocean system is not available
+            renderSimpleOcean();
+        }
+    }
+    
+    /**
+     * Fallback method for simple ocean rendering when OceanSystem is not available.
+     */
+    private void renderSimpleOcean() {
+        // Get ocean shader from shader manager
+        Shader oceanShader = shaderManager.getShader("ocean");
+        if (oceanShader == null) {
+            logger.warn("Ocean shader not found, skipping ocean rendering");
+            return;
+        }
+        
         // Render ocean using ocean shader
         oceanShader.bind();
         
@@ -223,6 +333,13 @@ public class Renderer {
     }
     
     private void renderTestCubes() {
+        // Get basic shader from shader manager
+        Shader basicShader = shaderManager.getShader("basic");
+        if (basicShader == null) {
+            logger.warn("Basic shader not found, skipping test cube rendering");
+            return;
+        }
+        
         basicShader.bind();
         
         // Set uniforms
@@ -263,173 +380,191 @@ public class Renderer {
     public void cleanup() {
         logger.info("Cleaning up renderer resources");
         
-        if (basicShader != null) {
-            basicShader.cleanup();
+        if (batchRenderer != null) {
+            batchRenderer.cleanup();
         }
-        if (oceanShader != null) {
-            oceanShader.cleanup();
+        
+        if (lightingSystem != null) {
+            lightingSystem.cleanup();
         }
+        
+        if (oceanSystem != null) {
+            oceanSystem.cleanup();
+        }
+        
+        if (textureAtlasManager != null) {
+            textureAtlasManager.cleanup();
+        }
+        
+        if (materialManager != null) {
+            materialManager.cleanup();
+        }
+        
+        if (shaderManager != null) {
+            shaderManager.cleanup();
+        }
+        
         if (cubeMesh != null) {
             cubeMesh.cleanup();
         }
+        
         if (planeMesh != null) {
             planeMesh.cleanup();
         }
     }
     
-    // Shader source code
-    private String getBasicVertexShader() {
-        return """
-            #version 330 core
-            
-            layout (location = 0) in vec3 position;
-            layout (location = 1) in vec3 normal;
-            layout (location = 2) in vec2 texCoord;
-            
-            uniform mat4 projectionMatrix;
-            uniform mat4 viewMatrix;
-            uniform mat4 modelMatrix;
-            
-            out vec3 fragPos;
-            out vec3 fragNormal;
-            out vec2 fragTexCoord;
-            
-            void main() {
-                vec4 worldPos = modelMatrix * vec4(position, 1.0);
-                fragPos = worldPos.xyz;
-                fragNormal = mat3(transpose(inverse(modelMatrix))) * normal;
-                fragTexCoord = texCoord;
-                
-                gl_Position = projectionMatrix * viewMatrix * worldPos;
-            }
-            """;
-    }
-    
-    private String getBasicFragmentShader() {
-        return """
-            #version 330 core
-            
-            in vec3 fragPos;
-            in vec3 fragNormal;
-            in vec2 fragTexCoord;
-            
-            uniform vec3 lightDirection;
-            uniform vec3 lightColor;
-            uniform vec3 ambientColor;
-            uniform vec3 objectColor;
-            
-            out vec4 fragColor;
-            
-            void main() {
-                vec3 normal = normalize(fragNormal);
-                vec3 lightDir = normalize(-lightDirection);
-                
-                // Ambient lighting
-                vec3 ambient = ambientColor;
-                
-                // Diffuse lighting
-                float diff = max(dot(normal, lightDir), 0.0);
-                vec3 diffuse = diff * lightColor;
-                
-                vec3 result = (ambient + diffuse) * objectColor;
-                fragColor = vec4(result, 1.0);
-            }
-            """;
-    }
-    
-    private String getOceanVertexShader() {
-        return """
-            #version 330 core
-            
-            layout (location = 0) in vec3 position;
-            layout (location = 1) in vec3 normal;
-            layout (location = 2) in vec2 texCoord;
-            
-            uniform mat4 projectionMatrix;
-            uniform mat4 viewMatrix;
-            uniform mat4 modelMatrix;
-            uniform float time;
-            
-            out vec3 fragPos;
-            out vec3 fragNormal;
-            out vec2 fragTexCoord;
-            out float waveHeight;
-            
-            void main() {
-                vec3 pos = position;
-                
-                // Create waves
-                float wave1 = sin(pos.x * 0.1 + time * 2.0) * 0.5;
-                float wave2 = cos(pos.z * 0.15 + time * 1.5) * 0.3;
-                float wave3 = sin((pos.x + pos.z) * 0.08 + time * 2.5) * 0.2;
-                
-                waveHeight = wave1 + wave2 + wave3;
-                pos.y += waveHeight;
-                
-                vec4 worldPos = modelMatrix * vec4(pos, 1.0);
-                fragPos = worldPos.xyz;
-                fragNormal = normal;
-                fragTexCoord = texCoord;
-                
-                gl_Position = projectionMatrix * viewMatrix * worldPos;
-            }
-            """;
-    }
-    
-    private String getOceanFragmentShader() {
-        return """
-            #version 330 core
-            
-            in vec3 fragPos;
-            in vec3 fragNormal;
-            in vec2 fragTexCoord;
-            in float waveHeight;
-            
-            uniform vec3 lightDirection;
-            uniform vec3 lightColor;
-            uniform vec3 ambientColor;
-            uniform vec3 cameraPosition;
-            uniform float time;
-            
-            out vec4 fragColor;
-            
-            void main() {
-                vec3 normal = normalize(fragNormal);
-                vec3 lightDir = normalize(-lightDirection);
-                vec3 viewDir = normalize(cameraPosition - fragPos);
-                
-                // Ocean colors
-                vec3 deepWater = vec3(0.0, 0.2, 0.4);
-                vec3 shallowWater = vec3(0.0, 0.4, 0.6);
-                vec3 foam = vec3(0.8, 0.9, 1.0);
-                
-                // Mix colors based on wave height
-                float waveIntensity = abs(waveHeight) * 2.0;
-                vec3 waterColor = mix(deepWater, shallowWater, waveIntensity);
-                if (waveHeight > 0.4) {
-                    waterColor = mix(waterColor, foam, (waveHeight - 0.4) * 2.0);
-                }
-                
-                // Ambient lighting
-                vec3 ambient = ambientColor * 0.6;
-                
-                // Diffuse lighting
-                float diff = max(dot(normal, lightDir), 0.0);
-                vec3 diffuse = diff * lightColor * 0.8;
-                
-                // Specular lighting (water reflection)
-                vec3 reflectDir = reflect(-lightDir, normal);
-                float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-                vec3 specular = spec * lightColor * 0.5;
-                
-                vec3 result = (ambient + diffuse + specular) * waterColor;
-                fragColor = vec4(result, 0.8);
-            }
-            """;
-    }
+
     
     // Camera interface
-    public Camera getCamera() { return camera; }
+    public Camera getCamera() {
+        return camera;
+    }
+    
+    /**
+     * Gets the material manager for material operations.
+     * @return The material manager instance
+     */
+    public MaterialManager getMaterialManager() {
+        return materialManager;
+    }
+    
+    /**
+     * Gets the batch renderer for efficient rendering operations.
+     * @return The batch renderer instance
+     */
+    public BatchRenderer getBatchRenderer() {
+        return batchRenderer;
+    }
+    
+    /**
+     * Gets the texture atlas manager for texture operations.
+     * @return The texture atlas manager instance
+     */
+    public TextureAtlasManager getTextureAtlasManager() {
+        return textureAtlasManager;
+    }
+    
+    /**
+     * Gets the lighting system for lighting operations.
+     * @return The lighting system instance
+     */
+    public LightingSystem getLightingSystem() {
+        return lightingSystem;
+    }
+    
+    /**
+     * Renders a water plane with the specified dimensions.
+     * Used by the advanced water shader system.
+     */
+    public void renderWaterPlane(float x, float y, float z, float width, float height) {
+        modelMatrix.identity().translate(x + width/2, y, z + height/2).scale(width, 1, height);
+        
+        // The actual rendering will be handled by the water shader
+        planeMesh.render();
+        
+        if (config.isDebugMode()) {
+            logger.trace("Rendering water plane at ({}, {}, {}) with size {}x{}", x, y, z, width, height);
+        }
+    }
+    
+    /**
+     * Renders the scene for reflection framebuffer.
+     * This renders the scene from a reflected camera position for water reflections.
+     */
+    public void renderSceneForReflection(Vector3f reflectionCameraPos, Vector3f clippingPlane, float clippingDistance) {
+        // Save current camera state
+        Vector3f originalPos = new Vector3f(camera.getPosition());
+        
+        // Set reflection camera position
+        camera.setPosition(reflectionCameraPos.x, reflectionCameraPos.y, reflectionCameraPos.z);
+        camera.update(0.0); // Force immediate update
+        
+        // Enable clipping plane to prevent rendering below water
+        glEnable(GL_CLIP_DISTANCE0);
+        
+        // Render the scene (excluding water)
+        renderTestCubes(); // Render objects that should be reflected
+        
+        // Disable clipping
+        glDisable(GL_CLIP_DISTANCE0);
+        
+        // Restore original camera position
+        camera.setPosition(originalPos.x, originalPos.y, originalPos.z);
+        camera.update(0.0);
+    }
+    
+    /**
+     * Renders the scene for refraction framebuffer.
+     * This renders the underwater scene for water refraction effects.
+     */
+    public void renderSceneForRefraction(Vector3f cameraPosition, Vector3f clippingPlane, float clippingDistance) {
+        // Enable clipping plane to only render below water
+        glEnable(GL_CLIP_DISTANCE0);
+        
+        // Render underwater objects and terrain
+        // For now, just render a darker version of the test cubes to simulate underwater
+        renderUnderwater();
+        
+        // Disable clipping
+        glDisable(GL_CLIP_DISTANCE0);
+    }
+    
+    /**
+     * Renders underwater scene elements.
+     */
+    private void renderUnderwater() {
+        // Get basic shader from shader manager
+        Shader basicShader = shaderManager.getShader("basic");
+        if (basicShader == null) {
+            return;
+        }
+        
+        basicShader.bind();
+        
+        // Set uniforms with darker underwater lighting
+        basicShader.setUniform("projectionMatrix", camera.getProjectionMatrix());
+        basicShader.setUniform("viewMatrix", camera.getViewMatrix());
+        basicShader.setUniform("lightDirection", lightDirection);
+        
+        // Darker underwater lighting
+        Vector3f underwaterLightColor = new Vector3f(lightColor).mul(0.3f);
+        Vector3f underwaterAmbientColor = new Vector3f(0.1f, 0.2f, 0.4f);
+        
+        basicShader.setUniform("lightColor", underwaterLightColor);
+        basicShader.setUniform("ambientColor", underwaterAmbientColor);
+        
+        // Render some underwater objects (simplified for now)
+        for (int x = -1; x <= 1; x++) {
+            for (int z = -1; z <= 1; z++) {
+                modelMatrix.identity().translate(x * 30, 50, z * 30).scale(2);
+                basicShader.setUniform("modelMatrix", modelMatrix);
+                
+                // Blue-green underwater tint
+                basicShader.setUniform("objectColor", new Vector3f(0.2f, 0.4f, 0.6f));
+                
+                cubeMesh.render();
+            }
+        }
+        
+        basicShader.unbind();
+    }
+    
+    /**
+     * Restores the main viewport after framebuffer rendering.
+     */
+    public void restoreViewport() {
+        int[] viewport = new int[4];
+        glGetIntegerv(GL_VIEWPORT, viewport);
+        glViewport(0, 0, viewport[2], viewport[3]);
+    }
+    
+    // Lighting getters for water shader
+    public Vector3f getLightDirection() { return new Vector3f(lightDirection); }
+    public Vector3f getLightColor() { return new Vector3f(lightColor); }
+    public Vector3f getAmbientColor() { return new Vector3f(ambientColor); }
+    
+    // Ocean system getter
+    public OceanSystem getOceanSystem() { return oceanSystem; }
     
     // Getters and setters
     public Matrix4f getModelMatrix() { return new Matrix4f(modelMatrix); }

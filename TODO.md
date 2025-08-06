@@ -45,40 +45,55 @@
     - [X] Develop a `Greedy Meshing` algorithm to optimize vertex count for opaque blocks.
     - [X] Develop a separate meshing algorithm for transparent blocks (water).
     - [X] Implement a `Vertex Array Object` (VAO) pool for chunk meshes.
-    - [ ] Implement a dynamic `Level of Detail (LOD)` system for distant chunks (e.g., using impostors or simplified meshes).
-    - [ ] **Advanced Voxel Physics**
-    - [ ] Implement a `Fluid Dynamics` system for water/lava (tick-based, spreading).
-    - [ ] Design a `Structural Integrity` system (e.g., flood-fill check from a support block to see if blocks should break).
-    - [ ] Implement `cloth & rope physics` for sails, rigging, and player swing-ropes (wind-driven deformation, collision with masts).
-    - [ ] Implement `fire propagation + smoke & firefighting` (hull breaches ignite, spread, create smoke; pumps & buckets to extinguish).
-    - [ ] Create a `flooding / compartment system` where hull breaches fill specific rooms, affect trim, and can be patched with planks or pumps.
+    - [Z] **Advanced LOD System (Distant Horizons-Inspired)**
+      - [Z] Implement hierarchical LOD with multiple resolution tiers (similar to Distant Horizons)
+      - [Z] Create pre-computed LOD mesh caching system for extreme distances
+      - [Z] Add impostor rendering for chunks beyond standard render distance
+      - [Z] Implement chunk aggregation into larger LOD regions (2x2, 4x4, 8x8 chunk blocks)
+      - [Z] Create compressed terrain representation for very distant areas
+      - [Z] Add disk-based LOD cache with async loading/saving
+      - [Z] Implement seamless LOD transitions to prevent "popping" artifacts
+      - [Z] Create separate LOD rendering pipeline for extreme distances
+      - [Z] Add GPU-based LOD mesh generation using compute shaders
+      - [Z] Implement temporal LOD updates to spread work across multiple frames
+      - [Z] Add LOD occlusion culling using hierarchical Z-buffer techniques
+      - [Z] Create distance-based texture atlas selection for LOD meshes
+      - [Z] Implement LOD-aware lighting system with pre-baked illumination
+      - [Z] Add procedural detail injection for distant terrain features
+      - [Z] Create LOD performance monitoring and auto-adjustment system
+    - [Z] **Advanced Voxel Physics**
+    - [Z] Implement a `Fluid Dynamics` system for water/lava (tick-based, spreading).
+    - [Z] Design a `Structural Integrity` system (e.g., flood-fill check from a support block to see if blocks should break).
+    - [Z] Implement `cloth & rope physics` for sails, rigging, and player swing-ropes (wind-driven deformation, collision with masts).
+    - [Z] Implement `fire propagation + smoke & firefighting` (hull breaches ignite, spread, create smoke; pumps & buckets to extinguish).
+    - [Z] Create a `flooding / compartment system` where hull breaches fill specific rooms, affect trim, and can be patched with planks or pumps.
 
 - [ ] **Rendering Pipeline**
-  - [ ] **Core Graphics Abstraction**
-    - [ ] Abstract OpenGL calls behind a `Renderer` class to simplify drawing calls.
-    - [ ] Implement a `Shader Manager` to load, compile, and bind shaders.
+  - [X] **Core Graphics Abstraction**
+    - [X] Abstract OpenGL calls behind a `Renderer` class to simplify drawing calls.
+    - [X] Implement a `Shader Manager` to load, compile, and bind shaders.
 
-  - [ ] **Dynamic Texture Atlas System**
-    - [ ] **Runtime Atlas Generation**
-      - [ ] Implement dynamic texture atlas that can grow at runtime
-      - [ ] Support multiple atlas pages when single atlas becomes full
-      - [ ] Automatic texture packing algorithm (bin packing, guillotine, shelf algorithms)
-      - [ ] Power-of-2 atlas sizing with configurable maximum dimensions
-    - [ ] **Texture Registration & Management**
-      - [ ] Texture registry system for registering new textures by string ID
-      - [ ] Automatic UV coordinate calculation and caching
-      - [ ] Texture dependency tracking (which blocks/items use which textures)
-      - [ ] Hot-reloading of individual textures without rebuilding entire atlas
-    - [ ] **Multi-Format Support**
-      - [ ] Support for different texture types (diffuse, normal, specular, emission)
-      - [ ] Automatic mipmap generation for atlas textures
-      - [ ] Texture compression support (DXT/BC formats)
-      - [ ] Animation support for animated textures (frame-based atlasing)
-    - [ ] **Content Pipeline Integration**
-      - [ ] Asset pipeline that scans for new textures in resource packs
-      - [ ] Automatic atlas rebuilding when new content is added
-      - [ ] Texture validation and error reporting for malformed textures
-      - [ ] Support for different resolution textures (16x16, 32x32, 64x64, etc.)
+  - [X] **Dynamic Texture Atlas System**
+    - [X] **Runtime Atlas Generation**
+      - [X] Implement dynamic texture atlas that can grow at runtime
+      - [X] Support multiple atlas pages when single atlas becomes full
+      - [X] Automatic texture packing algorithm (bin packing, guillotine, shelf algorithms)
+      - [X] Power-of-2 atlas sizing with configurable maximum dimensions
+    - [X] **Texture Registration & Management**
+      - [X] Texture registry system for registering new textures by string ID
+      - [X] Automatic UV coordinate calculation and caching
+      - [X] Texture dependency tracking (which blocks/items use which textures)
+      - [X] Hot-reloading of individual textures without rebuilding entire atlas
+    - [X] **Multi-Format Support**
+      - [X] Support for different texture types (diffuse, normal, specular, emission)
+      - [X] Automatic mipmap generation for atlas textures
+      - [X] Texture compression support (DXT/BC formats)
+      - [X] Animation support for animated textures (frame-based atlasing)
+    - [X] **Content Pipeline Integration**
+      - [X] Asset pipeline that scans for new textures in resource packs
+      - [X] Automatic atlas rebuilding when new content is added
+      - [X] Texture validation and error reporting for malformed textures
+      - [X] Support for different resolution textures (16x16, 32x32, 64x64, etc.)
     - [ ] **Performance Optimization**
       - [ ] Texture streaming for large atlases
       - [ ] GPU memory usage monitoring and optimization
@@ -109,12 +124,49 @@
     - [ ] Implement `Volumetric Lighting` (God Rays) via raymarching from the sun.
     - [ ] Implement `Atmospheric Scattering` for realistic sky color and sunsets.
     - [ ] Add subtle `Depth of Field (DoF)` and `Chromatic Aberration` effects.
-  - [ ] **Water Shaders**
-    - [ ] Animate water surface using Gerstner waves or Perlin noise.
-    - [ ] Implement `Screen-Space Reflections (SSR)`.
-    - [ ] Implement `Refraction` by distorting the rendered scene behind the water.
-    - [ ] Implement fake underwater `Caustics` using a projected, animated texture.
-    - [ ] Add `Foam` generation where waves meet shorelines or ships.
+  - [X] **Water Shaders**
+    - [X] Animate water surface using Gerstner waves or Perlin noise.
+    - [X] Implement `Screen-Space Reflections (SSR)`.
+    - [X] Implement `Refraction` by distorting the rendered scene behind the water.
+    - [X] Implement fake underwater `Caustics` using a projected, animated texture.
+    - [X] Add `Foam` generation where waves meet shorelines or ships.
+
+  - [ ] **Ship Rendering System**
+    - [ ] **Hull & Structure Rendering**
+      - [ ] Implement modular ship hull rendering with different wood types and materials
+      - [ ] Create damage state rendering (holes, cracks, burn marks, barnacle growth)
+      - [ ] Add hull wear and weathering effects (paint fading, wood aging)
+      - [ ] Implement ship hull reflection and water line rendering
+      - [ ] Create iron plating and armor section rendering for advanced ships
+      - [ ] Add ship name and decoration rendering (figureheads, paint schemes)
+    - [ ] **Sail & Rigging Rendering**
+      - [ ] Implement dynamic sail cloth rendering with wind deformation
+      - [ ] Create rope and rigging rendering with physics-based sag and tension
+      - [ ] Add sail damage rendering (tears, patches, burn holes)
+      - [ ] Implement sail furling/unfurling animations
+      - [ ] Create mast and yard arm rendering with realistic wood grain
+      - [ ] Add flag and banner rendering with wind animation
+    - [ ] **Ship Equipment Rendering**
+      - [ ] Implement cannon rendering with different sizes and materials
+      - [ ] Create anchor and chain rendering with realistic metal textures
+      - [ ] Add ship wheel (helm) rendering with wood and metal details
+      - [ ] Implement cargo and barrel rendering on deck
+      - [ ] Create rope coil and maritime equipment rendering
+      - [ ] Add ship's bell, compass, and navigation equipment rendering
+    - [ ] **Ship Lighting & Atmosphere**
+      - [ ] Implement lantern and torch lighting for night navigation
+      - [ ] Create cabin window lighting with interior illumination
+      - [ ] Add ship wake and foam trail rendering behind moving vessels
+      - [ ] Implement ship shadow rendering on water surface
+      - [ ] Create smoke effects from cannons, chimneys, and damage
+      - [ ] Add atmospheric ship fog effects in different weather conditions
+    - [ ] **Advanced Ship Rendering**
+      - [ ] Implement ship interior cabin rendering for below-deck areas
+      - [ ] Create dynamic ship flooding visualization for damaged hulls
+      - [ ] Add crew member interaction rendering (manning stations, working rigging)
+      - [ ] Implement ship docking and mooring rope rendering
+      - [ ] Create steam engine exhaust rendering for powered ships
+      - [ ] Add ship customization rendering (paint, sails, flags, figureheads)
 
 - [ ] **Ray Tracing Roadmap (Future Goal)**
   - [ ] **Vulkan Backend**
@@ -285,9 +337,33 @@
   - [ ] Generic attributes (attackDamage, maxHealth, movementSpeed) stored on entities
   - [ ] Stackable item/armor/skill modifiers with UUID demotion rules
 
-- [ ] **Statistics Tracker**
-  - [ ] Per-player counters (blocks mined, distance sailed, fish caught)
-  - [ ] JSON export + scoreboard criteria hooks
+- [ ] **Complete Minecraft-Style File System Architecture**
+  - [ ] **Missing Core File System Components**
+    - [ ] `level.dat_old` - Automatic backup system for world metadata with rollback capability
+    - [ ] `icon.png` - World selection screen icon system (64x64 PNG format)
+    - [ ] `entities/` folder - Separate entity storage by chunk (`c.<x>.<z>.mca` format)
+    - [ ] `poi/` folder - Points of Interest tracking (beds, workstations, bells) in `.mca` format  
+    - [ ] `generated/` folder - Custom structure storage from data packs and structure blocks
+    - [ ] Per-dimension entity/POI folders for `DIM-1/`, `DIM1/`, and custom dimensions
+  - [ ] **Enhanced Session Management**
+    - [ ] `session.lock` with PID tracking and heartbeat system
+    - [ ] Multi-instance prevention with proper lock file cleanup
+    - [ ] Crash detection and recovery from orphaned lock files
+  - [ ] **Complete Datapack Internal Structure**
+    - [ ] `data/<namespace>/` folder structure specification
+    - [ ] `pack.mcmeta` equivalent with format versioning
+    - [ ] Datapack loading priority and dependency resolution
+    - [ ] Hot-reloading capability for development
+  - [ ] **Statistics System (JSON Format)**
+    - [ ] Per-player UUID-named JSON stat files in `stats/` folder
+    - [ ] Comprehensive stat categories (blocks, items, entities, custom)
+    - [ ] Stat aggregation and leaderboard generation
+    - [ ] Maritime-specific statistics (nautical miles sailed, ships built, treasure found)
+  - [ ] **Enhanced Advancement File Structure**
+    - [ ] Per-player UUID-named advancement files in `advancements/` folder
+    - [ ] Advancement progress tracking with timestamps
+    - [ ] Advancement sharing and comparison systems
+    - [ ] Custom criteria for maritime achievements
 
 - [ ] **Sound-Event Registry & Mixer**
   - [ ] Data-driven soundevents.json, category mixer (Master, Weather, Music, Blocks, UI)
@@ -749,14 +825,297 @@
 - [ ] **Alternate Realms (Dimensions)**
   - [ ] Create design documents for "Davy Jones' Locker" (underworld) and "Sky Trade Winds" (sky islands) transport gateways.
 
-- [ ] **Menus & Initial UI**
-  - [ ] **Main Menu**
-    - [ ] Implement a visually appealing main menu with a dynamic background (e.g., a view of the game world).
-    - [ ] Build the world creation screen with seed input and options.
-    - [ ] Build a comprehensive, tabbed Settings menu.
-  - [ ] **In-Game HUD**
-    - [ ] Design and implement a clean, non-intrusive HUD.
-    - [ ] Add contextual pop-ups for tutorials.
+- [ ] **Complete UI/UX & Control Systems**
+  - [ ] **Critical Missing Keybinds (Core Gameplay)**
+    - [ ] Block breaking and placing (left/right click equivalents)
+    - [ ] Item hotbar selection (1-9 number keys)
+    - [ ] Drop item/stack (Q, Ctrl+Q)
+    - [ ] Attack/use item (left mouse, controller right trigger)
+    - [ ] Use/interact (right mouse, controller left trigger)
+    - [ ] Sneak/crouch toggle and hold modes
+    - [ ] Sprint toggle and hold modes
+    - [ ] Swim up/down in water (Space/Shift underwater)
+    - [ ] Tool selection wheel (Tab hold + mouse/stick)
+    - [ ] Quick inventory actions (Shift+click, double-click, etc.)
+  - [ ] **Ship Control Keybinds**
+    - [ ] Helm control (A/D for steering, mouse steering mode)
+    - [ ] Individual sail control (keybinds for fore, main, mizzen sails)
+    - [ ] Sail trim adjustment (fine angle control)
+    - [ ] Drop/raise all sails (quick sail management)
+    - [ ] Anchor chain length control (not just up/down)
+    - [ ] Engine throttle control (for steam ships)
+    - [ ] Ballast control (water ballast adjustment)
+    - [ ] Ship lights toggle (lanterns, navigation lights)
+    - [ ] Emergency stop (drop all sails, full reverse)
+    - [ ] Ship horn/bell signaling
+  - [ ] **Combat & Weapons Keybinds**
+    - [ ] Individual cannon selection and firing
+    - [ ] Reload all cannons
+    - [ ] Ammo type selection (cannonball, chain shot, grapeshot)
+    - [ ] Boarding preparation (grappling hooks, planks)
+    - [ ] Melee combat combos (attack chains, parry, riposte)
+    - [ ] Block/parry (right mouse hold, controller left bumper)
+    - [ ] Weapon switching (sword, pistol, musket, harpoon)
+    - [ ] Take aim mode (precision aiming for ranged weapons)
+    - [ ] Battle stations call (crew to combat positions)
+    - [ ] Surrender flag (white flag raising)
+  - [ ] **Crew Management Keybinds**
+    - [ ] Crew commands wheel (context-sensitive orders)
+    - [ ] Individual crew member selection
+    - [ ] "All hands on deck" command
+    - [ ] Assign crew to stations (cannons, rigging, repairs)
+    - [ ] Crew morale boost actions (shanty, grog distribution)
+    - [ ] Emergency crew orders (abandon ship, repel boarders)
+  - [ ] **Advanced Navigation Keybinds**
+    - [ ] Compass rose overlay toggle
+    - [ ] Telescope/spyglass use
+    - [ ] Chart table interaction
+    - [ ] Depth sounder activation
+    - [ ] Wind indicator toggle
+    - [ ] Current direction indicator
+    - [ ] Weather glass reading
+    - [ ] Star navigation mode (nighttime celestial navigation)
+  - [ ] **Building & Crafting Keybinds**
+    - [ ] Building mode toggle (separate from survival mode)
+    - [ ] Block rotation (R key, controller right stick click)
+    - [ ] Multi-block selection (for bulk operations)
+    - [ ] Copy/paste structures (Ctrl+C, Ctrl+V equivalents)
+    - [ ] Undo/redo building actions
+    - [ ] Precision placement mode (fine-tuned block positioning)
+    - [ ] Crafting queue management
+    - [ ] Recipe search and filtering
+    - [ ] Auto-craft toggle (continuous crafting)
+  - [ ] **Communication & Social Keybinds**
+    - [ ] Push-to-talk (multiplayer voice chat)
+    - [ ] Text chat (with faction/crew/local channels)
+    - [ ] Signal flags (maritime communication)
+    - [ ] Emergency beacon activation
+    - [ ] Trade request to nearby players/NPCs
+    - [ ] Faction allegiance display toggle
+  - [ ] **Camera & View Keybinds**
+    - [ ] First person/third person toggle
+    - [ ] Free camera mode (spectator-like)
+    - [ ] Camera zoom in/out (for ship overview)
+    - [ ] Look behind (temporary rear view)
+    - [ ] Photo mode activation
+    - [ ] Screenshot capture (F2 equivalent)
+    - [ ] Cinematic camera mode (for recording)
+  - [ ] **Debug & Developer Keybinds**
+    - [ ] Performance overlay (F3 equivalent with maritime stats)
+    - [ ] Chunk border visualization
+    - [ ] Hitbox visualization toggle
+    - [ ] Lighting overlay (light level visualization)
+    - [ ] AI pathfinding visualization
+    - [ ] Physics debug overlay (ship stability, wind vectors)
+    - [ ] Network debug info (multiplayer latency, packet loss)
+    - [ ] Memory usage overlay
+    - [ ] Console toggle (for command input)
+
+  - [ ] **Main Menu System**
+    - [ ] **Main Menu Screen**
+      - [ ] Dynamic maritime background (sailing ships, ocean waves)
+      - [ ] Single Player (world selection/creation)
+      - [ ] Multiplayer (server browser/direct connect)
+      - [ ] Settings (comprehensive options)
+      - [ ] Credits and version info
+      - [ ] Exit game
+    - [ ] **World Creation Menu**
+      - [ ] World name and seed input
+      - [ ] World type selection (ocean world, archipelago, continental)
+      - [ ] Difficulty selection (peaceful, easy, normal, hard, hardcore)
+      - [ ] Game mode selection (survival, creative, adventure)
+      - [ ] Advanced options (world generation, structure settings)
+      - [ ] Starting scenario selection (castaway, merchant, pirate)
+    - [ ] **Settings Menu (Tabbed)**
+      - [ ] **Video Settings**
+        - [ ] Resolution and display mode
+        - [ ] Graphics quality presets (potato to ultra)
+        - [ ] Individual graphics options (shadows, water quality, etc.)
+        - [ ] Field of view slider
+        - [ ] VSync and frame rate limiting
+        - [ ] Shader pack selection and settings
+      - [ ] **Audio Settings**
+        - [ ] Master volume and category sliders
+        - [ ] 3D positional audio settings
+        - [ ] Voice chat settings
+        - [ ] Maritime ambience options
+        - [ ] Music and sound effect preferences
+      - [ ] **Controls Settings**
+        - [ ] Keybinding customization interface
+        - [ ] Controller configuration
+        - [ ] Mouse sensitivity and inversion
+        - [ ] Input method priority
+        - [ ] Accessibility options
+      - [ ] **Gameplay Settings**
+        - [ ] Auto-save frequency
+        - [ ] UI scale and accessibility
+        - [ ] Tutorial and hint systems
+        - [ ] Chat and communication settings
+        - [ ] Resource pack management
+
+  - [ ] **In-Game HUD System**
+    - [ ] **Core HUD Elements**
+      - [ ] Health and hunger meters
+      - [ ] Oxygen meter (for diving)
+      - [ ] Stamina/energy bar
+      - [ ] Experience/skill progress bars
+      - [ ] Hotbar with item slots (1-9)
+      - [ ] Crosshair with context-sensitive interactions
+    - [ ] **Maritime HUD Elements**
+      - [ ] Ship status panel (hull integrity, speed, heading)
+      - [ ] Wind indicator with direction and strength
+      - [ ] Compass rose overlay
+      - [ ] Depth gauge (when near shallow water)
+      - [ ] Crew status indicators
+      - [ ] Weather alerts and warnings
+      - [ ] Tide timer and water level indicator
+    - [ ] **Contextual HUD Overlays**
+      - [ ] Building mode interface (block selection, rotation)
+      - [ ] Combat mode interface (weapon stats, enemy health)
+      - [ ] Interaction prompts (context-sensitive actions)
+      - [ ] Tutorial tooltips and hints
+      - [ ] Achievement/advancement notifications
+      - [ ] Chat overlay with multiple channels
+
+  - [ ] **In-Game Menu Interfaces**
+    - [ ] **Inventory Management System**
+      - [ ] Player inventory with grid layout
+      - [ ] Equipment slots (armor, accessories, tools)
+      - [ ] Ship inventory integration
+      - [ ] Sorting and filtering options
+      - [ ] Search functionality
+      - [ ] Container interfaces (chests, barrels)
+      - [ ] Quick-move and auto-sort features
+    - [ ] **Ship Management Interface**
+      - [ ] **Ship Designer/Editor**
+        - [ ] 3D ship building interface
+        - [ ] Block palette with categories
+        - [ ] Ship component library (masts, sails, cannons)
+        - [ ] Ship statistics display (speed, cargo, stability)
+        - [ ] Save/load ship designs
+        - [ ] Blueprint sharing system
+      - [ ] **Ship Status Panel**
+        - [ ] Hull condition and damage visualization
+        - [ ] Sail condition and configuration
+        - [ ] Cargo manifest and weight distribution
+        - [ ] Fuel and supply levels
+        - [ ] Maintenance schedule and alerts
+      - [ ] **Crew Management Interface**
+        - [ ] Crew roster with individual stats
+        - [ ] Job assignment interface
+        - [ ] Morale and happiness indicators
+        - [ ] Payroll and expense tracking
+        - [ ] Crew skill development trees
+        - [ ] Hiring and dismissal options
+    - [ ] **Crafting & Progression Interfaces**
+      - [ ] **Crafting Stations Interface**
+        - [ ] Workbench with recipe grid
+        - [ ] Furnace with fuel and smelting queue
+        - [ ] Shipyard for vessel construction
+        - [ ] Alchemy table for potion brewing
+        - [ ] Smithing table for equipment upgrading
+      - [ ] **Recipe Book Interface**
+        - [ ] Recipe discovery and unlocking
+        - [ ] Ingredient tracking and availability
+        - [ ] Crafting queue management
+        - [ ] Recipe search and categorization
+        - [ ] Favorite recipes system
+      - [ ] **Character Progression**
+        - [ ] Skill trees (sailing, combat, crafting, exploration)
+        - [ ] Experience tracking and allocation
+        - [ ] Ability unlocks and upgrades
+        - [ ] Character statistics overview
+        - [ ] Achievement/advancement trees
+    - [ ] **Trading & Economy Interfaces**
+      - [ ] **Merchant Interface**
+        - [ ] Buying and selling screens
+        - [ ] Price comparison and market trends
+        - [ ] Bulk transaction options
+        - [ ] Credit and loan management
+        - [ ] Trade route planning
+      - [ ] **Faction & Reputation Interface**
+        - [ ] Faction standing display
+        - [ ] Reputation consequences preview
+        - [ ] Diplomatic options and treaties
+        - [ ] Bounty and warrant information
+        - [ ] Quest and contract boards
+    - [ ] **Navigation & Exploration Interfaces**
+      - [ ] **Map Interface**
+        - [ ] Zoomable world map
+        - [ ] Personal exploration tracking
+        - [ ] Waypoint and marker system
+        - [ ] Route planning tools
+        - [ ] Chart sharing with other players
+        - [ ] Treasure map overlay system
+      - [ ] **Quest/Journal Interface**
+        - [ ] Active quest tracking
+        - [ ] Quest history and completion
+        - [ ] Lore and discovery log
+        - [ ] Personal notes and annotations
+        - [ ] Screenshot integration
+
+  - [ ] **Advanced Interface Systems**
+    - [ ] **Multiplayer-Specific Interfaces**
+      - [ ] **Server Browser**
+        - [ ] Server list with filtering options
+        - [ ] Server info display (players, rules, mods)
+        - [ ] Favorite servers system
+        - [ ] Direct IP connection
+        - [ ] LAN server discovery
+      - [ ] **Player List & Social**
+        - [ ] Online player roster
+        - [ ] Friend system integration
+        - [ ] Private messaging system
+        - [ ] Voice chat controls
+        - [ ] Player reporting system
+      - [ ] **Fleet & Guild Management**
+        - [ ] Fleet formation tools
+        - [ ] Guild/company creation and management
+        - [ ] Shared resources and bases
+        - [ ] Alliance and treaty systems
+        - [ ] Group quest coordination
+    - [ ] **Administrative Interfaces**
+      - [ ] **Server Management (Admin)**
+        - [ ] Player administration tools
+        - [ ] World editing capabilities  
+        - [ ] Gamerule configuration
+        - [ ] Backup and restore options
+        - [ ] Performance monitoring dashboard
+      - [ ] **Command Console**
+        - [ ] Auto-complete command system
+        - [ ] Command history
+        - [ ] Permission-based command access
+        - [ ] Scripting and automation tools
+    - [ ] **Accessibility Interfaces**
+      - [ ] **Visual Accessibility**
+        - [ ] Colorblind support options
+        - [ ] High contrast mode
+        - [ ] Text scaling and font options
+        - [ ] Visual indicator alternatives
+      - [ ] **Motor Accessibility**
+        - [ ] One-handed control schemes
+        - [ ] Hold-to-toggle options
+        - [ ] Simplified control modes
+        - [ ] Customizable timing windows
+      - [ ] **Audio Accessibility**  
+        - [ ] Subtitle system for all sounds
+        - [ ] Visual sound indicators
+        - [ ] Screen reader compatibility
+        - [ ] Audio cue customization
+
+  - [ ] **Context-Sensitive Interface Systems**
+    - [ ] **Dynamic Tutorial System**
+      - [ ] Progressive skill introduction
+      - [ ] Context-aware help tooltips
+      - [ ] Interactive tutorial scenarios
+      - [ ] Skill practice areas
+      - [ ] Advanced technique demonstrations
+    - [ ] **Situational Interfaces**
+      - [ ] Storm warning system
+      - [ ] Battle alert interface
+      - [ ] Emergency situation handlers
+      - [ ] Environmental hazard warnings
+      - [ ] Time-sensitive event notifications
 
 ---
 
@@ -807,7 +1166,7 @@
   - [ ] Generate `procedural treasure maps & riddles` that triangulate landmarks and lead to buried loot or sunken chests.
   - [ ] Implement `cave, grotto, and temple procedural dungeons` under islands with traps and puzzles.
   - [ ] Create a `disease & medicine loop` (scurvy, infection, broken bones, seasickness, antidotes, ship’s surgeon craft station).
-  - [ ] Track `hunger, thirst, fatigue, and crew morale`, affecting work speed and mutiny risk.
+  - [ ] Track `hunger, fatigue, and crew morale`, affecting work speed and mutiny risk.
   - [ ] Add `shipboard agriculture` (deck planters, chicken coops) for long voyages.
   - [ ] Provide `signal flares & fireworks` for multiplayer coordination and celebrations.
   - [ ] Provide a `story-driven sailing tutorial campaign` that doubles as an extended onboarding.
@@ -857,8 +1216,136 @@
   - [ ] Add a `fishing & harpooning mini-game` with rarity tiers and trophy mounts.
   - [ ] Introduce `diving gear / oxygen system` for wreck salvage and coral-reef exploration.
 
-- [ ] **JSON-Driven Recipe & Smelting System**
-  - [ ] Shapeless, shaped, furnace, blasting, smoking, smithing, stone-cutting equivalents
+- [ ] **Complete Minecraft-Style Data-Driven Systems**
+  - [ ] **JSON-Driven Recipe & Smelting System**
+    - [ ] Shapeless crafting recipes (any arrangement of ingredients)
+    - [ ] Shaped crafting recipes (specific patterns required)
+    - [ ] Furnace smelting recipes with cook time and experience
+    - [ ] Blasting furnace recipes (faster ore smelting)
+    - [ ] Smoking recipes (food cooking)
+    - [ ] Smithing table recipes (equipment upgrades)
+    - [ ] Stone-cutting recipes (precise stone shaping)
+    - [ ] Custom crafting station recipes (shipyard, alchemy table)
+    - [ ] Recipe unlock conditions and progression gates
+    - [ ] Recipe book integration with search and filtering
+    - [ ] Ingredient substitution system using tags
+    - [ ] Recipe validation and conflict resolution
+  - [ ] **Advancement System (Achievement Framework)**
+    - [ ] JSON-defined advancement trees with dependencies
+    - [ ] Advancement triggers (item pickup, block break, entity kill, etc.)
+    - [ ] Progress tracking for complex multi-step advancements
+    - [ ] Advancement rewards (recipes, loot tables, titles)
+    - [ ] Toast notification system for advancement completion
+    - [ ] Advancement UI with tree visualization and progress bars
+    - [ ] Custom criteria for maritime-specific achievements
+    - [ ] Hidden advancements that don't show until unlocked
+    - [ ] Advancement commands (/advancement give/revoke/test)
+    - [ ] Statistics integration (blocks mined, distance sailed)
+    - [ ] Advancement sharing and comparison with other players
+  - [ ] **Loot Tables System**
+    - [ ] JSON loot table definitions for all drop sources
+    - [ ] Context-sensitive loot (tool used, enchantments, conditions)
+    - [ ] Weighted random selection with luck modifiers
+    - [ ] Conditional entries based on player stats or world state
+    - [ ] Loot table inheritance and composition
+    - [ ] Fishing loot tables with biome and depth modifiers
+    - [ ] Chest loot generation for structures and shipwrecks
+    - [ ] Entity drop tables with rare item chances
+    - [ ] Block drop tables with tool requirements
+    - [ ] Quest reward loot tables
+    - [ ] Treasure map generation using loot tables
+    - [ ] Loot table commands for testing (/loot give/spawn)
+  - [ ] **Structure Generation System**
+    - [ ] JSON structure definitions with block palettes
+    - [ ] Structure placement rules and biome restrictions
+    - [ ] Procedural structure variation using random elements
+    - [ ] Structure piece composition for complex buildings
+    - [ ] Structure integrity and decay simulation over time
+    - [ ] Structure loot chest integration with loot tables
+    - [ ] Structure spawner placement for dungeons
+    - [ ] Village-style structure generation with connected buildings
+    - [ ] Shipwreck generation with damage patterns
+    - [ ] Underwater ruin placement with coral growth
+    - [ ] Temple and monument generation with puzzle elements
+    - [ ] Structure commands for manual placement (/structure load/save)
+  - [ ] **Biome Definition Files**
+    - [ ] JSON biome definitions with all environmental parameters
+    - [ ] Biome-specific block palettes for terrain generation
+    - [ ] Temperature and humidity-based biome placement
+    - [ ] Biome-specific mob spawning rules and weights
+    - [ ] Biome-specific structure generation probabilities
+    - [ ] Biome color maps for grass, foliage, and water
+    - [ ] Biome-specific ambient sounds and weather patterns
+    - [ ] Biome transition smoothing and edge blending
+    - [ ] Biome-specific resource distribution rules
+    - [ ] Ocean depth biomes with depth-based features
+    - [ ] Climate zone definitions for realistic biome clustering
+    - [ ] Biome modification commands for world editing
+  - [ ] **Item/Block Model System**
+    - [ ] JSON blockstates definitions with variant selection
+    - [ ] JSON model definitions with textures and geometry
+    - [ ] Item model predicates for dynamic model switching
+    - [ ] Block model multipart system for complex shapes
+    - [ ] Model inheritance and parent-child relationships
+    - [ ] Custom model loading from resource packs
+    - [ ] Model baking and optimization for performance
+    - [ ] Animation support for rotating and moving parts
+    - [ ] Model validation and error reporting
+    - [ ] Ship component model system with attachment points
+    - [ ] Tool and weapon model variants based on materials
+    - [ ] Model generation tools for rapid content creation
+  - [ ] **Tag System (#groups)**
+    - [ ] JSON tag definitions for items, blocks, and entities
+    - [ ] Tag inheritance and composition (tags containing other tags)
+    - [ ] Recipe ingredient substitution using tags
+    - [ ] Loot table item selection using tags
+    - [ ] Entity spawning rules using entity tags
+    - [ ] Biome grouping using biome tags
+    - [ ] Tool effectiveness tags (axe cuts #logs faster)
+    - [ ] Material type tags (#wooden_planks, #metal_blocks, #ship_hulls)
+    - [ ] Tag validation and cycle detection
+    - [ ] Dynamic tag generation based on item properties
+    - [ ] Tag commands for testing and debugging (/tag list/test)
+    - [ ] Mod compatibility through namespace-aware tags
+  - [ ] **Dimension System**
+    - [ ] JSON dimension definitions with generation parameters
+    - [ ] Dimension-specific world generation rules
+    - [ ] Portal creation and linking between dimensions
+    - [ ] Dimension-specific physics (gravity, fluid behavior)
+    - [ ] Cross-dimensional coordinate scaling
+    - [ ] Dimension-specific ambient effects and skybox
+    - [ ] Dimension teleportation commands and validation
+    - [ ] Dimension-specific mob spawning and restrictions
+    - [ ] Resource pack support for dimension-specific assets
+    - [ ] Dimension data synchronization in multiplayer
+    - [ ] Portal safety checks and spawn point management
+    - [ ] Dimension-specific game rules and overrides
+  - [ ] **Spawning Rules System**
+    - [ ] JSON spawn rule definitions for all entity types
+    - [ ] Biome-specific spawning with weighted probabilities
+    - [ ] Light level, block type, and height restrictions
+    - [ ] Time-based spawning (day/night, moon phases)
+    - [ ] Player proximity rules and safe zones
+    - [ ] Spawn cap management per category and area
+    - [ ] Pack spawning with group size ranges
+    - [ ] Structure-based special spawning rules
+    - [ ] Ocean depth-based creature spawning
+    - [ ] Weather-dependent spawn modifiers
+    - [ ] Spawn attempt optimization and performance tuning
+    - [ ] Spawning commands for testing (/summon with conditions)
+  - [ ] **Enhanced Gamerule System**
+    - [ ] JSON gamerule definitions with validation rules
+    - [ ] Per-world persistent gamerule storage
+    - [ ] Gamerule categories and organization
+    - [ ] Gamerule inheritance from server defaults
+    - [ ] Real-time gamerule change notifications
+    - [ ] Gamerule permission system for multiplayer
+    - [ ] Gamerule impact validation (prevent game-breaking states)
+    - [ ] Custom gamerules for maritime-specific features
+    - [ ] Gamerule presets for different play styles
+    - [ ] Gamerule synchronization between client and server
+    - [ ] Gamerule commands with tab completion (/gamerule list/set/get)
+    - [ ] Gamerule documentation and help system
 
 - [ ] **Sleeping / Time-Skip Logic**
   - [ ] Bed entity, spawn-point set, night-skip vote in multiplayer

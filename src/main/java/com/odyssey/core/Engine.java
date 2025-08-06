@@ -95,8 +95,9 @@ public class Engine {
             world = new World(config);
             world.initialize();
             
-            oceanSystem = new OceanSystem(config);
-            oceanSystem.initialize();
+            // Ocean system is now initialized by the Renderer
+            // oceanSystem = new OceanSystem(config);
+            // oceanSystem.initialize();
             
             weatherSystem = new WeatherSystem(config);
             weatherSystem.initialize();
@@ -202,8 +203,8 @@ public class Engine {
             weatherSystem.update(deltaTime);
         }
         
-        if (config.isEnableTidalSystem()) {
-            oceanSystem.update(deltaTime);
+        if (config.isEnableTidalSystem() && renderer.getOceanSystem() != null) {
+            renderer.getOceanSystem().update(deltaTime);
         }
         
         world.update(deltaTime);
@@ -331,8 +332,8 @@ public class Engine {
             // Render world
             world.render(renderer);
             
-            // Render ocean system (additional ocean effects)
-            oceanSystem.render(renderer);
+            // Ocean rendering is now handled by the renderer's renderScene method
+            // oceanSystem.render(renderer);
             
             // Render weather effects
             weatherSystem.render(renderer);

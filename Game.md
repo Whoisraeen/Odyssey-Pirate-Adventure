@@ -52,7 +52,7 @@ The player's ship is their home, their weapon, and their primary means of progre
 ### **III. Gameplay Loop & Systems**
 
 *   **Survival & Crafting:**
-    *   **Basic Needs:** The player has health, hunger, and thirst meters. Food can be gathered (coconuts), hunted (boar), or fished. Water can be collected from rain or purified from saltwater with a fire and a simple still.
+    *   **Basic Needs:** The player has health and hunger meters. Food can be gathered (coconuts), hunted (boar), or fished.
     *   **Crafting Tiers:** Progression is tied to materials.
         *   **Tier 1 (Flotsam & Wood):** Basic raft, crude tools, campfire.
         *   **Tier 2 (Iron & Advanced Wood):** Proper small ship (Sloop), iron tools, simple cannons, smithy.

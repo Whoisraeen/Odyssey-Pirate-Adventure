@@ -8,6 +8,11 @@
 - **BANNED class patterns**: `AdvancedWeatherSystem`, `ImprovedRenderer`, `BetterChunkManager`, `NewInputSystem`
 - **MANDATORY check**: Before creating ANY new class, search for existing classes with similar functionality
 - **Upgrade over create**: If `WeatherSystem.java` exists, upgrade it. NEVER create `WeatherSystemV2.java`
+- **Mark TODO items**: Prefix TODO items with `[ ]` or `[Z]` to track progress after completing a task from the TODO.md file.
+  - `[ ]` for tasks that are yet to be started
+  - `[Z]` for tasks that are completed
+  - `[X]` for tasks that are in progress
+  - After completing a task, compile and execute the game to make sure there are no code issues.
 
 ---
 

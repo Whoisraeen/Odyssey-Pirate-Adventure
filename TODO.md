@@ -15,7 +15,7 @@
   - [X] Stabilize Maven build process; create profiles for `dev` and `release`
   - [X] Implement Logback for structured, level-based logging (`INFO`, `DEBUG`, `ERROR`)
   - [X] Integrate a crash reporting system (e.g., Sentry or custom solution)
-  - [ ] Set up `CI/CD pipelines` for automated unit tests, headless world-gen fuzzing, and performance regression alerts.
+  - [Z] Set up `CI/CD pipelines` for automated unit tests, headless world-gen fuzzing, and performance regression alerts.
 
 - [X] **Memory Management & Performance**
   - [X] Memory Pool Allocators - Custom allocators for frequently allocated objects (chunks, entities, particles)

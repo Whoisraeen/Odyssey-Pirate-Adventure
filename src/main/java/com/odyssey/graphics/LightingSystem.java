@@ -411,7 +411,7 @@ public class LightingSystem {
         
         // Check framebuffer completeness
         if (GL30.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER) != GL30.GL_FRAMEBUFFER_COMPLETE) {
-            logger.error("Shadow map framebuffer is not complete!");
+            logger.severe("Shadow map framebuffer is not complete!");
         }
         
         GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
@@ -475,7 +475,7 @@ public class LightingSystem {
      */
     public boolean addDirectionalLight(DirectionalLight light) {
         if (directionalLights.size() >= MAX_DIRECTIONAL_LIGHTS) {
-            logger.warn("Cannot add directional light: at maximum capacity ({})", MAX_DIRECTIONAL_LIGHTS);
+            logger.warning("Cannot add directional light: at maximum capacity (" + MAX_DIRECTIONAL_LIGHTS + ")");
             return false;
         }
         
@@ -491,7 +491,7 @@ public class LightingSystem {
      */
     public boolean addPointLight(PointLight light) {
         if (pointLights.size() >= MAX_POINT_LIGHTS) {
-            logger.warn("Cannot add point light: at maximum capacity ({})", MAX_POINT_LIGHTS);
+            logger.warning("Cannot add point light: at maximum capacity (" + MAX_POINT_LIGHTS + ")");
             return false;
         }
         
@@ -506,7 +506,7 @@ public class LightingSystem {
      */
     public boolean addSpotLight(SpotLight light) {
         if (spotLights.size() >= MAX_SPOT_LIGHTS) {
-            logger.warn("Cannot add spot light: at maximum capacity ({})", MAX_SPOT_LIGHTS);
+            logger.warning("Cannot add spot light: at maximum capacity (" + MAX_SPOT_LIGHTS + ")");
             return false;
         }
         
@@ -592,7 +592,7 @@ public class LightingSystem {
     private void uploadLightDataToGPU() {
         // This would typically upload structured light data to the UBO
         // Implementation depends on the specific shader uniform layout
-        logger.debug("Updated light data on GPU");
+        logger.fine("Updated light data on GPU");
     }
     
     /**

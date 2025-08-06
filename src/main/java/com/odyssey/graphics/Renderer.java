@@ -349,12 +349,7 @@ public class Renderer {
             renderOcean();
         }
         
-        // Render test cubes with PBR materials
-        if (usePBRMaterials && pbrShader != null) {
-            renderTestCubesPBR();
-        } else {
-            renderTestCubes();
-        }
+        // Test cubes removed - ready for world generation
         
         deferredRenderer.endGeometryPass();
         
@@ -388,8 +383,7 @@ public class Renderer {
         // Render ocean plane
         renderOcean();
         
-        // Render some test cubes for visual feedback
-        renderTestCubes();
+        // Test cubes removed - ready for world generation
     }
     
     /**
@@ -426,6 +420,8 @@ public class Renderer {
             return;
         }
         
+        logger.debug("Rendering simple ocean with basic shader");
+        
         basicShader.bind();
         
         // Set matrices
@@ -439,48 +435,14 @@ public class Renderer {
         modelMatrix.identity().translate(0, 64, 0).scale(200);
         basicShader.setUniform("u_modelMatrix", modelMatrix);
         
+        logger.debug("Ocean plane position: y=64, scale=200, camera position: {}", camera.getPosition());
+        
         planeMesh.render();
         
         basicShader.unbind();
     }
     
-    /**
-     * Renders test cubes using forward rendering.
-     */
-    private void renderTestCubes() {
-        // Use basic shader for forward rendering
-        Shader basicShader = shaderManager.getShader("basic");
-        if (basicShader == null) {
-            logger.warn("Basic shader not found, skipping test cubes rendering");
-            return;
-        }
-        
-        basicShader.bind();
-        
-        // Set matrices
-        basicShader.setUniform("u_projectionMatrix", camera.getProjectionMatrix());
-        basicShader.setUniform("u_viewMatrix", camera.getViewMatrix());
-        
-        // Render a grid of test cubes with different colors
-        for (int x = -2; x <= 2; x++) {
-            for (int z = -2; z <= 2; z++) {
-                modelMatrix.identity().translate(x * 20, 75, z * 20).scale(3);
-                basicShader.setUniform("u_modelMatrix", modelMatrix);
-                
-                // Different colors for different positions
-                Vector3f color = new Vector3f(
-                    0.5f + (x + 2) / 8.0f,
-                    0.5f + (z + 2) / 8.0f,
-                    0.7f
-                );
-                basicShader.setUniform("u_color", color);
-                
-                cubeMesh.render();
-            }
-        }
-        
-        basicShader.unbind();
-    }
+
     
     /**
      * Renders a simple ocean using PBR shader.
@@ -510,46 +472,7 @@ public class Renderer {
         pbrShader.unbind();
     }
     
-    /**
-     * Renders test cubes using PBR materials.
-     */
-    private void renderTestCubesPBR() {
-        if (pbrShader == null) {
-            renderTestCubes();
-            return;
-        }
-        
-        pbrShader.bind();
-        
-        // Set lighting parameters
-        pbrShader.setLightingParameters(lightingSystem);
-        pbrShader.setCameraPosition(camera.getPosition());
-        
-        // Render a grid of test cubes with different PBR materials
-        for (int x = -2; x <= 2; x++) {
-            for (int z = -2; z <= 2; z++) {
-                modelMatrix.identity().translate(x * 20, 75, z * 20).scale(3);
-                pbrShader.setMatrices(modelMatrix, camera.getViewMatrix(), camera.getProjectionMatrix());
-                
-                // Different PBR materials for different positions
-                float metallic = (x + 2) / 4.0f;
-                float roughness = (z + 2) / 4.0f;
-                
-                Vector3f albedo = new Vector3f(
-                    0.5f + (x + 2) / 8.0f,
-                    0.5f + (z + 2) / 8.0f,
-                    0.7f
-                );
-                
-                // Set material factors for this cube
-                pbrShader.setMaterialFactors(albedo, metallic, Math.max(0.1f, roughness), new Vector3f(0.0f), 1.0f);
-                
-                cubeMesh.render();
-            }
-        }
-        
-        pbrShader.unbind();
-    }
+
     
     private void renderDebugInfo() {
         // Render debug information like camera position, FPS, etc.
@@ -701,7 +624,7 @@ public class Renderer {
         glEnable(GL_CLIP_DISTANCE0);
         
         // Render the scene (excluding water)
-        renderTestCubes(); // Render objects that should be reflected
+        // Test cubes removed - ready for world generation
         
         // Disable clipping
         glDisable(GL_CLIP_DISTANCE0);

@@ -9,7 +9,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
-import org.joml.Vector2f;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -80,13 +79,16 @@ public class TextureAtlasManager {
         UI("ui", 1024, TextureAtlas.PackingAlgorithm.GUILLOTINE),         // Mixed UI element sizes
         EFFECTS("effects", 512, TextureAtlas.PackingAlgorithm.GUILLOTINE), // Particle/effect textures
         TERRAIN("terrain", 2048, TextureAtlas.PackingAlgorithm.SHELF),    // Similar terrain textures
-        // PBR Material Categories
-        PBR_ALBEDO("pbr_albedo", 2048, TextureAtlas.PackingAlgorithm.SHELF),     // PBR albedo textures
-        PBR_NORMAL("pbr_normal", 2048, TextureAtlas.PackingAlgorithm.SHELF),     // PBR normal maps
-        PBR_METALLIC("pbr_metallic", 1024, TextureAtlas.PackingAlgorithm.SHELF), // PBR metallic maps
-        PBR_ROUGHNESS("pbr_roughness", 1024, TextureAtlas.PackingAlgorithm.SHELF), // PBR roughness maps
-        PBR_AO("pbr_ao", 1024, TextureAtlas.PackingAlgorithm.SHELF),             // PBR ambient occlusion maps
-        PBR_EMISSION("pbr_emission", 1024, TextureAtlas.PackingAlgorithm.SHELF); // PBR emission maps
+        
+        // PBR Material Channels
+        PBR_ALBEDO("pbr_albedo", 2048, TextureAtlas.PackingAlgorithm.SHELF),     // Base color/diffuse maps
+        PBR_NORMAL("pbr_normal", 2048, TextureAtlas.PackingAlgorithm.SHELF),     // Normal maps
+        PBR_METALLIC("pbr_metallic", 1024, TextureAtlas.PackingAlgorithm.SHELF), // Metallic maps
+        PBR_ROUGHNESS("pbr_roughness", 1024, TextureAtlas.PackingAlgorithm.SHELF), // Roughness maps
+        PBR_AO("pbr_ao", 1024, TextureAtlas.PackingAlgorithm.SHELF),             // Ambient occlusion maps
+        PBR_EMISSION("pbr_emission", 1024, TextureAtlas.PackingAlgorithm.SHELF), // Emission maps
+        PBR_HEIGHT("pbr_height", 1024, TextureAtlas.PackingAlgorithm.SHELF),     // Height/displacement maps
+        PBR_COMBINED("pbr_combined", 2048, TextureAtlas.PackingAlgorithm.SHELF); // Combined MRA (Metallic/Roughness/AO) maps
         
         private final String name;
         private final int defaultSize;
@@ -138,9 +140,76 @@ public class TextureAtlasManager {
         }
     }
     
+    /**
+     * Represents a complete PBR material with all texture channels.
+     */
+    public static class PBRMaterial {
+        private final String name;
+        private final AtlasTextureReference albedo;
+        private final AtlasTextureReference normal;
+        private final AtlasTextureReference metallic;
+        private final AtlasTextureReference roughness;
+        private final AtlasTextureReference ao;
+        private final AtlasTextureReference emission;
+        private final AtlasTextureReference height;
+        private final AtlasTextureReference combined; // MRA combined texture
+        
+        public PBRMaterial(String name, AtlasTextureReference albedo, AtlasTextureReference normal,
+                          AtlasTextureReference metallic, AtlasTextureReference roughness,
+                          AtlasTextureReference ao, AtlasTextureReference emission,
+                          AtlasTextureReference height, AtlasTextureReference combined) {
+            this.name = name;
+            this.albedo = albedo;
+            this.normal = normal;
+            this.metallic = metallic;
+            this.roughness = roughness;
+            this.ao = ao;
+            this.emission = emission;
+            this.height = height;
+            this.combined = combined;
+        }
+        
+        public String getName() { return name; }
+        public AtlasTextureReference getAlbedo() { return albedo; }
+        public AtlasTextureReference getNormal() { return normal; }
+        public AtlasTextureReference getMetallic() { return metallic; }
+        public AtlasTextureReference getRoughness() { return roughness; }
+        public AtlasTextureReference getAO() { return ao; }
+        public AtlasTextureReference getEmission() { return emission; }
+        public AtlasTextureReference getHeight() { return height; }
+        public AtlasTextureReference getCombined() { return combined; }
+        
+        /**
+         * Checks if this material has all required PBR channels.
+         * @return True if albedo, normal, metallic, and roughness are present
+         */
+        public boolean isComplete() {
+            return albedo != null && normal != null && metallic != null && roughness != null;
+        }
+        
+        /**
+         * Gets the number of available texture channels.
+         * @return Count of non-null texture references
+         */
+        public int getChannelCount() {
+            int count = 0;
+            if (albedo != null) count++;
+            if (normal != null) count++;
+            if (metallic != null) count++;
+            if (roughness != null) count++;
+            if (ao != null) count++;
+            if (emission != null) count++;
+            if (height != null) count++;
+            if (combined != null) count++;
+            return count;
+        }
+    }
+    
     private final Map<AtlasCategory, List<TextureAtlas>> atlases;
     private final Map<String, AtlasTextureReference> textureReferences;
     private final Map<String, CompletableFuture<AtlasTextureReference>> pendingRequests;
+    private final Map<String, PBRMaterial> pbrMaterials;
+    private final Map<String, CompletableFuture<PBRMaterial>> pendingPBRRequests;
     private final StreamingTextureManager streamingManager;
     private final AtomicLong totalAtlasMemory;
     private final long maxAtlasMemoryMB;
@@ -155,6 +224,8 @@ public class TextureAtlasManager {
         this.atlases = new HashMap<>();
         this.textureReferences = new ConcurrentHashMap<>();
         this.pendingRequests = new ConcurrentHashMap<>();
+        this.pbrMaterials = new ConcurrentHashMap<>();
+        this.pendingPBRRequests = new ConcurrentHashMap<>();
         this.streamingManager = streamingManager;
         this.totalAtlasMemory = new AtomicLong(0);
         this.maxAtlasMemoryMB = maxAtlasMemoryMB;
@@ -373,6 +444,144 @@ public class TextureAtlasManager {
     }
     
     /**
+     * Requests a complete PBR material to be loaded asynchronously.
+     * 
+     * @param materialName The unique name for the material
+     * @param basePath Base path for material textures (without channel suffix)
+     * @param priority The loading priority
+     * @param callback Callback when material is loaded (optional)
+     * @return CompletableFuture that completes when material is loaded
+     */
+    public CompletableFuture<PBRMaterial> requestPBRMaterialAsync(String materialName, String basePath, 
+                                                                 StreamingPriority priority,
+                                                                 Consumer<PBRMaterial> callback) {
+        // Check if already loaded
+        PBRMaterial existing = pbrMaterials.get(materialName);
+        if (existing != null) {
+            if (callback != null) {
+                callback.accept(existing);
+            }
+            return CompletableFuture.completedFuture(existing);
+        }
+        
+        // Check if already being loaded
+        CompletableFuture<PBRMaterial> pending = pendingPBRRequests.get(materialName);
+        if (pending != null) {
+            if (callback != null) {
+                pending.thenAccept(callback);
+            }
+            return pending;
+        }
+        
+        // Load all PBR channels asynchronously
+        CompletableFuture<PBRMaterial> future = CompletableFuture.supplyAsync(() -> {
+            try {
+                return loadPBRMaterial(materialName, basePath, priority);
+            } catch (Exception e) {
+                logger.error("Failed to load PBR material: " + materialName + " - " + e.getMessage());
+                throw new RuntimeException("PBR material loading failed", e);
+            }
+        })
+                .whenComplete((result, throwable) -> {
+                    pendingPBRRequests.remove(materialName);
+                    if (callback != null && result != null) {
+                        callback.accept(result);
+                    }
+                });
+        
+        pendingPBRRequests.put(materialName, future);
+        return future;
+    }
+    
+    /**
+     * Loads a complete PBR material synchronously.
+     * 
+     * @param materialName The unique name for the material
+     * @param basePath Base path for material textures (without channel suffix)
+     * @param priority The loading priority
+     * @return The PBR material, or null if failed
+     */
+    public PBRMaterial requestPBRMaterialSync(String materialName, String basePath, StreamingPriority priority) {
+        // Check if already loaded
+        PBRMaterial existing = pbrMaterials.get(materialName);
+        if (existing != null) {
+            return existing;
+        }
+        
+        try {
+            return loadPBRMaterial(materialName, basePath, priority);
+        } catch (Exception e) {
+            logger.error("Failed to load PBR material synchronously: " + materialName + " - " + e.getMessage());
+            return null;
+        }
+    }
+    
+    /**
+     * Creates a PBR material from individual texture references.
+     * 
+     * @param materialName The unique name for the material
+     * @param albedo Albedo texture reference (required)
+     * @param normal Normal texture reference (required)
+     * @param metallic Metallic texture reference (required)
+     * @param roughness Roughness texture reference (required)
+     * @param ao Ambient occlusion texture reference (optional)
+     * @param emission Emission texture reference (optional)
+     * @param height Height texture reference (optional)
+     * @param combined Combined MRA texture reference (optional)
+     * @return The created PBR material
+     */
+    public PBRMaterial createPBRMaterial(String materialName, 
+                                        AtlasTextureReference albedo,
+                                        AtlasTextureReference normal,
+                                        AtlasTextureReference metallic,
+                                        AtlasTextureReference roughness,
+                                        AtlasTextureReference ao,
+                                        AtlasTextureReference emission,
+                                        AtlasTextureReference height,
+                                        AtlasTextureReference combined) {
+        if (pbrMaterials.containsKey(materialName)) {
+            logger.warn("PBR material with name '" + materialName + "' already exists");
+            return pbrMaterials.get(materialName);
+        }
+        
+        PBRMaterial material = new PBRMaterial(materialName, albedo, normal, metallic, roughness, 
+                                              ao, emission, height, combined);
+        pbrMaterials.put(materialName, material);
+        
+        logger.info("Created PBR material '{}' with {} channels", materialName, material.getChannelCount());
+        return material;
+    }
+    
+    /**
+     * Gets a PBR material by name.
+     * 
+     * @param materialName The name of the material
+     * @return The PBR material, or null if not found
+     */
+    public PBRMaterial getPBRMaterial(String materialName) {
+        return pbrMaterials.get(materialName);
+    }
+    
+    /**
+     * Checks if a PBR material exists.
+     * 
+     * @param materialName The name of the material
+     * @return True if the material exists, false otherwise
+     */
+    public boolean hasPBRMaterial(String materialName) {
+        return pbrMaterials.containsKey(materialName);
+    }
+    
+    /**
+     * Gets the total number of PBR materials managed.
+     * 
+     * @return The total PBR material count
+     */
+    public int getTotalPBRMaterialCount() {
+        return pbrMaterials.size();
+    }
+    
+    /**
      * Gets statistics about atlas usage.
      * @return A formatted string with atlas statistics
      */
@@ -415,7 +624,66 @@ public class TextureAtlasManager {
         createPlaceholderTexture("missing_entity", AtlasCategory.ENTITIES);
         createPlaceholderTexture("missing_ui", AtlasCategory.UI);
         
-        logger.info("Preloaded default placeholder textures");
+        // Create default PBR material placeholders
+        createDefaultPBRTextures();
+        
+        logger.info("Preloaded default placeholder textures and PBR materials");
+    }
+    
+    /**
+     * Creates default PBR material textures for missing assets.
+     */
+    private void createDefaultPBRTextures() {
+        // Default albedo (white)
+        createSolidColorTexture("default_albedo", AtlasCategory.PBR_ALBEDO, 255, 255, 255, 255);
+        
+        // Default normal map (flat normal pointing up)
+        createSolidColorTexture("default_normal", AtlasCategory.PBR_NORMAL, 128, 128, 255, 255);
+        
+        // Default metallic (non-metallic)
+        createSolidColorTexture("default_metallic", AtlasCategory.PBR_METALLIC, 0, 0, 0, 255);
+        
+        // Default roughness (medium roughness)
+        createSolidColorTexture("default_roughness", AtlasCategory.PBR_ROUGHNESS, 128, 128, 128, 255);
+        
+        // Default AO (no occlusion)
+        createSolidColorTexture("default_ao", AtlasCategory.PBR_AO, 255, 255, 255, 255);
+        
+        // Default emission (no emission)
+        createSolidColorTexture("default_emission", AtlasCategory.PBR_EMISSION, 0, 0, 0, 255);
+        
+        // Default height (flat)
+        createSolidColorTexture("default_height", AtlasCategory.PBR_HEIGHT, 128, 128, 128, 255);
+        
+        // Default combined MRA (non-metallic, medium roughness, no AO)
+        createSolidColorTexture("default_combined", AtlasCategory.PBR_COMBINED, 0, 128, 255, 255);
+        
+        logger.info("Created default PBR material textures");
+    }
+    
+    /**
+     * Creates a solid color texture for PBR defaults.
+     * 
+     * @param name The name for the texture
+     * @param category The PBR category
+     * @param r Red component (0-255)
+     * @param g Green component (0-255)
+     * @param b Blue component (0-255)
+     * @param a Alpha component (0-255)
+     */
+    private void createSolidColorTexture(String name, AtlasCategory category, int r, int g, int b, int a) {
+        int size = 16; // 16x16 default texture
+        ByteBuffer textureData = ByteBuffer.allocateDirect(size * size * 4);
+        
+        for (int i = 0; i < size * size; i++) {
+            textureData.put((byte) r);
+            textureData.put((byte) g);
+            textureData.put((byte) b);
+            textureData.put((byte) a);
+        }
+        
+        textureData.flip();
+        addTexture(name, textureData, size, size, category);
     }
     
     /**
@@ -830,7 +1098,7 @@ public class TextureAtlasManager {
             
             return new TextureData(data, width, height);
         } catch (Exception e) {
-            logger.error("Failed to extract texture data for region: {} - {}", region.getName(), e.getMessage());
+            logger.severe("Failed to extract texture data for region: " + region.getName() + " - " + e.getMessage());
             return null;
         }
     }
@@ -860,152 +1128,5 @@ public class TextureAtlasManager {
         }
         
         logger.info("Texture atlas manager cleanup complete");
-    }
-    
-    // ===== PBR Material Support Methods =====
-    
-    /**
-     * Represents a complete PBR material with all texture maps.
-     */
-    public static class PBRMaterial {
-        private final AtlasTextureReference albedo;
-        private final AtlasTextureReference normal;
-        private final AtlasTextureReference metallic;
-        private final AtlasTextureReference roughness;
-        private final AtlasTextureReference ao;
-        private final AtlasTextureReference emission;
-        
-        public PBRMaterial(AtlasTextureReference albedo, AtlasTextureReference normal,
-                          AtlasTextureReference metallic, AtlasTextureReference roughness,
-                          AtlasTextureReference ao, AtlasTextureReference emission) {
-            this.albedo = albedo;
-            this.normal = normal;
-            this.metallic = metallic;
-            this.roughness = roughness;
-            this.ao = ao;
-            this.emission = emission;
-        }
-        
-        public AtlasTextureReference getAlbedo() { return albedo; }
-        public AtlasTextureReference getNormal() { return normal; }
-        public AtlasTextureReference getMetallic() { return metallic; }
-        public AtlasTextureReference getRoughness() { return roughness; }
-        public AtlasTextureReference getAO() { return ao; }
-        public AtlasTextureReference getEmission() { return emission; }
-    }
-    
-    /**
-     * Loads a complete PBR material with all texture maps.
-     * 
-     * @param materialName Base name for the material
-     * @param albedoPath Path to albedo texture
-     * @param normalPath Path to normal map (can be null)
-     * @param metallicPath Path to metallic map (can be null)
-     * @param roughnessPath Path to roughness map (can be null)
-     * @param aoPath Path to ambient occlusion map (can be null)
-     * @param emissionPath Path to emission map (can be null)
-     * @return CompletableFuture containing the PBR material
-     */
-    public CompletableFuture<PBRMaterial> loadPBRMaterial(String materialName,
-                                                         String albedoPath,
-                                                         String normalPath,
-                                                         String metallicPath,
-                                                         String roughnessPath,
-                                                         String aoPath,
-                                                         String emissionPath) {
-        List<CompletableFuture<AtlasTextureReference>> futures = new ArrayList<>();
-        
-        // Load albedo (required)
-        futures.add(requestTextureAsync(materialName + "_albedo", albedoPath, AtlasCategory.PBR_ALBEDO, StreamingPriority.HIGH, null));
-        
-        // Load optional maps
-        futures.add(normalPath != null ? 
-            requestTextureAsync(materialName + "_normal", normalPath, AtlasCategory.PBR_NORMAL, StreamingPriority.MEDIUM, null) :
-            CompletableFuture.completedFuture(null));
-            
-        futures.add(metallicPath != null ? 
-            requestTextureAsync(materialName + "_metallic", metallicPath, AtlasCategory.PBR_METALLIC, StreamingPriority.MEDIUM, null) :
-            CompletableFuture.completedFuture(null));
-            
-        futures.add(roughnessPath != null ? 
-            requestTextureAsync(materialName + "_roughness", roughnessPath, AtlasCategory.PBR_ROUGHNESS, StreamingPriority.MEDIUM, null) :
-            CompletableFuture.completedFuture(null));
-            
-        futures.add(aoPath != null ? 
-            requestTextureAsync(materialName + "_ao", aoPath, AtlasCategory.PBR_AO, StreamingPriority.LOW, null) :
-            CompletableFuture.completedFuture(null));
-            
-        futures.add(emissionPath != null ? 
-            requestTextureAsync(materialName + "_emission", emissionPath, AtlasCategory.PBR_EMISSION, StreamingPriority.LOW, null) :
-            CompletableFuture.completedFuture(null));
-        
-        return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-            .thenApply(v -> {
-                try {
-                    return new PBRMaterial(
-                        futures.get(0).get(), // albedo
-                        futures.get(1).get(), // normal
-                        futures.get(2).get(), // metallic
-                        futures.get(3).get(), // roughness
-                        futures.get(4).get(), // ao
-                        futures.get(5).get()  // emission
-                    );
-                } catch (Exception e) {
-                    logger.error("Failed to create PBR material: {}", materialName, e);
-                    return null;
-                }
-            });
-    }
-    
-    /**
-     * Loads a PBR material from a standard naming convention.
-     * Expects files named: materialName_albedo.png, materialName_normal.png, etc.
-     * 
-     * @param materialName Base name for the material
-     * @param basePath Base directory path
-     * @return CompletableFuture containing the PBR material
-     */
-    public CompletableFuture<PBRMaterial> loadPBRMaterialStandard(String materialName, String basePath) {
-        String base = basePath + "/" + materialName;
-        return loadPBRMaterial(materialName,
-            base + "_albedo.png",
-            base + "_normal.png",
-            base + "_metallic.png", 
-            base + "_roughness.png",
-            base + "_ao.png",
-            base + "_emission.png");
-    }
-    
-    /**
-     * Gets statistics about PBR texture usage.
-     * 
-     * @return Formatted statistics about PBR texture atlases
-     */
-    public String getPBRStatistics() {
-        StringBuilder stats = new StringBuilder();
-        stats.append("PBR Texture Atlas Statistics:\n");
-        
-        AtlasCategory[] pbrCategories = {
-            AtlasCategory.PBR_ALBEDO, AtlasCategory.PBR_NORMAL,
-            AtlasCategory.PBR_METALLIC, AtlasCategory.PBR_ROUGHNESS,
-            AtlasCategory.PBR_AO, AtlasCategory.PBR_EMISSION
-        };
-        
-        for (AtlasCategory category : pbrCategories) {
-            List<TextureAtlas> categoryAtlases = atlases.get(category);
-            int textureCount = categoryAtlases.stream()
-                .mapToInt(atlas -> atlas.getTextureCount())
-                .sum();
-            
-            double avgUtilization = categoryAtlases.stream()
-                .mapToDouble(TextureAtlas::getSpaceUtilization)
-                .average()
-                .orElse(0.0);
-            
-            stats.append(String.format("  %s: %d textures in %d atlases (%.1f%% utilization)\n",
-                category.getName(), textureCount, categoryAtlases.size(), avgUtilization * 100));
-        }
-        
-        return stats.toString();
     }
 }

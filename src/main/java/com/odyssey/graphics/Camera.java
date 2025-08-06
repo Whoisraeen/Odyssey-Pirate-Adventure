@@ -7,15 +7,29 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Camera system for The Odyssey.
- * Handles view transformations, movement, and projection.
+ * Handles view transformations, movement, and projection with Minecraft-style camera modes.
  */
 public class Camera {
     private static final Logger logger = LoggerFactory.getLogger(Camera.class);
+    
+    // Camera modes (like Minecraft)
+    public enum CameraMode {
+        FIRST_PERSON,      // F5 once - first person view
+        THIRD_PERSON_BACK, // F5 twice - third person behind player
+        THIRD_PERSON_FRONT // F5 three times - third person in front of player
+    }
     
     // Camera properties
     private Vector3f position;
     private Vector3f rotation;
     private Vector3f velocity;
+    
+    // Player-centric camera system
+    private Vector3f playerPosition;
+    private Vector3f playerRotation;
+    private CameraMode cameraMode;
+    private float thirdPersonDistance = 5.0f;
+    private float thirdPersonHeight = 1.5f;
     
     // View properties
     private float fieldOfView;
@@ -37,11 +51,16 @@ public class Camera {
     private Vector3f smoothedRotation;
     
     public Camera() {
-        this.position = new Vector3f(0, 20, 0);
-        this.rotation = new Vector3f(0, 0, 0);
+        this.position = new Vector3f(0, 100, 50); // Position above ocean and cubes, with some distance back
+        this.rotation = new Vector3f(-20, 0, 0); // Look down slightly to see the ocean and cubes
         this.velocity = new Vector3f();
-        this.targetRotation = new Vector3f();
-        this.smoothedRotation = new Vector3f();
+        this.targetRotation = new Vector3f(-20, 0, 0);
+        this.smoothedRotation = new Vector3f(-20, 0, 0);
+        
+        // Initialize player-centric camera system
+        this.playerPosition = new Vector3f(0, 100, 50);
+        this.playerRotation = new Vector3f(-20, 0, 0);
+        this.cameraMode = CameraMode.FIRST_PERSON;
         
         this.fieldOfView = 70.0f;
         this.nearPlane = 0.1f;
@@ -55,8 +74,8 @@ public class Camera {
     }
     
     public void update(double deltaTime) {
-        // Apply velocity to position
-        position.add(
+        // Apply velocity to player position (player movement)
+        playerPosition.add(
             (float) (velocity.x * deltaTime),
             (float) (velocity.y * deltaTime),
             (float) (velocity.z * deltaTime)
@@ -64,12 +83,48 @@ public class Camera {
         
         // Smooth camera rotation for better feel
         smoothedRotation.lerp(targetRotation, (float) (smoothing * deltaTime * 60));
-        rotation.set(smoothedRotation);
+        playerRotation.set(smoothedRotation);
+        
+        // Update camera position based on camera mode
+        updateCameraPosition();
         
         // Apply drag to velocity
         velocity.mul(0.9f);
         
         updateViewMatrix();
+    }
+    
+    private void updateCameraPosition() {
+        switch (cameraMode) {
+            case FIRST_PERSON:
+                // Camera is at player position with player rotation
+                position.set(playerPosition);
+                rotation.set(playerRotation);
+                break;
+                
+            case THIRD_PERSON_BACK:
+                // Camera is behind the player
+                float yawBack = (float) Math.toRadians(playerRotation.y);
+                position.set(
+                    playerPosition.x - (float) Math.sin(yawBack) * thirdPersonDistance,
+                    playerPosition.y + thirdPersonHeight,
+                    playerPosition.z + (float) Math.cos(yawBack) * thirdPersonDistance
+                );
+                rotation.set(playerRotation);
+                break;
+                
+            case THIRD_PERSON_FRONT:
+                // Camera is in front of the player, looking back at them
+                float yawFront = (float) Math.toRadians(playerRotation.y);
+                position.set(
+                    playerPosition.x + (float) Math.sin(yawFront) * thirdPersonDistance,
+                    playerPosition.y + thirdPersonHeight,
+                    playerPosition.z - (float) Math.cos(yawFront) * thirdPersonDistance
+                );
+                // Look back at the player (180 degrees from player rotation)
+                rotation.set(playerRotation.x, playerRotation.y + 180.0f, playerRotation.z);
+                break;
+        }
     }
     
     private void updateViewMatrix() {
@@ -94,9 +149,29 @@ public class Camera {
         updateProjectionMatrix();
     }
     
+    /**
+     * Cycles through camera modes like Minecraft's F5 key
+     */
+    public void cycleCameraMode() {
+        switch (cameraMode) {
+            case FIRST_PERSON:
+                cameraMode = CameraMode.THIRD_PERSON_BACK;
+                logger.info("Switched to third person (back) view");
+                break;
+            case THIRD_PERSON_BACK:
+                cameraMode = CameraMode.THIRD_PERSON_FRONT;
+                logger.info("Switched to third person (front) view");
+                break;
+            case THIRD_PERSON_FRONT:
+                cameraMode = CameraMode.FIRST_PERSON;
+                logger.info("Switched to first person view");
+                break;
+        }
+    }
+    
     public void moveForward(float amount) {
-        float yaw = (float) Math.toRadians(rotation.y);
-        float pitch = (float) Math.toRadians(rotation.x);
+        float yaw = (float) Math.toRadians(playerRotation.y);
+        float pitch = (float) Math.toRadians(playerRotation.x);
         
         Vector3f forward = new Vector3f(
             (float) Math.sin(yaw) * (float) Math.cos(pitch),
@@ -108,7 +183,7 @@ public class Camera {
     }
     
     public void moveRight(float amount) {
-        float yaw = (float) Math.toRadians(rotation.y);
+        float yaw = (float) Math.toRadians(playerRotation.y);
         
         Vector3f right = new Vector3f(
             (float) Math.cos(yaw),
@@ -186,19 +261,49 @@ public class Camera {
     
     // Getters and setters
     public Vector3f getPosition() { return new Vector3f(position); }
-    public void setPosition(Vector3f position) { this.position.set(position); }
-    public void setPosition(float x, float y, float z) { this.position.set(x, y, z); }
+    public void setPosition(Vector3f position) { 
+        this.playerPosition.set(position);
+        updateCameraPosition();
+        updateViewMatrix();
+    }
+    public void setPosition(float x, float y, float z) { 
+        this.playerPosition.set(x, y, z);
+        updateCameraPosition();
+        updateViewMatrix();
+    }
     
     public Vector3f getRotation() { return new Vector3f(rotation); }
+    public Vector3f getPlayerPosition() { return new Vector3f(playerPosition); }
+    public Vector3f getPlayerRotation() { return new Vector3f(playerRotation); }
+    public CameraMode getCameraMode() { return cameraMode; }
+    
     public void setRotation(Vector3f rotation) { 
-        this.rotation.set(rotation);
+        this.playerRotation.set(rotation);
         this.targetRotation.set(rotation);
         this.smoothedRotation.set(rotation);
+        updateCameraPosition();
+        updateViewMatrix();
     }
     public void setRotation(float x, float y, float z) { 
-        this.rotation.set(x, y, z);
+        this.playerRotation.set(x, y, z);
         this.targetRotation.set(x, y, z);
         this.smoothedRotation.set(x, y, z);
+        updateCameraPosition();
+        updateViewMatrix();
+    }
+    
+    public void setPlayerPosition(Vector3f position) {
+        this.playerPosition.set(position);
+        updateCameraPosition();
+        updateViewMatrix();
+    }
+    
+    public void setPlayerRotation(Vector3f rotation) {
+        this.playerRotation.set(rotation);
+        this.targetRotation.set(rotation);
+        this.smoothedRotation.set(rotation);
+        updateCameraPosition();
+        updateViewMatrix();
     }
     
     public Matrix4f getViewMatrix() { return new Matrix4f(viewMatrix); }

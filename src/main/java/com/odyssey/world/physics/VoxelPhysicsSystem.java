@@ -4,11 +4,7 @@ import com.odyssey.core.GameConfig;
 import com.odyssey.core.jobs.JobSystem;
 import com.odyssey.world.chunk.ChunkManager;
 import com.odyssey.world.generation.WorldGenerator.BlockType;
-import com.odyssey.world.physics.fluid.FluidDynamicsSystem;
-import com.odyssey.world.physics.structural.StructuralIntegritySystem;
-import com.odyssey.world.physics.cloth.ClothPhysicsSystem;
-import com.odyssey.world.physics.fire.FirePropagationSystem;
-import com.odyssey.world.physics.flooding.FloodingSystem;
+// All physics systems are in the same package
 import org.joml.Vector3f;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -101,11 +97,11 @@ public class VoxelPhysicsSystem {
         this.jobSystem = jobSystem;
         
         // Initialize physics subsystems
-        this.fluidSystem = new FluidDynamicsSystem(this, chunkManager);
-        this.structuralSystem = new StructuralIntegritySystem(this, chunkManager);
-        this.clothSystem = new ClothPhysicsSystem(this);
-        this.fireSystem = new FirePropagationSystem(this, chunkManager);
-        this.floodingSystem = new FloodingSystem(this, chunkManager);
+        this.fluidSystem = new FluidDynamicsSystem(config);
+        this.structuralSystem = new StructuralIntegritySystem(config);
+        this.clothSystem = new ClothPhysicsSystem(config);
+        this.fireSystem = new FirePropagationSystem(config);
+        this.floodingSystem = new FloodingSystem(config);
         
         // Initialize thread pool for physics calculations
         int threadCount = Math.max(1, Runtime.getRuntime().availableProcessors() / 4);

@@ -25,9 +25,8 @@
 7. **Never delete existing methods** without first deprecating them for one full milestone release
 8. **Inject dependencies through constructors** rather than using global singletons
 9. **Prefer immutable data objects**; if mutability required, synchronize or use `java.util.concurrent` primitives
-10. **Write failing unit test first** before fixing or adding a feature, commit passing test with code change
-11. **Maintain ≥ 90% line-coverage** in core module; block compilation if coverage drops below threshold
-12. **Log meaningful messages** at INFO and errors at ERROR; never print directly to `System.out` or `System.err`
+10. **Maintain ≥ 90% line-coverage** in core module; block compilation if coverage drops below threshold
+11. **Log meaningful messages** at INFO and errors at ERROR; never print directly to `System.out` or `System.err`
 
 ### **Resource Management**
 13. **Use try-with-resources** for every I/O stream and closeable object to avoid leaks

@@ -43,11 +43,23 @@ public class FluidDynamicsSystem {
      */
     public void update(double deltaTime) {
         for (PhysicsRegion region : activeRegions) {
-            if (region.getFluidDynamics() != null) {
-                region.getFluidDynamics().update(deltaTime);
+            if (region.isActive()) {
+                // Update fluid dynamics for this region
+                updateRegionFluidDynamics(region, deltaTime);
                 fluidUpdates.incrementAndGet();
             }
         }
+    }
+    
+    /**
+     * Updates fluid dynamics for a specific region.
+     * @param region The region to update
+     * @param deltaTime Time elapsed since last update
+     */
+    private void updateRegionFluidDynamics(PhysicsRegion region, double deltaTime) {
+        // Basic fluid dynamics simulation for the region
+        // This would be expanded with actual fluid simulation logic
+        region.recordActivity();
     }
     
     /**

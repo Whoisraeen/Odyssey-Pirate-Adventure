@@ -43,9 +43,9 @@ public class StructuralIntegrity {
     
     /** Foundation block types that provide infinite support. */
     private static final Set<BlockType> FOUNDATION_BLOCKS = Set.of(
-        BlockType.BEDROCK,
         BlockType.OBSIDIAN,
-        BlockType.STONE
+        BlockType.STONE,
+        BlockType.VOLCANIC_ROCK
     );
     
     private final PhysicsRegion region;

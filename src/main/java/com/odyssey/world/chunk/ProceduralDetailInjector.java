@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
+import com.odyssey.world.chunk.LODTextureAtlasManager.LODLevel;
 
 /**
  * Injects procedural details into LOD meshes to maintain visual richness
@@ -313,7 +314,7 @@ public class ProceduralDetailInjector {
     public List<ProceduralDetail> generateDetails(ChunkPosition chunkPosition, 
                                                 float[][] terrainData, 
                                                 float chunkSize, 
-                                                ChunkLOD.LODLevel lodLevel) {
+                                                LODLevel lodLevel) {
         // Check cache first
         List<ProceduralDetail> cachedDetails = detailCache.get(chunkPosition);
         if (cachedDetails != null) {
@@ -409,9 +410,9 @@ public class ProceduralDetailInjector {
      * @param lodLevel LOD level
      * @return density multiplier
      */
-    private float getLODDensityMultiplier(ChunkLOD.LODLevel lodLevel) {
+    private float getLODDensityMultiplier(LODLevel lodLevel) {
         switch (lodLevel) {
-            case FULL:
+            case ULTRA:
                 return 1.0f;
             case HIGH:
                 return 0.8f;
@@ -421,10 +422,6 @@ public class ProceduralDetailInjector {
                 return 0.2f;
             case MINIMAL:
                 return 0.1f;
-            case FAR_TERRAIN:
-                return 0.05f;
-            case IMPOSTOR:
-                return 0.0f; // No details for impostors
             default:
                 return 0.3f;
         }

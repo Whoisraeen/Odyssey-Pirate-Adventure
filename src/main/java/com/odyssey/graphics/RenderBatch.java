@@ -13,6 +13,7 @@ import static org.lwjgl.opengl.GL15.*;
 import static org.lwjgl.opengl.GL20.*;
 import static org.lwjgl.opengl.GL30.*;
 import static org.lwjgl.opengl.GL31.*;
+import static org.lwjgl.opengl.GL33.*;
 
 /**
  * Represents a batch of renderable objects that share the same material and mesh.
@@ -103,8 +104,8 @@ public class RenderBatch {
         glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
         glBufferData(GL_ARRAY_BUFFER, instanceMatrices.length * Float.BYTES, GL_DYNAMIC_DRAW);
         
-        // Set up instanced vertex attributes (assuming mesh VAO is bound)
-        mesh.bind();
+        // Set up instanced vertex attributes (bind mesh VAO manually)
+        glBindVertexArray(mesh.getVaoId());
         
         // Matrix attribute (takes 4 attribute locations)
         for (int i = 0; i < 4; i++) {
@@ -115,7 +116,6 @@ public class RenderBatch {
         }
         
         glBindBuffer(GL_ARRAY_BUFFER, 0);
-        mesh.unbind();
         
         initialized = true;
         logger.debug("Initialized render batch: {}", batchId);
@@ -207,18 +207,16 @@ public class RenderBatch {
         // Bind material
         material.bind(shader);
         
-        // Bind mesh and render instances
-        mesh.bind();
-        
+        // Render instances using mesh's built-in VAO binding
         if (visibleCount == 1) {
             // Single instance - use regular draw call
-            glDrawElements(GL_TRIANGLES, mesh.getIndexCount(), GL_UNSIGNED_INT, 0);
+            mesh.render();
         } else {
-            // Multiple instances - use instanced draw call
+            // Multiple instances - use instanced draw call with manual VAO binding
+            glBindVertexArray(mesh.getVaoId());
             glDrawElementsInstanced(GL_TRIANGLES, mesh.getIndexCount(), GL_UNSIGNED_INT, 0, visibleCount);
+            glBindVertexArray(0);
         }
-        
-        mesh.unbind();
     }
     
     /**

@@ -153,6 +153,10 @@ public class Mesh {
         return indexCount;
     }
     
+    public int getVaoId() {
+        return vaoId;
+    }
+    
     // Static factory methods for common shapes
     public static Mesh createCube() {
         float[] vertices = {

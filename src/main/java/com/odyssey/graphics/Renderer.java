@@ -1,11 +1,13 @@
 package com.odyssey.graphics;
 
 import com.odyssey.core.GameConfig;
+import com.odyssey.core.jobs.JobSystem;
 import com.odyssey.graphics.LightingSystem;
 import com.odyssey.graphics.MaterialManager;
 import com.odyssey.graphics.Mesh;
 import com.odyssey.graphics.Shader;
 import com.odyssey.graphics.ShaderManager;
+import com.odyssey.graphics.StreamingTextureManager;
 import com.odyssey.graphics.TextureAtlasManager;
 import com.odyssey.world.ocean.OceanSystem;
 import org.joml.Matrix4f;
@@ -59,8 +61,14 @@ public class Renderer {
         this.shaderManager = new ShaderManager(config.isDebugMode());
         this.materialManager = new MaterialManager();
         this.batchRenderer = new BatchRenderer();
-        this.textureAtlasManager = new TextureAtlasManager();
-          this.lightingSystem = new LightingSystem();
+        
+        // Create a temporary JobSystem for StreamingTextureManager
+        // This will be replaced when the main JobSystem is available
+        JobSystem tempJobSystem = new JobSystem(config);
+        StreamingTextureManager streamingTextureManager = new StreamingTextureManager(
+            tempJobSystem, 256, 512, 0.8f, true);
+        this.textureAtlasManager = new TextureAtlasManager(streamingTextureManager);
+        this.lightingSystem = new LightingSystem();
     }
     
     public void initialize() throws Exception {

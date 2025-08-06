@@ -1,5 +1,7 @@
 package com.odyssey.graphics;
 
+import com.odyssey.core.jobs.Job;
+import com.odyssey.core.jobs.JobHandle;
 import com.odyssey.core.jobs.JobSystem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -140,15 +142,44 @@ public class ContentPipeline {
     public CompletableFuture<Void> addResourcePack(String resourcePackPath) {
         resourcePackPaths.add(resourcePackPath);
         
-        return CompletableFuture.runAsync(() -> {
-            try {
+        // Create a job for scanning the resource pack
+        Job scanJob = new Job() {
+            @Override
+            public void execute() throws Exception {
                 scanResourcePack(resourcePackPath);
                 startWatching(resourcePackPath);
-            } catch (IOException e) {
-                logger.error("Failed to add resource pack: {}", resourcePackPath, e);
-                throw new RuntimeException(e);
             }
-        }, jobSystem.getExecutor());
+            
+            @Override
+            public int getPriority() {
+                return 5; // Medium priority
+            }
+            
+            @Override
+            public String getDescription() {
+                return "Scan resource pack: " + resourcePackPath;
+            }
+            
+            @Override
+            public boolean isCancellable() {
+                return true;
+            }
+        };
+        
+        // Submit the job and return a CompletableFuture that delegates to the JobHandle
+        JobHandle<Void> handle = jobSystem.submit(scanJob);
+        CompletableFuture<Void> future = new CompletableFuture<>();
+        
+        // Use the JobHandle's whenComplete to complete our CompletableFuture
+        handle.whenComplete((result, throwable) -> {
+            if (throwable != null) {
+                future.completeExceptionally(throwable);
+            } else {
+                future.complete(result);
+            }
+        });
+        
+        return future;
     }
     
     /**

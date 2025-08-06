@@ -22,7 +22,7 @@ import java.util.Collections;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicInteger;
-import com.odyssey.graphics.LODTextureAtlasManager.LODLevel;
+import com.odyssey.world.chunk.LODTextureAtlasManager.LODLevel;
 
 /**
  * Manages Level of Detail (LOD) for chunks based on distance from player.
@@ -427,7 +427,7 @@ public class ChunkLOD {
         
         // Initialize advanced LOD features
         this.transitionManager = new LODTransitionManager(1920, 1080, 500); // Default screen size and 500ms transitions
-        this.textureAtlasManager = new LODTextureAtlasManager(LODTextureAtlasManager.AtlasConfig.createDefault());
+        this.textureAtlasManager = new LODTextureAtlasManager(null, LODTextureAtlasManager.AtlasConfig.createDefault());
         this.detailInjector = new ProceduralDetailInjector(ProceduralDetailInjector.DetailConfig.createDefault());
         
         logger.info("Initialized ChunkLOD with distances: Full={}, High={}, Medium={}, Low={}, Minimal={}, Far={}, Impostor={}",
@@ -784,7 +784,7 @@ public class ChunkLOD {
             }
         }
         
-        return new FarTerrainMesh(chunkX, chunkZ, vertices, indices, LODLevel.FAR_TERRAIN.getLevel());
+        return new FarTerrainMesh(chunkX, chunkZ, vertices, indices, LODLevel.MINIMAL.getLevel());
     }
     
     /**
@@ -1340,7 +1340,7 @@ public class ChunkLOD {
         float multiplier = performanceMonitor.getLODDistanceMultiplier();
         
         if (distance <= config.fullDetailDistance * multiplier) {
-            return LODLevel.FULL;
+            return LODLevel.ULTRA;
         } else if (distance <= config.highDetailDistance * multiplier) {
             return LODLevel.HIGH;
         } else if (distance <= config.mediumDetailDistance * multiplier) {
@@ -1350,9 +1350,9 @@ public class ChunkLOD {
         } else if (distance <= config.minimalDetailDistance * multiplier) {
             return LODLevel.MINIMAL;
         } else if (distance <= config.farTerrainDistance * multiplier) {
-            return LODLevel.FAR_TERRAIN;
+            return LODLevel.MINIMAL; // Use MINIMAL for far terrain
         } else {
-            return LODLevel.IMPOSTOR;
+            return LODLevel.MINIMAL; // Use MINIMAL for impostor distances
         }
     }
     
@@ -1366,7 +1366,7 @@ public class ChunkLOD {
      * @return vertex array
      */
     private float[] generateRegionVertices(int regionX, int regionZ, int regionSize, LODLevel lodLevel) {
-        int resolution = Math.max(2, 16 / lodLevel.getBlockReductionFactor());
+        int resolution = Math.max(2, 16 / Math.max(1, lodLevel.getLevel() + 1));
         List<Float> vertexList = new ArrayList<>();
         
         for (int z = 0; z <= resolution; z++) {
@@ -1398,7 +1398,7 @@ public class ChunkLOD {
      * @return index array
      */
     private int[] generateRegionIndices(int regionSize, LODLevel lodLevel) {
-        int resolution = Math.max(2, 16 / lodLevel.getBlockReductionFactor());
+        int resolution = Math.max(2, 16 / Math.max(1, lodLevel.getLevel() + 1));
         List<Integer> indexList = new ArrayList<>();
         
         for (int z = 0; z < resolution; z++) {

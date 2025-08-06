@@ -758,6 +758,16 @@ public class TextureAtlas {
     }
     
     /**
+     * Gets the memory usage of this atlas in bytes.
+     * @return The memory usage in bytes
+     */
+    public long getMemoryUsage() {
+        // Calculate memory usage based on atlas size and format
+        // Assuming RGBA format (4 bytes per pixel)
+        return (long) atlasSize * atlasSize * 4;
+    }
+    
+    /**
      * Gets detailed atlas statistics.
      * @return A string containing atlas statistics
      */

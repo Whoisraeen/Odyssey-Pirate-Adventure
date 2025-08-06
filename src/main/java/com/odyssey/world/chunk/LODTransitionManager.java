@@ -1,5 +1,6 @@
 package com.odyssey.world.chunk;
 
+import com.odyssey.world.chunk.LODTextureAtlasManager.LODLevel;
 import org.joml.Vector3f;
 import org.joml.Matrix4f;
 import org.slf4j.Logger;
@@ -28,8 +29,8 @@ public class LODTransitionManager {
      */
     public static class LODTransition {
         private final ChunkPosition chunkPosition;
-        private final ChunkLOD.LODLevel fromLevel;
-        private final ChunkLOD.LODLevel toLevel;
+        private final LODLevel fromLevel;
+        private final LODLevel toLevel;
         private final long startTime;
         private final long duration;
         private final AtomicBoolean isActive = new AtomicBoolean(true);
@@ -42,8 +43,8 @@ public class LODTransitionManager {
          * @param toLevel the target LOD level
          * @param duration transition duration in milliseconds
          */
-        public LODTransition(ChunkPosition chunkPosition, ChunkLOD.LODLevel fromLevel, 
-                           ChunkLOD.LODLevel toLevel, long duration) {
+        public LODTransition(ChunkPosition chunkPosition, LODLevel fromLevel, 
+                           LODLevel toLevel, long duration) {
             this.chunkPosition = chunkPosition;
             this.fromLevel = fromLevel;
             this.toLevel = toLevel;
@@ -82,8 +83,8 @@ public class LODTransitionManager {
             // Smooth step function for natural transitions
             float smoothProgress = progress * progress * (3.0f - 2.0f * progress);
             
-            float fromFactor = fromLevel.getQualityFactor();
-            float toFactor = toLevel.getQualityFactor();
+            float fromFactor = fromLevel.getScaleFactor();
+            float toFactor = toLevel.getScaleFactor();
             
             return fromFactor + (toFactor - fromFactor) * smoothProgress;
         }
@@ -97,15 +98,15 @@ public class LODTransitionManager {
             float progress = getProgress();
             float smoothProgress = progress * progress * (3.0f - 2.0f * progress);
             
-            int fromReduction = fromLevel.getBlockReductionFactor();
-            int toReduction = toLevel.getBlockReductionFactor();
+            int fromReduction = fromLevel.getLevel();
+            int toReduction = toLevel.getLevel();
             
             return Math.round(fromReduction + (toReduction - fromReduction) * smoothProgress);
         }
         
         public ChunkPosition getChunkPosition() { return chunkPosition; }
-        public ChunkLOD.LODLevel getFromLevel() { return fromLevel; }
-        public ChunkLOD.LODLevel getToLevel() { return toLevel; }
+        public LODLevel getFromLevel() { return fromLevel; }
+        public LODLevel getToLevel() { return toLevel; }
         public boolean isActive() { return isActive.get(); }
         public long getStartTime() { return startTime; }
         public long getDuration() { return duration; }
@@ -397,8 +398,8 @@ public class LODTransitionManager {
      * @return the created transition
      */
     public LODTransition startTransition(ChunkPosition chunkPosition, 
-                                       ChunkLOD.LODLevel fromLevel, 
-                                       ChunkLOD.LODLevel toLevel) {
+                                       LODLevel fromLevel, 
+                                       LODLevel toLevel) {
         return startTransition(chunkPosition, fromLevel, toLevel, defaultTransitionDuration);
     }
     
@@ -412,8 +413,8 @@ public class LODTransitionManager {
      * @return the created transition
      */
     public LODTransition startTransition(ChunkPosition chunkPosition, 
-                                       ChunkLOD.LODLevel fromLevel, 
-                                       ChunkLOD.LODLevel toLevel, 
+                                       LODLevel fromLevel, 
+                                       LODLevel toLevel, 
                                        long duration) {
         // Cancel any existing transition for this chunk
         LODTransition existingTransition = activeTransitions.get(chunkPosition);

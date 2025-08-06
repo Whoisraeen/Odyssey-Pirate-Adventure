@@ -2,6 +2,7 @@ package com.odyssey.world.chunk;
 
 import com.odyssey.core.GameConfig;
 import com.odyssey.graphics.Renderer;
+import com.odyssey.world.chunk.LODTextureAtlasManager.LODLevel;
 import com.odyssey.world.generation.WorldGenerator;
 import com.odyssey.world.generation.WorldGenerator.BlockType;
 import com.odyssey.world.biome.BiomeManager;
@@ -222,7 +223,7 @@ public class ChunkManager {
                 ChunkPosition position = new ChunkPosition(chunkX, chunkZ);
                 
                 // Determine LOD level for this chunk
-                ChunkLOD.LODLevel lodLevel = lodManager.determineLODLevel(position, playerPos);
+                LODLevel lodLevel = lodManager.determineLODLevel(position, playerPos);
                 
                 ChunkMeshGenerator.ChunkMesh mesh = chunkMeshes.get(position);
                 
@@ -673,7 +674,7 @@ public class ChunkManager {
         }
         
         // Determine LOD level for mesh generation
-        ChunkLOD.LODLevel lodLevel = lodManager.determineLODLevel(position, lastPlayerPosition);
+        LODLevel lodLevel = lodManager.determineLODLevel(position, lastPlayerPosition);
         
         // Get neighboring chunks for face culling
         Chunk[] neighbors = getNeighborChunks(position);
@@ -697,7 +698,7 @@ public class ChunkManager {
      * @return CompletableFuture containing the generated mesh
      */
     private CompletableFuture<ChunkMeshGenerator.ChunkMesh> generateMeshWithLOD(
-            Chunk chunk, Chunk[] neighbors, ChunkLOD.LODLevel lodLevel) {
+            Chunk chunk, Chunk[] neighbors, LODLevel lodLevel) {
         
         return CompletableFuture.supplyAsync(() -> {
             try {
@@ -788,7 +789,7 @@ public class ChunkManager {
      * @param mesh the chunk mesh to render
      */
     private void renderChunkMesh(Renderer renderer, ChunkMeshGenerator.ChunkMesh mesh) {
-        renderChunkMeshWithLOD(renderer, mesh, ChunkLOD.LODLevel.FULL);
+        renderChunkMeshWithLOD(renderer, mesh, LODLevel.ULTRA);
     }
     
     /**
@@ -798,7 +799,7 @@ public class ChunkManager {
      * @param mesh the chunk mesh to render
      * @param lodLevel the level of detail to use
      */
-    private void renderChunkMeshWithLOD(Renderer renderer, ChunkMeshGenerator.ChunkMesh mesh, ChunkLOD.LODLevel lodLevel) {
+    private void renderChunkMeshWithLOD(Renderer renderer, ChunkMeshGenerator.ChunkMesh mesh, LODLevel lodLevel) {
         if (mesh == null || renderer == null) {
             return;
         }
@@ -808,7 +809,7 @@ public class ChunkManager {
         int trianglesToRender = (int) (mesh.getTriangleCount() * complexityFactor);
         
         // Skip rendering if LOD level is too low and chunk is very distant
-        if (lodLevel == ChunkLOD.LODLevel.MINIMAL && trianglesToRender < 10) {
+        if (lodLevel == LODLevel.MINIMAL && trianglesToRender < 10) {
             return;
         }
         
@@ -827,7 +828,7 @@ public class ChunkManager {
         
         if (trianglesToRender > 0) {
             logger.trace("Rendering chunk {} with {} triangles (LOD: {}, factor: {:.2f})", 
-                    mesh.getPosition(), trianglesToRender, lodLevel.getDescription(), complexityFactor);
+                    mesh.getPosition(), trianglesToRender, lodLevel.getSuffix(), complexityFactor);
         }
     }
     

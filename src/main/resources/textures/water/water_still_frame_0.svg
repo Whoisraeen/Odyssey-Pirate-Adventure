@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="waterGradient0" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#4A90E2;stop-opacity:0.9"/>
+      <stop offset="50%" style="stop-color:#2E5C8A;stop-opacity:0.8"/>
+      <stop offset="100%" style="stop-color:#1A3A5C;stop-opacity:0.7"/>
+    </radialGradient>
+    <pattern id="waterPattern0" x="0" y="0" width="4" height="4" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1" fill="#6BB6FF" opacity="0.3"/>
+    </pattern>
+  </defs>
+  <rect width="16" height="16" fill="url(#waterGradient0)"/>
+  <rect width="16" height="16" fill="url(#waterPattern0)"/>
+  <path d="M0,8 Q4,6 8,8 T16,8 L16,16 L0,16 Z" fill="#5AA3F0" opacity="0.4"/>
+  <path d="M0,12 Q4,10 8,12 T16,12 L16,16 L0,16 Z" fill="#7BC4FF" opacity="0.3"/>
+</svg>

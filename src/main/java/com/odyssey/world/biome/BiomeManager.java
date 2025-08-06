@@ -622,6 +622,33 @@ public class BiomeManager {
         return BiomeType.OPEN_OCEAN;
     }
     
+    public BiomeType getBiomeAt(int x, int z) {
+        return getBiomeAt(new Vector2f(x, z));
+    }
+    
+    public Vector3f getWaterColor(BiomeType biomeType) {
+        BiomeData biomeData = biomeDefinitions.get(biomeType);
+        if (biomeData != null && biomeData.dominantColors.length >= 3) {
+            // Convert RGB int values to normalized float values
+            float r = (biomeData.dominantColors[0] & 0xFF) / 255.0f;
+            float g = (biomeData.dominantColors[1] & 0xFF) / 255.0f;
+            float b = (biomeData.dominantColors[2] & 0xFF) / 255.0f;
+            return new Vector3f(r, g, b);
+        }
+        
+        // Default water colors based on biome type
+        return switch (biomeType) {
+            case TROPICAL_ATOLLS, CORAL_REEFS -> new Vector3f(0.0f, 0.8f, 0.9f); // Turquoise
+            case DEEP_OCEAN, ABYSSAL_DEPTHS -> new Vector3f(0.0f, 0.1f, 0.4f); // Deep blue
+            case SHALLOW_WATERS -> new Vector3f(0.3f, 0.7f, 0.9f); // Light blue
+            case MANGROVE_SWAMPS -> new Vector3f(0.2f, 0.4f, 0.3f); // Murky green
+            case ARCTIC_ARCHIPELAGOS -> new Vector3f(0.7f, 0.9f, 1.0f); // Icy blue
+            case KELP_FORESTS -> new Vector3f(0.1f, 0.5f, 0.3f); // Dark green
+            case BIOLUMINESCENT_CAVERNS -> new Vector3f(0.0f, 0.6f, 0.8f); // Glowing blue
+            default -> new Vector3f(0.1f, 0.3f, 0.8f); // Default ocean blue
+        };
+    }
+    
     public BiomeData getBiomeData(BiomeType biomeType) {
         return biomeDefinitions.get(biomeType);
     }

@@ -411,7 +411,7 @@ public class LightingSystem {
         
         // Check framebuffer completeness
         if (GL30.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER) != GL30.GL_FRAMEBUFFER_COMPLETE) {
-            logger.severe("Shadow map framebuffer is not complete!");
+            logger.error("Shadow map framebuffer is not complete!");
         }
         
         GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
@@ -475,7 +475,7 @@ public class LightingSystem {
      */
     public boolean addDirectionalLight(DirectionalLight light) {
         if (directionalLights.size() >= MAX_DIRECTIONAL_LIGHTS) {
-            logger.warning("Cannot add directional light: at maximum capacity (" + MAX_DIRECTIONAL_LIGHTS + ")");
+            logger.warn("Cannot add directional light: at maximum capacity (" + MAX_DIRECTIONAL_LIGHTS + ")");
             return false;
         }
         
@@ -491,7 +491,7 @@ public class LightingSystem {
      */
     public boolean addPointLight(PointLight light) {
         if (pointLights.size() >= MAX_POINT_LIGHTS) {
-            logger.warning("Cannot add point light: at maximum capacity (" + MAX_POINT_LIGHTS + ")");
+            logger.warn("Cannot add point light: at maximum capacity (" + MAX_POINT_LIGHTS + ")");
             return false;
         }
         
@@ -506,7 +506,7 @@ public class LightingSystem {
      */
     public boolean addSpotLight(SpotLight light) {
         if (spotLights.size() >= MAX_SPOT_LIGHTS) {
-            logger.warning("Cannot add spot light: at maximum capacity (" + MAX_SPOT_LIGHTS + ")");
+            logger.warn("Cannot add spot light: at maximum capacity (" + MAX_SPOT_LIGHTS + ")");
             return false;
         }
         
@@ -552,6 +552,53 @@ public class LightingSystem {
     }
     
     /**
+     * Updates celestial lights (sun and moon) based on time of day system.
+     * @param timeOfDaySystem The time of day system providing celestial data
+     */
+    public void updateCelestialLights(TimeOfDaySystem timeOfDaySystem) {
+        if (directionalLights.isEmpty()) {
+            return;
+        }
+        
+        // Update the first directional light as the sun
+        DirectionalLight sunLight = directionalLights.get(0);
+        sunLight.setDirection(timeOfDaySystem.getSunDirection());
+        sunLight.setColor(timeOfDaySystem.getSunColor());
+        sunLight.setIntensity(timeOfDaySystem.getSunIntensity());
+        
+        // Add moon light if we have capacity and it's nighttime
+        if (directionalLights.size() < MAX_DIRECTIONAL_LIGHTS && !timeOfDaySystem.isDaytime()) {
+            // Check if we already have a moon light (second directional light)
+            DirectionalLight moonLight;
+            if (directionalLights.size() > 1) {
+                moonLight = directionalLights.get(1);
+            } else {
+                // Create moon light
+                moonLight = new DirectionalLight(
+                    timeOfDaySystem.getMoonDirection(),
+                    timeOfDaySystem.getMoonColor(),
+                    timeOfDaySystem.getMoonIntensity()
+                );
+                moonLight.setCastsShadows(false); // Moon typically doesn't cast strong shadows
+                addDirectionalLight(moonLight);
+            }
+            
+            // Update moon light properties
+            moonLight.setDirection(timeOfDaySystem.getMoonDirection());
+            moonLight.setColor(timeOfDaySystem.getMoonColor());
+            moonLight.setIntensity(timeOfDaySystem.getMoonIntensity());
+            moonLight.setEnabled(true);
+        } else if (directionalLights.size() > 1 && timeOfDaySystem.isDaytime()) {
+            // Disable moon light during daytime
+            directionalLights.get(1).setEnabled(false);
+        }
+        
+        // Update ambient lighting based on time of day
+        setAmbientColor(timeOfDaySystem.getAmbientColor());
+        setAmbientIntensity(timeOfDaySystem.getAmbientIntensity());
+    }
+    
+    /**
      * Updates shadow maps for shadow-casting lights.
      * @param viewMatrix The current view matrix
      * @param projectionMatrix The current projection matrix
@@ -592,7 +639,7 @@ public class LightingSystem {
     private void uploadLightDataToGPU() {
         // This would typically upload structured light data to the UBO
         // Implementation depends on the specific shader uniform layout
-        logger.fine("Updated light data on GPU");
+        logger.debug("Updated light data on GPU");
     }
     
     /**
@@ -860,6 +907,30 @@ public class LightingSystem {
      */
     public int getVolumetricLightCount() {
         return volumetricLights.size();
+    }
+    
+    /**
+     * Gets the list of directional lights.
+     * @return The list of directional lights
+     */
+    public List<DirectionalLight> getDirectionalLights() {
+        return new ArrayList<>(directionalLights);
+    }
+    
+    /**
+     * Gets the list of point lights.
+     * @return The list of point lights
+     */
+    public List<PointLight> getPointLights() {
+        return new ArrayList<>(pointLights);
+    }
+    
+    /**
+     * Gets the list of spot lights.
+     * @return The list of spot lights
+     */
+    public List<SpotLight> getSpotLights() {
+        return new ArrayList<>(spotLights);
     }
     
     /**

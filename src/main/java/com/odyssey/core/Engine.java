@@ -2,6 +2,7 @@ package com.odyssey.core;
 
 import com.odyssey.graphics.Renderer;
 import com.odyssey.graphics.Window;
+import com.odyssey.graphics.TimeOfDaySystem;
 import com.odyssey.input.InputManager;
 import com.odyssey.world.World;
 import com.odyssey.world.ocean.OceanSystem;
@@ -12,6 +13,7 @@ import com.odyssey.game.GameStateManager;
 import com.odyssey.core.memory.MemoryManager;
 import com.odyssey.core.jobs.JobSystem;
 
+import org.joml.Vector3f;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,6 +43,7 @@ public class Engine {
     private World world;
     private OceanSystem oceanSystem;
     private WeatherSystem weatherSystem;
+    private TimeOfDaySystem timeOfDaySystem;
     
     // Timing
     private double lastFrameTime;
@@ -101,6 +104,10 @@ public class Engine {
             
             weatherSystem = new WeatherSystem(config);
             weatherSystem.initialize();
+            
+            // Initialize time of day system
+            timeOfDaySystem = new TimeOfDaySystem();
+            timeOfDaySystem.initialize();
             
             // Initialize game state manager
             gameStateManager = new GameStateManager(this);
@@ -199,11 +206,16 @@ public class Engine {
         }
         
         // Update world systems
+        timeOfDaySystem.update(deltaTime);
+        
         if (config.isEnableWeatherSystem()) {
             weatherSystem.update(deltaTime);
         }
         
         if (config.isEnableTidalSystem() && renderer.getOceanSystem() != null) {
+            // Update environmental data for ocean system
+            updateOceanEnvironmentalData();
+            
             renderer.getOceanSystem().update(deltaTime);
         }
         
@@ -308,6 +320,39 @@ public class Engine {
     }
     
     /**
+     * Updates environmental data for the ocean system from weather and biome systems
+     */
+    private void updateOceanEnvironmentalData() {
+        OceanSystem oceanSystem = renderer.getOceanSystem();
+        if (oceanSystem == null) return;
+        
+        // Get weather intensity from weather system
+        float weatherIntensity = 0.0f;
+        if (weatherSystem != null) {
+            weatherIntensity = weatherSystem.getWeatherIntensity();
+        }
+        
+        // Get biome water color from world's biome manager
+        Vector3f biomeWaterColor = new Vector3f(0.1f, 0.3f, 0.8f); // Default ocean blue
+        if (world != null && world.getBiomeManager() != null) {
+            // Get camera position to determine current biome
+            Vector3f cameraPos = renderer.getCamera().getPosition();
+            var biomeManager = world.getBiomeManager();
+            var biomeType = biomeManager.getBiomeAt((int)cameraPos.x, (int)cameraPos.z);
+            biomeWaterColor = biomeManager.getWaterColor(biomeType);
+        }
+        
+        // Calculate underwater depth based on camera position
+        float underwaterDepth = 0.0f;
+        if (oceanSystem.isUnderwater(renderer.getCamera().getPosition())) {
+            underwaterDepth = oceanSystem.getDepthAt(renderer.getCamera().getPosition());
+        }
+        
+        // Update ocean system with environmental data
+        oceanSystem.updateEnvironmentalData(weatherIntensity, biomeWaterColor, underwaterDepth);
+    }
+    
+    /**
      * Render the current frame
      */
     private void render() {
@@ -323,6 +368,9 @@ public class Engine {
         boolean shouldRender3D = currentState instanceof GameStateManager.PlayingState;
         
         if (shouldRender3D) {
+            // Update celestial lighting based on time of day
+            renderer.updateCelestialLighting(timeOfDaySystem);
+            
             // Ocean blue for 3D gameplay
             renderer.beginFrame(deltaTime, 0.1f, 0.3f, 0.8f, 1.0f);
             
@@ -388,6 +436,7 @@ public class Engine {
         logger.info("Cleaning up engine resources...");
         
         if (gameStateManager != null) gameStateManager.cleanup();
+        if (timeOfDaySystem != null) timeOfDaySystem.cleanup();
         if (weatherSystem != null) weatherSystem.cleanup();
         if (oceanSystem != null) oceanSystem.cleanup();
         if (world != null) world.cleanup();
@@ -416,6 +465,7 @@ public class Engine {
     public World getWorld() { return world; }
     public OceanSystem getOceanSystem() { return oceanSystem; }
     public WeatherSystem getWeatherSystem() { return weatherSystem; }
+    public TimeOfDaySystem getTimeOfDaySystem() { return timeOfDaySystem; }
     public GameStateManager getGameStateManager() { return gameStateManager; }
     public CrashReporter getCrashReporter() { return crashReporter; }
     public MemoryManager getMemoryManager() { return memoryManager; }

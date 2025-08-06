@@ -9,6 +9,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import org.joml.Vector2f;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -588,7 +589,8 @@ public class TextureAtlasManager {
     public String getStatistics() {
         StringBuilder stats = new StringBuilder();
         stats.append("Texture Atlas Manager Statistics:\n");
-        stats.append("Total textures: ").append(getTotalTextureCount()).append("\n\n");
+        stats.append("Total textures: ").append(getTotalTextureCount()).append("\n");
+        stats.append("Total PBR materials: ").append(getTotalPBRMaterialCount()).append("\n\n");
         
         for (AtlasCategory category : AtlasCategory.values()) {
             List<TextureAtlas> categoryAtlases = atlases.get(category);
@@ -608,6 +610,24 @@ public class TextureAtlasManager {
                         .orElse(0.0);
                 stats.append("  Avg Space Utilization: ").append(String.format("%.2f%%", avgUtilization * 100)).append("\n");
             }
+            stats.append("\n");
+        }
+        
+        // PBR Material Statistics
+        if (!pbrMaterials.isEmpty()) {
+            stats.append("PBR Material Statistics:\n");
+            int completeCount = 0;
+            int totalChannels = 0;
+            
+            for (PBRMaterial material : pbrMaterials.values()) {
+                if (material.isComplete()) {
+                    completeCount++;
+                }
+                totalChannels += material.getChannelCount();
+            }
+            
+            stats.append("  Complete materials: ").append(completeCount).append("/").append(pbrMaterials.size()).append("\n");
+            stats.append("  Average channels per material: ").append(String.format("%.1f", (float) totalChannels / pbrMaterials.size())).append("\n");
             stats.append("\n");
         }
         
@@ -782,6 +802,73 @@ public class TextureAtlasManager {
         // In a real implementation, you would use STBImage or similar to load the raw data
         logger.warn("loadTextureDataFromFile is not fully implemented for: " + texturePath);
         return null;
+    }
+    
+    /**
+     * Loads a complete PBR material from a base path.
+     * Attempts to load all PBR channels using standard naming conventions.
+     * 
+     * @param materialName The unique name for the material
+     * @param basePath Base path for material textures (without channel suffix)
+     * @param priority The loading priority
+     * @return The loaded PBR material
+     */
+    private PBRMaterial loadPBRMaterial(String materialName, String basePath, StreamingPriority priority) {
+        // Standard PBR texture naming conventions
+        String albedoPath = basePath + "_albedo.png";
+        String normalPath = basePath + "_normal.png";
+        String metallicPath = basePath + "_metallic.png";
+        String roughnessPath = basePath + "_roughness.png";
+        String aoPath = basePath + "_ao.png";
+        String emissionPath = basePath + "_emission.png";
+        String heightPath = basePath + "_height.png";
+        String combinedPath = basePath + "_mra.png"; // Metallic/Roughness/AO combined
+        
+        // Load required channels (albedo, normal, metallic, roughness)
+        AtlasTextureReference albedo = requestTextureSync(
+            materialName + "_albedo", albedoPath, AtlasCategory.PBR_ALBEDO, priority);
+        AtlasTextureReference normal = requestTextureSync(
+            materialName + "_normal", normalPath, AtlasCategory.PBR_NORMAL, priority);
+        AtlasTextureReference metallic = requestTextureSync(
+            materialName + "_metallic", metallicPath, AtlasCategory.PBR_METALLIC, priority);
+        AtlasTextureReference roughness = requestTextureSync(
+            materialName + "_roughness", roughnessPath, AtlasCategory.PBR_ROUGHNESS, priority);
+        
+        // Use defaults if required channels fail to load
+        if (albedo == null) {
+            albedo = getTexture("default_albedo");
+            logger.warn("Using default albedo for material: " + materialName);
+        }
+        if (normal == null) {
+            normal = getTexture("default_normal");
+            logger.warn("Using default normal for material: " + materialName);
+        }
+        if (metallic == null) {
+            metallic = getTexture("default_metallic");
+            logger.warn("Using default metallic for material: " + materialName);
+        }
+        if (roughness == null) {
+            roughness = getTexture("default_roughness");
+            logger.warn("Using default roughness for material: " + materialName);
+        }
+        
+        // Load optional channels (can be null)
+        AtlasTextureReference ao = requestTextureSync(
+            materialName + "_ao", aoPath, AtlasCategory.PBR_AO, priority);
+        AtlasTextureReference emission = requestTextureSync(
+            materialName + "_emission", emissionPath, AtlasCategory.PBR_EMISSION, priority);
+        AtlasTextureReference height = requestTextureSync(
+            materialName + "_height", heightPath, AtlasCategory.PBR_HEIGHT, priority);
+        AtlasTextureReference combined = requestTextureSync(
+            materialName + "_combined", combinedPath, AtlasCategory.PBR_COMBINED, priority);
+        
+        // Create and store the material
+        PBRMaterial material = new PBRMaterial(materialName, albedo, normal, metallic, roughness,
+                                              ao, emission, height, combined);
+        pbrMaterials.put(materialName, material);
+        
+        logger.info("Loaded PBR material '{}' with {} channels", materialName, material.getChannelCount());
+        return material;
     }
     
     /**
@@ -1098,7 +1185,7 @@ public class TextureAtlasManager {
             
             return new TextureData(data, width, height);
         } catch (Exception e) {
-            logger.severe("Failed to extract texture data for region: " + region.getName() + " - " + e.getMessage());
+            logger.error("Failed to extract texture data for region: " + region.getName() + " - " + e.getMessage());
             return null;
         }
     }
@@ -1113,6 +1200,10 @@ public class TextureAtlasManager {
         pendingRequests.values().forEach(future -> future.cancel(true));
         pendingRequests.clear();
         
+        // Cancel pending PBR material requests
+        pendingPBRRequests.values().forEach(future -> future.cancel(true));
+        pendingPBRRequests.clear();
+        
         for (List<TextureAtlas> categoryAtlases : atlases.values()) {
             for (TextureAtlas atlas : categoryAtlases) {
                 atlas.cleanup();
@@ -1121,6 +1212,7 @@ public class TextureAtlasManager {
         }
         
         textureReferences.clear();
+        pbrMaterials.clear();
         totalAtlasMemory.set(0);
         
         if (streamingManager != null) {

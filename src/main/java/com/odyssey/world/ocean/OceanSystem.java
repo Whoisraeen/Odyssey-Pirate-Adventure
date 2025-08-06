@@ -101,6 +101,17 @@ public class OceanSystem {
         marineEcosystem.update(deltaTime);
     }
     
+    /**
+     * Updates environmental data from weather and biome systems
+     */
+    public void updateEnvironmentalData(float weatherIntensity, Vector3f biomeWaterColor, float underwaterDepth) {
+        if (waterShader != null) {
+            waterShader.setWeatherIntensity(weatherIntensity);
+            waterShader.setBiomeWaterColor(biomeWaterColor);
+            waterShader.setUnderwaterDepth(underwaterDepth);
+        }
+    }
+    
     public void render(Renderer renderer) {
         // Render ocean surface with advanced water shader
         renderOceanSurface(renderer);
@@ -191,18 +202,30 @@ public class OceanSystem {
     }
     
     /**
-     * Renders the actual water geometry (plane or mesh).
+     * Renders the actual water geometry (plane or mesh) using the enhanced water shader.
      */
     private void renderWaterGeometry(Renderer renderer) {
         float renderDistance = config.getRenderDistance() * 16; // Convert chunks to blocks
         
-        // Render water as a large plane for now
-        // In a more advanced implementation, this could be a tessellated mesh
-        // that follows the camera and provides higher detail near the viewer
-        renderer.renderWaterPlane(
-            -renderDistance, currentWaterLevel, -renderDistance,
-            renderDistance * 2, renderDistance * 2
-        );
+        // The water shader is already bound and configured by waterShader.render()
+        // We just need to render the geometry without changing shaders
+        
+        // Get the plane mesh from renderer and render it directly
+        // This preserves the enhanced water shader that's already active
+        if (renderer.getPlaneMesh() != null) {
+            // Set up model matrix for the water plane
+            Matrix4f modelMatrix = new Matrix4f().identity()
+                .translate(0, currentWaterLevel, 0)
+                .scale(renderDistance * 2, 1, renderDistance * 2);
+            
+            // Update the model matrix in the already-bound water shader
+            waterShader.updateModelMatrix(modelMatrix);
+            
+            // Render the plane mesh
+            renderer.getPlaneMesh().render();
+        } else {
+            logger.warn("Plane mesh not available for water rendering");
+        }
     }
     
     /**

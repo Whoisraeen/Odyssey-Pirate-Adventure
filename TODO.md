@@ -106,24 +106,24 @@
       - [x] Texture pack compatibility layer
   - [ ] **Physically Based Rendering (PBR) Foundation**
     - [x] Design a PBR material system for blocks and entities (Albedo, Normal, Metallic, Roughness, AO).
-    - [ ] Update the texture atlas to support PBR material textures (e.g., using multiple render targets or texture arrays).
-    - [ ] Implement shaders for PBR lighting calculations.
+    - [Z] Update the texture atlas to support PBR material textures (e.g., using multiple render targets or texture arrays).
+    - [Z] Implement shaders for PBR lighting calculations.
   - [ ] **Advanced Lighting & Shadows**
     - [ ] Implement a full Day/Night cycle with celestial body movement.
     - [x] Implement high-resolution `Shadow Mapping` (CSM or Cascaded Shadow Maps are ideal).
     - [x] Implement `Screen Space Ambient Occlusion (SSAO)` for realistic contact shadows.
     - [x] Implement Image-Based Lighting (IBL) using pre-computed skybox cubemaps for realistic ambient light.
   - [ ] **Deferred Rendering Pipeline**
-    - [ ] Implement a G-Buffer (Geometry Buffer) to store material properties per-pixel.
-    - [ ] Create a lighting pass shader that reads from the G-Buffer to calculate final lighting.
-    - [ ] Adapt the rendering pipeline to use the deferred approach, separating geometry and lighting passes.
-  - [ ] **Post-Processing & Effects**
-    - [ ] Create a modular post-processing pipeline using Framebuffer Objects (FBOs).
-    - [ ] Implement `Bloom` for emissive textures and bright lights.
-    - [ ] Implement `Tonemapping` (e.g., ACES) and `Color Grading` (using a LUT).
-    - [ ] Implement `Volumetric Lighting` (God Rays) via raymarching from the sun.
-    - [ ] Implement `Atmospheric Scattering` for realistic sky color and sunsets.
-    - [ ] Add subtle `Depth of Field (DoF)` and `Chromatic Aberration` effects.
+    - [Z] Implement a G-Buffer (Geometry Buffer) to store material properties per-pixel.
+    - [Z] Create a lighting pass shader that reads from the G-Buffer to calculate final lighting.
+    - [Z] Adapt the rendering pipeline to use the deferred approach, separating geometry and lighting passes.
+  - [Z] **Post-Processing & Effects**
+    - [Z] Create a modular post-processing pipeline using Framebuffer Objects (FBOs).
+    - [Z] Implement `Bloom` for emissive textures and bright lights.
+    - [Z] Implement `Tonemapping` (e.g., ACES) and `Color Grading` (using a LUT).
+    - [Z] Implement `Volumetric Lighting` (God Rays) via raymarching from the sun.
+    - [Z] Implement `Atmospheric Scattering` for realistic sky color and sunsets.
+    - [Z] Add subtle `Depth of Field (DoF)` and `Chromatic Aberration` effects.
   - [X] **Water Shaders**
     - [X] Animate water surface using Gerstner waves or Perlin noise.
     - [X] Implement `Screen-Space Reflections (SSR)`.

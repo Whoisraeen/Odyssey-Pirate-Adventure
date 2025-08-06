@@ -1,5 +1,4 @@
 package com.odyssey.graphics;
-
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.lwjgl.opengl.GL11;
@@ -35,7 +34,7 @@ public class DeferredRenderer {
     
     // Shaders
     private PBRShader pbrShader;
-    private Shader lightingShader;
+    private LightingPassShader lightingShader;
     private Shader postProcessShader;
     
     // Render targets
@@ -229,11 +228,9 @@ public class DeferredRenderer {
         pbrShader = new PBRShader();
         pbrShader.initialize();
         
-        // Create lighting shader
-        lightingShader = new Shader();
-        lightingShader.createVertexShader(createLightingVertexShader());
-        lightingShader.createFragmentShader(createLightingFragmentShader());
-        lightingShader.link();
+        // Create lighting pass shader
+        lightingShader = new LightingPassShader();
+        lightingShader.initialize();
         
         // Create post-process shader
         postProcessShader = new Shader();
@@ -249,6 +246,25 @@ public class DeferredRenderer {
      */
     public void beginGeometryPass() {
         GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, gBufferFBO);
+        
+        // Validate dimensions match actual window
+        int[] viewport = new int[4];
+        GL11.glGetIntegerv(GL11.GL_VIEWPORT, viewport);
+        int actualWidth = viewport[2];
+        int actualHeight = viewport[3];
+        
+        // Check if our G-Buffer size matches the actual viewport
+        if (actualWidth != screenWidth || actualHeight != screenHeight) {
+            logger.warn("G-Buffer size mismatch: G-Buffer={}x{}, Viewport={}x{}", 
+                       screenWidth, screenHeight, actualWidth, actualHeight);
+            // Auto-resize if dimensions are significantly different
+            if (Math.abs(actualWidth - screenWidth) > 1 || Math.abs(actualHeight - screenHeight) > 1) {
+                logger.info("Auto-resizing G-Buffer to match viewport");
+                resize(actualWidth, actualHeight);
+            }
+        }
+        
+        // Set viewport to our G-Buffer dimensions
         GL11.glViewport(0, 0, screenWidth, screenHeight);
         GL11.glClear(GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT);
         GL11.glEnable(GL11.GL_DEPTH_TEST);
@@ -274,27 +290,31 @@ public class DeferredRenderer {
         lightingShader.bind();
         
         // Bind G-Buffer textures
-        GL13.glActiveTexture(GL13.GL_TEXTURE0);
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, gAlbedoTexture);
-        lightingShader.setUniform("u_gAlbedo", 0);
+        lightingShader.bindGBufferTextures(gAlbedoTexture, gNormalTexture, gPositionTexture, gEmissionTexture);
         
-        GL13.glActiveTexture(GL13.GL_TEXTURE1);
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, gNormalTexture);
-        lightingShader.setUniform("u_gNormal", 1);
+        // Bind IBL textures if available
+        if (lightingSystem.isIBLEnabled()) {
+            lightingShader.bindIBLTextures(
+                lightingSystem.getIrradianceMap(),
+                lightingSystem.getPrefilterMap(),
+                lightingSystem.getBRDFLUT()
+            );
+        }
         
-        GL13.glActiveTexture(GL13.GL_TEXTURE2);
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, gPositionTexture);
-        lightingShader.setUniform("u_gPosition", 2);
-        
-        GL13.glActiveTexture(GL13.GL_TEXTURE3);
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, gEmissionTexture);
-        lightingShader.setUniform("u_gEmission", 3);
+        // Bind shadow map if shadows are enabled
+        if (lightingSystem.areShadowsEnabled()) {
+            // TODO: Get shadow map from lighting system when implemented
+            // lightingShader.bindShadowMap(lightingSystem.getShadowMap());
+        }
         
         // Set camera position
-        lightingShader.setUniform("u_cameraPosition", cameraPosition);
+        lightingShader.setCameraPosition(cameraPosition);
         
         // Set lighting parameters
-        setLightingUniforms(lightingSystem);
+        lightingShader.setLightingParameters(lightingSystem);
+        
+        // Set light data
+        setLightData(lightingSystem);
         
         // Render screen quad
         GL30.glBindVertexArray(quadVAO);
@@ -306,14 +326,20 @@ public class DeferredRenderer {
     }
     
     /**
-     * Sets lighting uniforms for the lighting shader.
+     * Sets light data for the lighting shader.
      */
-    private void setLightingUniforms(LightingSystem lightingSystem) {
-        lightingShader.setUniform("u_ambientColor", lightingSystem.getAmbientColor());
-        lightingShader.setUniform("u_ambientIntensity", lightingSystem.getAmbientIntensity());
-        lightingShader.setUniform("u_directionalLightCount", lightingSystem.getDirectionalLightCount());
-        lightingShader.setUniform("u_pointLightCount", lightingSystem.getPointLightCount());
-        lightingShader.setUniform("u_spotLightCount", lightingSystem.getSpotLightCount());
+    private void setLightData(LightingSystem lightingSystem) {
+        // Set directional lights
+        LightingSystem.DirectionalLight[] directionalLights = lightingSystem.getDirectionalLights().toArray(new LightingSystem.DirectionalLight[0]);
+        lightingShader.setDirectionalLights(directionalLights);
+        
+        // Set point lights
+        LightingSystem.PointLight[] pointLights = lightingSystem.getPointLights().toArray(new LightingSystem.PointLight[0]);
+        lightingShader.setPointLights(pointLights);
+        
+        // Set spot lights
+        LightingSystem.SpotLight[] spotLights = lightingSystem.getSpotLights().toArray(new LightingSystem.SpotLight[0]);
+        lightingShader.setSpotLights(spotLights);
     }
     
     /**
@@ -366,6 +392,14 @@ public class DeferredRenderer {
     }
     
     /**
+     * Gets the G-Buffer framebuffer object ID.
+     * Used for depth buffer copying and other advanced operations.
+     */
+    public int getGBufferFBO() {
+        return gBufferFBO;
+    }
+    
+    /**
      * Presents the final result to the screen.
      */
     public void presentFinalResult() {
@@ -396,145 +430,7 @@ public class DeferredRenderer {
         }
     }
     
-    /**
-     * Creates the lighting vertex shader source.
-     */
-    private String createLightingVertexShader() {
-        return """
-            #version 330 core
-            
-            layout (location = 0) in vec2 a_position;
-            layout (location = 1) in vec2 a_texCoord;
-            
-            out vec2 v_texCoord;
-            
-            void main() {
-                v_texCoord = a_texCoord;
-                gl_Position = vec4(a_position, 0.0, 1.0);
-            }
-            """;
-    }
-    
-    /**
-     * Creates the lighting fragment shader source.
-     */
-    private String createLightingFragmentShader() {
-        return """
-            #version 330 core
-            
-            layout (location = 0) out vec4 fragColor;
-            layout (location = 1) out vec4 brightColor;
-            
-            in vec2 v_texCoord;
-            
-            uniform sampler2D u_gAlbedo;
-            uniform sampler2D u_gNormal;
-            uniform sampler2D u_gPosition;
-            uniform sampler2D u_gEmission;
-            
-            uniform vec3 u_cameraPosition;
-            uniform vec3 u_ambientColor;
-            uniform float u_ambientIntensity;
-            
-            const float PI = 3.14159265359;
-            
-            vec3 fresnelSchlick(float cosTheta, vec3 F0) {
-                return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
-            }
-            
-            float distributionGGX(vec3 N, vec3 H, float roughness) {
-                float a = roughness * roughness;
-                float a2 = a * a;
-                float NdotH = max(dot(N, H), 0.0);
-                float NdotH2 = NdotH * NdotH;
-                
-                float num = a2;
-                float denom = (NdotH2 * (a2 - 1.0) + 1.0);
-                denom = PI * denom * denom;
-                
-                return num / denom;
-            }
-            
-            float geometrySchlickGGX(float NdotV, float roughness) {
-                float r = (roughness + 1.0);
-                float k = (r * r) / 8.0;
-                
-                float num = NdotV;
-                float denom = NdotV * (1.0 - k) + k;
-                
-                return num / denom;
-            }
-            
-            float geometrySmith(vec3 N, vec3 V, vec3 L, float roughness) {
-                float NdotV = max(dot(N, V), 0.0);
-                float NdotL = max(dot(N, L), 0.0);
-                float ggx2 = geometrySchlickGGX(NdotV, roughness);
-                float ggx1 = geometrySchlickGGX(NdotL, roughness);
-                
-                return ggx1 * ggx2;
-            }
-            
-            void main() {
-                // Sample G-Buffer
-                vec4 albedoMetallic = texture(u_gAlbedo, v_texCoord);
-                vec4 normalRoughness = texture(u_gNormal, v_texCoord);
-                vec4 positionDepth = texture(u_gPosition, v_texCoord);
-                vec4 emissionAO = texture(u_gEmission, v_texCoord);
-                
-                vec3 albedo = albedoMetallic.rgb;
-                float metallic = albedoMetallic.a;
-                vec3 normal = normalize(normalRoughness.rgb * 2.0 - 1.0);
-                float roughness = normalRoughness.a;
-                vec3 worldPos = positionDepth.rgb;
-                vec3 emission = emissionAO.rgb;
-                float ao = emissionAO.a;
-                
-                // Calculate view direction
-                vec3 V = normalize(u_cameraPosition - worldPos);
-                
-                // Calculate F0 (surface reflection at zero incidence)
-                vec3 F0 = vec3(0.04);
-                F0 = mix(F0, albedo, metallic);
-                
-                // Start with ambient lighting
-                vec3 color = u_ambientColor * u_ambientIntensity * albedo * ao;
-                
-                // Add emission
-                color += emission;
-                
-                // Simple directional light for now
-                vec3 lightDir = normalize(vec3(0.5, 1.0, 0.3));
-                vec3 lightColor = vec3(1.0);
-                
-                vec3 L = lightDir;
-                vec3 H = normalize(V + L);
-                float NdotL = max(dot(normal, L), 0.0);
-                
-                if (NdotL > 0.0) {
-                    // Cook-Torrance BRDF
-                    float NDF = distributionGGX(normal, H, roughness);
-                    float G = geometrySmith(normal, V, L, roughness);
-                    vec3 F = fresnelSchlick(max(dot(H, V), 0.0), F0);
-                    
-                    vec3 kS = F;
-                    vec3 kD = vec3(1.0) - kS;
-                    kD *= 1.0 - metallic;
-                    
-                    vec3 numerator = NDF * G * F;
-                    float denominator = 4.0 * max(dot(normal, V), 0.0) * NdotL + 0.0001;
-                    vec3 specular = numerator / denominator;
-                    
-                    color += (kD * albedo / PI + specular) * lightColor * NdotL;
-                }
-                
-                fragColor = vec4(color, 1.0);
-                
-                // Extract bright areas for bloom
-                float brightness = dot(color, vec3(0.2126, 0.7152, 0.0722));
-                brightColor = brightness > 1.0 ? vec4(color, 1.0) : vec4(0.0, 0.0, 0.0, 1.0);
-            }
-            """;
-    }
+
     
     /**
      * Creates the post-process vertex shader source.

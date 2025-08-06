@@ -19,6 +19,8 @@ import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL15.*;
 import static org.lwjgl.opengl.GL20.*;
 import static org.lwjgl.opengl.GL30.*;
+import org.lwjgl.opengl.GL30;
+import org.lwjgl.opengl.GL11;
 
 /**
  * Main renderer for The Odyssey.
@@ -43,6 +45,8 @@ public class Renderer {
     private DeferredRenderer deferredRenderer;
     private PostProcessingSystem postProcessingSystem;
     private PBRShader pbrShader;
+    private SkyRenderer skyRenderer;
+    private TimeOfDaySystem currentTimeOfDaySystem;
     
     // Rendering mode
     private boolean useDeferredRendering = true;
@@ -109,6 +113,9 @@ public class Renderer {
         
         // Initialize meshes
         initializeMeshes();
+        
+        // Initialize sky renderer
+        initializeSkyRenderer();
         
         logger.info("Renderer initialized successfully");
     }
@@ -237,6 +244,20 @@ public class Renderer {
         logger.info("Meshes initialized successfully");
     }
     
+    /**
+     * Initializes the sky renderer.
+     */
+    private void initializeSkyRenderer() {
+        try {
+            skyRenderer = new SkyRenderer(shaderManager);
+            skyRenderer.initialize();
+            logger.info("Sky renderer initialized successfully");
+        } catch (Exception e) {
+            logger.error("Failed to initialize sky renderer", e);
+            skyRenderer = null; // Fall back to no sky rendering
+        }
+    }
+    
     public void beginFrame(double deltaTime) {
         beginFrame(deltaTime, 0.1f, 0.3f, 0.8f, 1.0f); // Default ocean blue
     }
@@ -297,6 +318,17 @@ public class Renderer {
      */
     public void handleResize(int width, int height) {
         updateProjection(width, height);
+        
+        // Resize deferred renderer framebuffers
+        if (deferredRenderer != null) {
+            deferredRenderer.resize(width, height);
+        }
+        
+        // Resize post-processing system framebuffers
+        if (postProcessingSystem != null) {
+            postProcessingSystem.resize(width, height);
+        }
+        
         logger.debug("Renderer handled resize to {}x{}", width, height);
     }
     
@@ -339,7 +371,7 @@ public class Renderer {
      * Renders the scene using deferred rendering pipeline.
      */
     private void renderSceneDeferred() {
-        // Geometry pass - render to G-Buffer
+        // Geometry pass - render to G-Buffer (solid geometry only)
         deferredRenderer.beginGeometryPass();
         
         // Render ocean with PBR materials
@@ -356,30 +388,29 @@ public class Renderer {
         // Lighting pass
         deferredRenderer.performLightingPass(lightingSystem, camera.getPosition());
         
-        // Post-processing pass
-        if (postProcessingSystem != null) {
-            // Apply bloom effect using the bright texture from deferred renderer
-            postProcessingSystem.applyBloom(deferredRenderer.getFinalTexture());
-            
-            // Apply volumetric lighting (using depth texture and a placeholder shadow map)
-            postProcessingSystem.applyVolumetricLighting(deferredRenderer.getDepthTexture(), 0);
-            
-            // Perform final composition with tonemapping and gamma correction
-            postProcessingSystem.performFinalComposition(
-                deferredRenderer.getFinalTexture(), 
-                0, // bloom texture (would need to be retrieved from bloom system)
-                0  // volumetric texture (would need to be retrieved from volumetric system)
-            );
-        }
-        
-        // Present final result
+        // Present final result (includes built-in post-processing)
         deferredRenderer.presentFinalResult();
+        
+        // Render sky as overlay on final framebuffer (after deferred pipeline)
+        // This ensures sky renders to the screen, not the G-Buffer
+        if (skyRenderer != null) {
+            // Copy depth buffer from G-Buffer to default framebuffer for proper depth testing
+            copyDepthBuffer();
+            
+            // Render sky with proper depth testing
+            skyRenderer.render(camera.getViewMatrix(), camera.getProjectionMatrix(), currentTimeOfDaySystem);
+        }
     }
     
     /**
      * Renders the scene using forward rendering pipeline (fallback).
      */
     private void renderSceneForward() {
+        // Render sky first (background)
+        if (skyRenderer != null) {
+            skyRenderer.render(camera.getViewMatrix(), camera.getProjectionMatrix(), currentTimeOfDaySystem);
+        }
+        
         // Render ocean plane
         renderOcean();
         
@@ -390,10 +421,11 @@ public class Renderer {
      * Renders the ocean using PBR materials.
      */
     private void renderOceanPBR() {
+        // Use the enhanced ocean system with advanced water shader
         if (oceanSystem != null) {
-            // The ocean system should be updated to support PBR materials
             oceanSystem.render(this);
         } else {
+            // Fallback to simple PBR ocean if ocean system is not available
             renderSimpleOceanPBR();
         }
     }
@@ -474,6 +506,40 @@ public class Renderer {
     
 
     
+    /**
+     * Copies the depth buffer from G-Buffer to the default framebuffer.
+     * This allows sky rendering to properly depth test against rendered geometry.
+     */
+    private void copyDepthBuffer() {
+        if (deferredRenderer == null) return;
+        
+        try {
+            // Get window dimensions
+            int width = config.getWindowWidth();
+            int height = config.getWindowHeight();
+            
+            // Bind G-Buffer as read framebuffer
+            GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, deferredRenderer.getGBufferFBO());
+            
+            // Bind default framebuffer as draw framebuffer
+            GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, 0);
+            
+            // Copy depth buffer
+            GL30.glBlitFramebuffer(
+                0, 0, width, height,  // Source rectangle
+                0, 0, width, height,  // Destination rectangle
+                GL11.GL_DEPTH_BUFFER_BIT,  // Buffer to copy
+                GL11.GL_NEAREST  // Filter
+            );
+            
+            // Restore default framebuffer binding
+            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+            
+        } catch (Exception e) {
+            logger.warn("Failed to copy depth buffer for sky rendering: {}", e.getMessage());
+        }
+    }
+    
     private void renderDebugInfo() {
         // Render debug information like camera position, FPS, etc.
         // This could be implemented with a debug UI system later
@@ -497,6 +563,10 @@ public class Renderer {
         
         if (postProcessingSystem != null) {
             postProcessingSystem.cleanup();
+        }
+        
+        if (skyRenderer != null) {
+            skyRenderer.cleanup();
         }
         
         // Cleanup existing systems
@@ -581,6 +651,10 @@ public class Renderer {
         return postProcessingSystem;
     }
     
+    public SkyRenderer getSkyRenderer() {
+        return skyRenderer;
+    }
+    
     public boolean isUsingDeferredRendering() {
         return useDeferredRendering;
     }
@@ -598,10 +672,42 @@ public class Renderer {
     }
     
     public void renderWaterPlane(float x, float y, float z, float width, float height) {
-        modelMatrix.identity().translate(x + width/2, y, z + height/2).scale(width, 1, height);
-        
-        // The actual rendering will be handled by the water shader
-        planeMesh.render();
+        // Check if we're in deferred rendering mode and use appropriate shader
+        if (useDeferredRendering && pbrShader != null) {
+            // Use PBR shader for deferred rendering
+            pbrShader.bind();
+            
+            modelMatrix.identity().translate(x + width/2, y, z + height/2).scale(width, 1, height);
+            pbrShader.setMatrices(modelMatrix, camera.getViewMatrix(), camera.getProjectionMatrix());
+            pbrShader.setCameraPosition(camera.getPosition());
+            pbrShader.setLightingParameters(lightingSystem);
+            
+            // Set ocean material properties
+            Vector3f oceanAlbedo = new Vector3f(0.1f, 0.3f, 0.8f); // Ocean blue
+            pbrShader.setMaterialFactors(oceanAlbedo, 0.0f, 0.1f, new Vector3f(0.0f), 1.0f);
+            
+            planeMesh.render();
+            pbrShader.unbind();
+        } else {
+            // Use basic shader for forward rendering
+            Shader basicShader = shaderManager.getShader("basic");
+            if (basicShader != null) {
+                basicShader.bind();
+                
+                modelMatrix.identity().translate(x + width/2, y, z + height/2).scale(width, 1, height);
+                basicShader.setUniform("u_projectionMatrix", camera.getProjectionMatrix());
+                basicShader.setUniform("u_viewMatrix", camera.getViewMatrix());
+                basicShader.setUniform("u_modelMatrix", modelMatrix);
+                basicShader.setUniform("u_color", new Vector3f(0.1f, 0.3f, 0.8f)); // Ocean blue
+                
+                planeMesh.render();
+                basicShader.unbind();
+            } else {
+                // Fallback: just render without shader (this was the original problem)
+                modelMatrix.identity().translate(x + width/2, y, z + height/2).scale(width, 1, height);
+                planeMesh.render();
+            }
+        }
         
         if (config.isDebugMode()) {
             logger.trace("Rendering water plane at ({}, {}, {}) with size {}x{}", x, y, z, width, height);
@@ -703,6 +809,28 @@ public class Renderer {
     public Vector3f getLightDirection() { return new Vector3f(lightDirection); }
     public Vector3f getLightColor() { return new Vector3f(lightColor); }
     public Vector3f getAmbientColor() { return new Vector3f(ambientColor); }
+    
+    // Mesh getters for advanced rendering systems
+    public Mesh getPlaneMesh() { return planeMesh; }
+    public Mesh getCubeMesh() { return cubeMesh; }
+    
+    /**
+     * Updates celestial lighting based on time of day system.
+     * @param timeOfDaySystem The time of day system providing celestial data
+     */
+    public void updateCelestialLighting(TimeOfDaySystem timeOfDaySystem) {
+        if (lightingSystem != null) {
+            lightingSystem.updateCelestialLights(timeOfDaySystem);
+        }
+        
+        // Store time of day system for sky rendering
+        this.currentTimeOfDaySystem = timeOfDaySystem;
+        
+        // Update legacy lighting variables for compatibility with existing shaders
+        lightDirection.set(timeOfDaySystem.getSunDirection());
+        lightColor.set(timeOfDaySystem.getSunColor());
+        ambientColor.set(timeOfDaySystem.getAmbientColor());
+    }
     
 
     

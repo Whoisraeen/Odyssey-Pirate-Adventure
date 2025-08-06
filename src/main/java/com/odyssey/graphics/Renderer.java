@@ -114,6 +114,10 @@ public class Renderer {
     }
     
     public void beginFrame(double deltaTime) {
+        beginFrame(deltaTime, 0.1f, 0.3f, 0.8f, 1.0f); // Default ocean blue
+    }
+    
+    public void beginFrame(double deltaTime, float clearR, float clearG, float clearB, float clearA) {
         // Update viewport
         int[] viewport = new int[4];
         glGetIntegerv(GL_VIEWPORT, viewport);
@@ -125,7 +129,8 @@ public class Renderer {
             glViewport(0, 0, width, height);
         }
         
-        // Clear the screen
+        // Set clear color and clear the screen
+        glClearColor(clearR, clearG, clearB, clearA);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         
         // Update camera
@@ -150,6 +155,14 @@ public class Renderer {
     public void updateProjection(int width, int height) {
         camera.setAspectRatio((float) width / height);
         glViewport(0, 0, width, height);
+    }
+    
+    /**
+     * Handle window resize events
+     */
+    public void handleResize(int width, int height) {
+        updateProjection(width, height);
+        logger.debug("Renderer handled resize to {}x{}", width, height);
     }
     
     // Rendering utilities

@@ -12,25 +12,25 @@
 - [ ] **Project & Build Infrastructure**
   - [X] Update `pom.xml` to Java 21
   - [X] Configure a comprehensive `.gitignore`
-  - [ ] Stabilize Maven build process; create profiles for `dev` and `release`
-  - [ ] Implement Logback for structured, level-based logging (`INFO`, `DEBUG`, `ERROR`)
-  - [ ] Integrate a crash reporting system (e.g., Sentry or custom solution)
+  - [X] Stabilize Maven build process; create profiles for `dev` and `release`
+  - [X] Implement Logback for structured, level-based logging (`INFO`, `DEBUG`, `ERROR`)
+  - [X] Integrate a crash reporting system (e.g., Sentry or custom solution)
   - [ ] Set up `CI/CD pipelines` for automated unit tests, headless world-gen fuzzing, and performance regression alerts.
 
-- [ ] **Memory Management & Performance**
-  - [ ] Memory Pool Allocators - Custom allocators for frequently allocated objects (chunks, entities, particles)
-  - [ ] Garbage Collection Tuning - JVM GC optimization for low-latency gameplay
+- [X] **Memory Management & Performance**
+  - [X] Memory Pool Allocators - Custom allocators for frequently allocated objects (chunks, entities, particles)
+  - [X] Garbage Collection Tuning - JVM GC optimization for low-latency gameplay
   - [ ] Asset Streaming Pipeline - Progressive loading of distant world content
   - [ ] Texture Compression - DXT/BC compression for GPU memory efficiency
 
-- [ ] **Input & Control Systems**
-  - [ ] Input Abstraction Layer - Unified keyboard, mouse, gamepad, and touch input
-  - [ ] Keybinding System - Remappable controls with conflict detection
-  - [ ] Input Buffering - Frame-perfect input handling for combat
-  - [ ] Gesture Recognition - Touch gestures for mobile/tablet support
+- [X] **Input & Control Systems**
+  - [X] Input Abstraction Layer - Unified keyboard, mouse, gamepad, and touch input
+  - [X] Keybinding System - Remappable controls with conflict detection
+  - [X] Input Buffering - Frame-perfect input handling for combat
+  - [X] Gesture Recognition - Touch gestures for mobile/tablet support
 
 - [ ] **Threading & Concurrency**
-  - [ ] Job System - Work-stealing thread pool for parallel tasks
+  - [X] Job System - Work-stealing thread pool for parallel tasks
   - [ ] Lock-Free Data Structures - For high-frequency inter-thread communication
   - [ ] Thread-Safe World Access - Safe concurrent access to world data
 

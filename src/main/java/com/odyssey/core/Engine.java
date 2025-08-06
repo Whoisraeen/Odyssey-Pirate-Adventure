@@ -9,6 +9,8 @@ import com.odyssey.world.weather.WeatherSystem;
 import com.odyssey.audio.AudioManager;
 import com.odyssey.game.GameState;
 import com.odyssey.game.GameStateManager;
+import com.odyssey.core.memory.MemoryManager;
+import com.odyssey.core.jobs.JobSystem;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,6 +33,9 @@ public class Engine {
     private InputManager inputManager;
     private AudioManager audioManager;
     private GameStateManager gameStateManager;
+    private CrashReporter crashReporter;
+    private MemoryManager memoryManager;
+    private JobSystem jobSystem;
     
     // World systems
     private World world;
@@ -46,6 +51,8 @@ public class Engine {
     
     public Engine(GameConfig config) {
         this.config = config;
+        this.crashReporter = new CrashReporter(config);
+        this.memoryManager = new MemoryManager(config);
         logger.info("Engine created with config: {}", config);
     }
     
@@ -53,47 +60,59 @@ public class Engine {
      * Initialize all engine systems
      */
     public void initialize() throws Exception {
-        logger.info("Initializing The Odyssey Engine...");
-        
-        // Initialize GLFW
-        if (!glfwInit()) {
-            throw new RuntimeException("Failed to initialize GLFW");
+        try {
+            logger.info("Initializing The Odyssey Engine...");
+            
+            // Initialize GLFW
+            if (!glfwInit()) {
+                throw new RuntimeException("Failed to initialize GLFW");
+            }
+            
+            // Create window
+            window = new Window(config);
+            window.initialize();
+            
+            // Initialize input manager
+            inputManager = new InputManager(window);
+            inputManager.initialize();
+            
+            // Initialize renderer
+            renderer = new Renderer(config);
+            renderer.initialize();
+            
+            // Initialize audio
+            audioManager = new AudioManager(config);
+            audioManager.initialize();
+            
+            // Initialize memory manager
+            memoryManager.initialize();
+            
+            // Initialize job system
+            jobSystem = new JobSystem(config);
+            jobSystem.initialize();
+            
+            // Initialize world systems
+            world = new World(config);
+            world.initialize();
+            
+            oceanSystem = new OceanSystem(config);
+            oceanSystem.initialize();
+            
+            weatherSystem = new WeatherSystem(config);
+            weatherSystem.initialize();
+            
+            // Initialize game state manager
+            gameStateManager = new GameStateManager(this);
+            gameStateManager.initialize();
+            
+            // Set initial timing
+            lastFrameTime = glfwGetTime();
+            
+            logger.info("Engine initialization complete!");
+        } catch (Exception e) {
+            crashReporter.reportCrash("Engine initialization", e);
+            throw e;
         }
-        
-        // Create window
-        window = new Window(config);
-        window.initialize();
-        
-        // Initialize input manager
-        inputManager = new InputManager(window);
-        inputManager.initialize();
-        
-        // Initialize renderer
-        renderer = new Renderer(config);
-        renderer.initialize();
-        
-        // Initialize audio
-        audioManager = new AudioManager(config);
-        audioManager.initialize();
-        
-        // Initialize world systems
-        world = new World(config);
-        world.initialize();
-        
-        oceanSystem = new OceanSystem(config);
-        oceanSystem.initialize();
-        
-        weatherSystem = new WeatherSystem(config);
-        weatherSystem.initialize();
-        
-        // Initialize game state manager
-        gameStateManager = new GameStateManager();
-        gameStateManager.initialize();
-        
-        // Set initial timing
-        lastFrameTime = glfwGetTime();
-        
-        logger.info("Engine initialization complete!");
     }
     
     /**
@@ -103,34 +122,47 @@ public class Engine {
         logger.info("Starting main game loop...");
         running = true;
         
-        while (running && !window.shouldClose()) {
-            // Calculate delta time
-            double currentTime = glfwGetTime();
-            deltaTime = currentTime - lastFrameTime;
-            lastFrameTime = currentTime;
-            
-            // Update FPS counter
-            updateFPS(deltaTime);
-            
-            // Poll input events
-            glfwPollEvents();
-            
-            // Update systems
-            update(deltaTime);
-            
-            // Render frame
-            render();
-            
-            // Swap buffers
-            window.swapBuffers();
-            
-            // Check for exit conditions
-            if (inputManager.isKeyPressed(GLFW_KEY_ESCAPE)) {
-                running = false;
+        try {
+            while (running && !window.shouldClose()) {
+                try {
+                    // Calculate delta time
+                    double currentTime = glfwGetTime();
+                    deltaTime = currentTime - lastFrameTime;
+                    lastFrameTime = currentTime;
+                    
+                    // Update FPS counter
+                    updateFPS(deltaTime);
+                    
+                    // Poll input events
+                    glfwPollEvents();
+                    
+                    // Update systems
+                    update(deltaTime);
+                    
+                    // Render frame
+                    render();
+                    
+                    // Swap buffers
+                    window.swapBuffers();
+                    
+                    // Exit conditions are now handled by the game state manager
+                } catch (Exception e) {
+                    crashReporter.reportCrash("Main game loop", e);
+                    logger.error("Error in main game loop, attempting to continue...", e);
+                    // Continue running unless it's a critical error
+                    running = false; // For safety, stop on any exception in the main loop
+                } catch (OutOfMemoryError | StackOverflowError e) {
+                    crashReporter.reportCrash("Critical system error", e);
+                    logger.error("Critical system error, shutting down...", e);
+                    running = false;
+                }
             }
+        } catch (Exception e) {
+            crashReporter.reportCrash("Game loop fatal error", e);
+            throw new RuntimeException("Fatal error in game loop", e);
+        } finally {
+            cleanup();
         }
-        
-        cleanup();
     }
     
     /**
@@ -140,11 +172,30 @@ public class Engine {
         // Update input
         inputManager.update();
         
-        // Handle camera controls
-        updateCameraControls(deltaTime);
+        // Handle ESC key for mouse release
+        if (inputManager.isKeyJustPressed(GLFW_KEY_ESCAPE)) {
+            if (inputManager.isMouseCaptured()) {
+                inputManager.setMouseCaptured(false);
+                logger.debug("Mouse capture released via ESC key");
+            }
+        }
         
-        // Update game state
+        // Update game state first
         gameStateManager.update(deltaTime);
+        
+        // Only handle camera controls when in playing state
+        GameStateManager.GameState currentState = gameStateManager.getCurrentState();
+        boolean isPlayingState = currentState instanceof GameStateManager.PlayingState;
+        
+        // Debug logging every 60 frames (once per second at 60 FPS)
+        if (frameCount % 60 == 0) {
+            logger.info("Current game state: {} | Is PlayingState: {} | Camera controls active: {}", 
+                currentState.getClass().getSimpleName(), isPlayingState, isPlayingState);
+        }
+        
+        if (isPlayingState) {
+            updateCameraControls(deltaTime);
+        }
         
         // Update world systems
         if (config.isEnableWeatherSystem()) {
@@ -169,23 +220,23 @@ public class Engine {
         float moveSpeed = 50.0f; // units per second
         float rotateSpeed = 90.0f; // degrees per second
         
-        // Movement controls (WASD)
-        if (inputManager.isKeyPressed(GLFW_KEY_W)) {
+        // Movement controls (WASD + Gamepad)
+        if (inputManager.isMovingForward()) {
             camera.moveForward((float) (moveSpeed * deltaTime));
         }
-        if (inputManager.isKeyPressed(GLFW_KEY_S)) {
+        if (inputManager.isMovingBackward()) {
             camera.moveBackward((float) (moveSpeed * deltaTime));
         }
-        if (inputManager.isKeyPressed(GLFW_KEY_A)) {
+        if (inputManager.isMovingLeft()) {
             camera.moveLeft((float) (moveSpeed * deltaTime));
         }
-        if (inputManager.isKeyPressed(GLFW_KEY_D)) {
+        if (inputManager.isMovingRight()) {
             camera.moveRight((float) (moveSpeed * deltaTime));
         }
-        if (inputManager.isKeyPressed(GLFW_KEY_SPACE)) {
+        if (inputManager.isMovingUp()) {
             camera.moveUp((float) (moveSpeed * deltaTime));
         }
-        if (inputManager.isKeyPressed(GLFW_KEY_LEFT_SHIFT)) {
+        if (inputManager.isMovingDown()) {
             camera.moveDown((float) (moveSpeed * deltaTime));
         }
         
@@ -203,11 +254,64 @@ public class Engine {
             camera.rotateX((float) (-rotateSpeed * deltaTime));
         }
         
-        // Mouse look (if right mouse button is held)
-        if (inputManager.isMouseButtonPressed(GLFW_MOUSE_BUTTON_RIGHT)) {
+        // Gamepad right stick camera rotation (inverted Y-axis for natural feel)
+        for (var gamepad : inputManager.getAllGamepads()) {
+            if (gamepad.isConnected()) {
+                float rightStickX = gamepad.getAxis(GLFW_GAMEPAD_AXIS_RIGHT_X);
+                float rightStickY = gamepad.getAxis(GLFW_GAMEPAD_AXIS_RIGHT_Y);
+                
+                // Apply deadzone
+                if (Math.abs(rightStickX) > 0.1f) {
+                    camera.rotateY((float) (rightStickX * rotateSpeed * deltaTime));
+                }
+                if (Math.abs(rightStickY) > 0.1f) {
+                    // Invert Y-axis for natural gamepad feel
+                    camera.rotateX((float) (rightStickY * rotateSpeed * deltaTime));
+                }
+            }
+        }
+        
+        // Raw mouse input - only auto-capture when in playing state
+        double mouseDeltaX = inputManager.getRawMouseDeltaX();
+        double mouseDeltaY = inputManager.getRawMouseDeltaY();
+        
+        // Only auto-capture mouse when in playing state
+        GameStateManager.GameState currentState = gameStateManager.getCurrentState();
+        boolean isPlayingState = currentState instanceof GameStateManager.PlayingState;
+        
+        // Auto-capture mouse in playing state (more aggressive approach)
+        if (isPlayingState && !inputManager.isMouseCaptured()) {
+            inputManager.setMouseCaptured(true);
+            logger.debug("Auto-capturing mouse in playing state");
+        }
+        
+        // Also capture on any mouse movement
+        if (isPlayingState && (Math.abs(mouseDeltaX) > 0.001 || Math.abs(mouseDeltaY) > 0.001)) {
+            if (!inputManager.isMouseCaptured()) {
+                inputManager.setMouseCaptured(true);
+                logger.debug("Capturing mouse due to movement: deltaX={}, deltaY={}", mouseDeltaX, mouseDeltaY);
+            }
+        }
+        
+        // Note: ESC key handling for mouse release is in the main game loop
+        
+        // Apply mouse look when captured
+        if (inputManager.isMouseCaptured()) {
             float mouseSensitivity = 0.1f;
-            camera.rotateY((float) (-inputManager.getMouseDeltaX() * mouseSensitivity));
-            camera.rotateX((float) (-inputManager.getMouseDeltaY() * mouseSensitivity));
+            camera.rotateY((float) (mouseDeltaX * mouseSensitivity));
+            camera.rotateX((float) (mouseDeltaY * mouseSensitivity));
+            
+            // Debug logging for mouse input (every 30 frames to avoid spam)
+            if (frameCount % 30 == 0 && (Math.abs(mouseDeltaX) > 0.001 || Math.abs(mouseDeltaY) > 0.001)) {
+                logger.debug("Mouse captured: deltaX={}, deltaY={}, sensitivity={}", 
+                    mouseDeltaX, mouseDeltaY, mouseSensitivity);
+            }
+        } else if (Math.abs(mouseDeltaX) > 0.001 || Math.abs(mouseDeltaY) > 0.001) {
+            // Debug: Mouse is moving but not captured
+            if (frameCount % 30 == 0) {
+                logger.debug("Mouse moving but not captured: deltaX={}, deltaY={}, isPlaying={}", 
+                    mouseDeltaX, mouseDeltaY, isPlayingState);
+            }
         }
     }
     
@@ -215,21 +319,38 @@ public class Engine {
      * Render the current frame
      */
     private void render() {
-        renderer.beginFrame(deltaTime);
+        // Handle window resize
+        if (window.isResized()) {
+            renderer.handleResize(window.getWidth(), window.getHeight());
+            gameStateManager.getUIRenderer().resize(window.getWidth(), window.getHeight());
+            window.setResized(false);
+        }
         
-        // Render the basic scene (ocean and test cubes)
-        renderer.renderScene();
+        // Determine render mode and clear color based on game state
+        GameStateManager.GameState currentState = gameStateManager.getCurrentState();
+        boolean shouldRender3D = currentState instanceof GameStateManager.PlayingState;
         
-        // Render world
-        world.render(renderer);
+        if (shouldRender3D) {
+            // Ocean blue for 3D gameplay
+            renderer.beginFrame(deltaTime, 0.1f, 0.3f, 0.8f, 1.0f);
+            
+            // Render the basic scene (ocean and test cubes)
+            renderer.renderScene();
+            
+            // Render world
+            world.render(renderer);
+            
+            // Render ocean system (additional ocean effects)
+            oceanSystem.render(renderer);
+            
+            // Render weather effects
+            weatherSystem.render(renderer);
+        } else {
+            // Black for menu states
+            renderer.beginFrame(deltaTime, 0.0f, 0.0f, 0.0f, 1.0f);
+        }
         
-        // Render ocean system (additional ocean effects)
-        oceanSystem.render(renderer);
-        
-        // Render weather effects
-        weatherSystem.render(renderer);
-        
-        // Render UI
+        // Always render UI (which includes menu states)
         gameStateManager.render(renderer);
         
         // Render debug info if enabled
@@ -282,6 +403,12 @@ public class Engine {
         if (renderer != null) renderer.cleanup();
         if (inputManager != null) inputManager.cleanup();
         if (window != null) window.cleanup();
+        if (memoryManager != null) memoryManager.cleanup();
+        if (jobSystem != null) {
+            if (!jobSystem.shutdown(5)) {
+                logger.warn("JobSystem did not shutdown cleanly within timeout");
+            }
+        }
         
         glfwTerminate();
         
@@ -298,6 +425,9 @@ public class Engine {
     public OceanSystem getOceanSystem() { return oceanSystem; }
     public WeatherSystem getWeatherSystem() { return weatherSystem; }
     public GameStateManager getGameStateManager() { return gameStateManager; }
+    public CrashReporter getCrashReporter() { return crashReporter; }
+    public MemoryManager getMemoryManager() { return memoryManager; }
+    public JobSystem getJobSystem() { return jobSystem; }
     
     public double getDeltaTime() { return deltaTime; }
     public int getFPS() { return fps; }

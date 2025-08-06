@@ -2,171 +2,133 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
+## Build and Development Commands
 
-**The Odyssey** is a revolutionary voxel-based maritime adventure game built with Java and LWJGL. It features a procedurally generated infinite ocean world with dynamic islands, advanced ship building mechanics, realistic ocean physics, and immersive survival gameplay. Players start as castaways and build their way up to legendary pirate captains.
+### Building the Project
+- **Build**: `mvn compile` - Compiles the Java source code
+- **Package**: `mvn package` - Creates executable JAR with dependencies using maven-shade-plugin
+- **Clean**: `mvn clean` - Removes target directory and compiled artifacts
+- **Test**: `mvn test` - Runs unit tests (currently has basic GameConfigTest)
 
-## Build System & Commands
+### Running the Game
+- **Run from Maven**: `mvn exec:exec` - Runs the game with default args (--windowed --debug)
+- **Run JAR directly**: `java -jar target/odyssey-pirate-adventure-1.0.0-SNAPSHOT.jar [options]`
 
-This is a **Maven-based Java project** using Java 17.
-
-### Essential Commands
-
-**Build the project:**
-```bash
-mvn clean compile
-```
-
-**Run tests:**
-```bash
-mvn test
-```
-
-**Create executable JAR:**
-```bash
-mvn clean package
-```
-
-**Run the game:**
-```bash
-# Using Maven exec plugin (development)
-mvn exec:java
-
-# Or run the JAR directly
-java -jar target/odyssey-pirate-adventure-1.0.0-SNAPSHOT.jar
-
-# With command line options
-java -jar target/odyssey-pirate-adventure-1.0.0-SNAPSHOT.jar --windowed --debug
-```
-
-**Available command line options:**
+### Available Runtime Options
 - `--windowed` / `--fullscreen` - Display mode
-- `--width <pixels>` / `--height <pixels>` - Window dimensions
-- `--debug` - Enable debug mode
+- `--width <pixels>` / `--height <pixels>` - Window dimensions  
+- `--debug` - Enable debug logging and rendering info
 - `--seed <number>` - Set world generation seed
+- `--help` - Show usage information
 
-### Dependencies
-
-The project uses LWJGL 3.3.3 for:
-- OpenGL rendering
-- GLFW window management
-- OpenAL audio
-- STB image loading
-- Assimp 3D model loading
-
-Additional libraries:
-- JOML for mathematics
-- Gson for JSON processing
-- SLF4J + Logback for logging
-- JUnit 5 for testing
+### Development Profile
+The project uses Maven profiles for cross-platform LWJGL natives (Windows, Linux, macOS including ARM).
 
 ## Architecture Overview
 
 ### Core Engine Structure
+The game follows a modular engine architecture with clear separation of concerns:
 
-The game follows a **component-based engine architecture** centered around the `Engine` class:
+**Main Entry Point**: `OdysseyGame.java` - Handles command-line parsing, crash reporting, and engine lifecycle
 
-**Main Entry Point:**
-- `com.odyssey.OdysseyGame` - Main class that parses command line args and initializes the engine
+**Engine Core**: `Engine.java` - Central coordinator managing all systems:
+- Game loop with fixed timing (targeting consistent frame rate)
+- System initialization and cleanup
+- Orchestrates rendering, input, audio, and world systems
+- Crash-safe error handling and recovery
 
-**Core Systems:**
-- `com.odyssey.core.Engine` - Main game loop, system coordination, and lifecycle management
-- `com.odyssey.core.GameConfig` - Centralized configuration management
-- `com.odyssey.graphics.Renderer` - OpenGL rendering system
-- `com.odyssey.graphics.Window` - GLFW window management
-- `com.odyssey.input.InputManager` - Input handling and event processing
-- `com.odyssey.audio.AudioManager` - OpenAL audio system
+### Key System Architecture
 
-### World System Architecture
+**Rendering Pipeline** (`graphics/`):
+- OpenGL-based renderer with modern shader pipeline
+- Camera system with FPS-style controls (WASD + mouse look)
+- Separate shaders for basic geometry and ocean water effects
+- Built-in wireframe toggle and debug rendering
 
-**Voxel World Management:**
-- `com.odyssey.world.World` - Main world coordinator (chunk loading, player position tracking)
-- `com.odyssey.world.generation.WorldGenerator` - Procedural world generation algorithms
-- `com.odyssey.world.chunk.ChunkManager` - Chunk loading/unloading and block data management
-- `com.odyssey.world.biome.BiomeManager` - Biome generation and management
+**Input System** (`input/`):
+- Abstracted input layer supporting keyboard, mouse, and gamepad
+- Configurable keybinding system with conflict detection
+- Input buffering for frame-perfect responses
+- Gesture recognition for potential touch support
 
-**Ocean Simulation:**
-- `com.odyssey.world.ocean.OceanSystem` - Main ocean system coordinator
-- `com.odyssey.world.ocean.TidalSystem` - Dynamic tidal mechanics
-- `com.odyssey.world.ocean.WaveSystem` - Wave physics simulation
-- `com.odyssey.world.ocean.CurrentSystem` - Ocean current simulation
-- `com.odyssey.world.ocean.MarineEcosystem` - Marine life and ecosystem simulation
+**World Systems** (`world/`):
+- Voxel-based world with chunk management
+- Ocean system with animated water and tidal mechanics
+- Weather system with dynamic environmental effects
+- Biome-based procedural generation
 
-**Environmental Systems:**
-- `com.odyssey.world.weather.WeatherSystem` - Dynamic weather patterns
+**Memory Management** (`core/memory/`):
+- Custom object pooling for frequently allocated objects
+- JVM garbage collection tuning for low-latency gameplay
+- Memory pressure monitoring
 
-### Key Constants and Configuration
+### Technology Stack
+- **Java 21** with modern language features
+- **LWJGL 3.3.3** for OpenGL, GLFW, OpenAL, and native bindings
+- **JOML** for 3D mathematics and transformations
+- **Gson** for JSON serialization of game data
+- **SLF4J + Logback** for structured logging
+- **JUnit 5** for testing
 
-**World Properties:**
-- Chunk size: 16x16x16 blocks
-- World height: 256 blocks
-- Sea level: 64 blocks (Y coordinate)
-- Default render distance: 16 chunks
+### Game Configuration
+`GameConfig.java` serves as the central configuration hub with settings for:
+- Display options (resolution, fullscreen, debug mode)
+- World generation parameters
+- System toggles (weather, tidal systems)
+- Performance tuning options
 
-**Performance Settings:**
-- Target FPS: 60
-- Max chunk updates per frame: 4
-- Multithreading enabled by default
-- Worker threads: CPU cores - 1
+## Development Guidelines
 
-## Development Patterns
+### Code Style and Conventions
+- Upgrade existing classes rather than creating "Advanced" or "Enhanced" versions
+- Only create new Java classes when absolutely necessary
+- Follow the existing package structure and naming conventions
+- Use SLF4J logging consistently across all classes
 
-### System Lifecycle
-All major systems follow this pattern:
-1. Constructor (accepts config/dependencies)
-2. `initialize()` - Setup resources
-3. `update(deltaTime)` - Per-frame updates
-4. `render(renderer)` - Rendering (if applicable)
-5. `cleanup()` - Resource disposal
+### Testing Requirements
+- Compile and test before marking any TODO item as complete
+- Confirm with user before checking items off the comprehensive TODO.md
+- Write full production code, not stubs or mock functionality
+- All new features should include basic error handling and logging
 
-### Configuration Management
-- All settings centralized in `GameConfig`
-- Settings loaded from command line args
-- Debug mode enables additional logging and debug rendering
-- Ocean simulation and weather systems can be toggled via config
+### Project Rules
+Based on `.trae/rules/project_rules.md`:
+- Do not create files with "Advanced" or "Enhanced" prefixes
+- Always upgrade existing codebase when possible
+- Confirm with user before checking TODO items as complete
+- Work from TODO.md creating complete production code
+- Test compilation and execution before ending tasks
 
-### Error Handling
-- SLF4J logging used throughout
-- Fatal errors logged and cause `System.exit(1)`
-- Clean resource disposal in cleanup methods
+### Crash Reporting
+The game includes a comprehensive crash reporting system (`CrashReporter.java`) that:
+- Captures stack traces and system information
+- Provides fallback reporting even during early initialization failures
+- Integrates with the main error handling flow
 
-### Testing
-- JUnit 5 for unit tests
-- Test classes follow `*Test.java` naming convention
-- Tests focus on configuration and core functionality
+### Performance Considerations
+- The engine is designed for real-time performance with careful memory management
+- Uses object pooling to minimize GC pressure
+- Implements level-of-detail systems for distant rendering
+- Supports configurable simulation distance separate from render distance
 
-## World Generation Details
+## Game-Specific Implementation Notes
 
-The game uses a **seed-based procedural generation system** with these key features:
+### Ocean and Maritime Focus
+This is a voxel-based maritime adventure game where water simulation and ship mechanics are central:
+- Ocean rendering uses animated vertex shaders for realistic wave effects
+- Tidal system affects water levels and navigation
+- Ship physics and modular construction are core gameplay elements
 
-- **Infinite Ocean:** Procedurally generated as player explores
-- **Dynamic Islands:** Generated with multiple biomes (tropical, volcanic, jungle, mangrove, arctic, cursed)
-- **Chunk-Based Loading:** 16x16x16 voxel chunks loaded/unloaded based on player position
-- **Biome System:** Climate zones influence island generation, resources, and weather
-- **Height Maps:** Terrain generated using noise functions with sea level at Y=64
+### World Generation
+- Procedural ocean world with scattered islands
+- Biome-based generation with climate zones
+- Chunk-based loading system for seamless exploration
 
-## Ocean Systems
+### Multi-System Coordination
+The Engine class demonstrates how systems should interact:
+- Systems initialize in dependency order
+- Update calls are coordinated with proper delta time
+- Cleanup follows reverse initialization order
+- All systems are accessible through the Engine singleton
 
-The ocean is the game's central feature with multiple interconnected systems:
-
-- **Tidal System:** Real-time tide simulation affecting water levels
-- **Wave System:** Dynamic wave physics for realistic water movement  
-- **Current System:** Ocean currents affecting ship navigation
-- **Marine Ecosystem:** Living ecosystem with dynamic marine life
-
-These systems can be individually enabled/disabled through `GameConfig` for performance tuning.
-
-## Graphics and Rendering
-
-- **OpenGL-based rendering** through LWJGL
-- **Frustum culling** enabled by default
-- **Occlusion culling** available but disabled by default (performance impact)
-- **Debug rendering** available when debug mode is enabled
-- **FPS display** in window title during debug mode
-
-## Performance Considerations
-
-- **Multithreading:** Worker threads handle chunk generation and world updates
-- **Chunk Management:** Only chunks within render distance are kept loaded
-- **Configurable Quality:** Ocean simulation quality can be adjusted (0.5x to 2.0x)
-- **Frame Rate Limiting:** Target FPS configurable, VSync enabled by default
+This architecture supports the game's vision of a comprehensive maritime sandbox with advanced physics, dynamic weather, and procedural content generation.

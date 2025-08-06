@@ -11,11 +11,15 @@ import java.util.Map;
 import static org.lwjgl.glfw.GLFW.*;
 
 /**
- * Input management system for The Odyssey.
+ * Enhanced input management system for The Odyssey.
  * Handles keyboard, mouse, and gamepad input with proper state tracking.
+ * Now integrated with the input abstraction layer for unified input handling.
  */
 public class InputManager {
     private static final Logger logger = LoggerFactory.getLogger(InputManager.class);
+    
+    // Input abstraction layer for unified input handling
+    private InputAbstractionLayer inputAbstraction;
     
     private final Window window;
     
@@ -45,43 +49,88 @@ public class InputManager {
     public static class Gamepad {
         private final int id;
         private final String name;
+        private final String guid;
         private final GLFWGamepadState state = GLFWGamepadState.create();
         private final GLFWGamepadState prevState = GLFWGamepadState.create();
+        private boolean isConnected = true;
+        private long lastUpdateTime = 0;
 
         public Gamepad(int id) {
             this.id = id;
             this.name = glfwGetGamepadName(id);
-            logger.info("Gamepad connected: {} (ID: {})", name, id);
+            this.guid = glfwGetJoystickGUID(id);
+            logger.info("Gamepad connected: {} (ID: {}, GUID: {})", name, id, guid);
             update(); // Initial state
         }
 
         public void update() {
+            lastUpdateTime = System.currentTimeMillis();
+            
+            // Check if gamepad is still connected
+            if (!glfwJoystickPresent(id)) {
+                isConnected = false;
+                return;
+            }
+            
             // Copy current state to previous state
             prevState.set(state);
             // Get new state
             if (!glfwGetGamepadState(id, state)) {
-                logger.warn("Failed to get state for gamepad {}", id);
+                logger.warn("Failed to get state for gamepad {} ({})", name, id);
+                isConnected = false;
             }
         }
 
         public boolean isButtonPressed(int button) {
-            return state.buttons(button) == GLFW_PRESS;
+            return isConnected && state.buttons(button) == GLFW_PRESS;
         }
 
         public boolean isButtonJustPressed(int button) {
-            return isButtonPressed(button) && (prevState.buttons(button) == GLFW_RELEASE);
+            return isConnected && isButtonPressed(button) && (prevState.buttons(button) == GLFW_RELEASE);
         }
 
         public boolean isButtonJustReleased(int button) {
-            return !isButtonPressed(button) && (prevState.buttons(button) == GLFW_PRESS);
+            return isConnected && !isButtonPressed(button) && (prevState.buttons(button) == GLFW_PRESS);
         }
 
         public float getAxis(int axis) {
-            return state.axes(axis);
+            return isConnected ? state.axes(axis) : 0.0f;
         }
 
-        public String getName() {
-            return name;
+        public String getName() { return name; }
+        public String getGUID() { return guid; }
+        public int getId() { return id; }
+        public boolean isConnected() { return isConnected; }
+        public long getLastUpdateTime() { return lastUpdateTime; }
+        
+        /**
+         * Get battery level if supported (returns -1 if not supported)
+         */
+        public float getBatteryLevel() {
+            // GLFW doesn't provide battery info, but we can extend this for platform-specific implementations
+            return -1.0f;
+        }
+        
+        /**
+         * Check if this is a specific controller type
+         */
+        public boolean isXboxController() {
+            return name != null && (name.toLowerCase().contains("xbox") || 
+                                   name.toLowerCase().contains("xinput"));
+        }
+        
+        public boolean isPlayStationController() {
+            return name != null && (name.toLowerCase().contains("playstation") || 
+                                   name.toLowerCase().contains("ps") ||
+                                   name.toLowerCase().contains("dualshock") ||
+                                   name.toLowerCase().contains("dualsense"));
+        }
+        
+        public boolean isSwitchController() {
+            return name != null && (name.toLowerCase().contains("nintendo") || 
+                                   name.toLowerCase().contains("switch") ||
+                                   name.toLowerCase().contains("joy-con") ||
+                                   name.toLowerCase().contains("pro controller"));
         }
     }
     
@@ -90,7 +139,11 @@ public class InputManager {
     }
     
     public void initialize() {
-        logger.info("Initializing input manager...");
+        logger.info("Initializing enhanced input manager...");
+        
+        // Initialize input abstraction layer
+        inputAbstraction = new InputAbstractionLayer(this, "keybindings.cfg");
+        inputAbstraction.initialize();
         
         // Set up keyboard callback
         glfwSetKeyCallback(window.getHandle(), (windowHandle, key, scancode, action, mods) -> {
@@ -118,6 +171,10 @@ public class InputManager {
         glfwSetCursorPosCallback(window.getHandle(), (windowHandle, xpos, ypos) -> {
             mouseX = xpos;
             mouseY = ypos;
+            // Debug logging (very limited to avoid spam)
+            if (Math.random() < 0.001) { // Log roughly 1 in 1000 mouse movements
+                logger.debug("Mouse position updated: x={}, y={}", xpos, ypos);
+            }
         });
         
         // Set up scroll callback
@@ -129,23 +186,16 @@ public class InputManager {
         // Set up joystick callback for gamepad connection/disconnection
         glfwSetJoystickCallback((jid, event) -> {
             if (event == GLFW_CONNECTED) {
-                if (glfwJoystickIsGamepad(jid)) {
-                    gamepads.put(jid, new Gamepad(jid));
-                }
+                onGamepadConnected(jid);
             } else if (event == GLFW_DISCONNECTED) {
-                if (gamepads.containsKey(jid)) {
-                    logger.info("Gamepad disconnected: {} (ID: {})", gamepads.get(jid).getName(), jid);
-                    gamepads.remove(jid);
-                }
+                onGamepadDisconnected(jid);
             }
         });
+        
+        // Scan for initially connected controllers
+        scanForControllers();
 
-        // Detect initially connected gamepads
-        for (int jid = GLFW_JOYSTICK_1; jid <= GLFW_JOYSTICK_LAST; jid++) {
-            if (glfwJoystickPresent(jid) && glfwJoystickIsGamepad(jid)) {
-                gamepads.put(jid, new Gamepad(jid));
-            }
-        }
+
         
         // Initialize mouse position
         double[] xPos = new double[1];
@@ -161,6 +211,13 @@ public class InputManager {
         // Calculate mouse delta
         mouseDeltaX = mouseX - lastMouseX;
         mouseDeltaY = mouseY - lastMouseY;
+        
+        // Debug logging for mouse delta (limited to avoid spam)
+        if (Math.random() < 0.01 && (Math.abs(mouseDeltaX) > 0.001 || Math.abs(mouseDeltaY) > 0.001)) {
+            logger.debug("Mouse delta: deltaX={}, deltaY={}, mouseX={}, mouseY={}, lastX={}, lastY={}", 
+                mouseDeltaX, mouseDeltaY, mouseX, mouseY, lastMouseX, lastMouseY);
+        }
+        
         lastMouseX = mouseX;
         lastMouseY = mouseY;
         
@@ -210,12 +267,76 @@ public class InputManager {
     public double getMouseDeltaX() { return mouseDeltaX * mouseSensitivity; }
     public double getMouseDeltaY() { return mouseDeltaY * mouseSensitivity; }
     
+    // Raw mouse delta without sensitivity applied (for auto-capture detection)
+    public double getRawMouseDeltaX() { return mouseDeltaX; }
+    public double getRawMouseDeltaY() { return mouseDeltaY; }
+    
     public double getScrollX() { return scrollX; }
     public double getScrollY() { return scrollY; }
 
-    // Gamepad input methods
-    public Gamepad getGamepad(int jid) {
-        return gamepads.get(jid);
+    private void onGamepadConnected(int jid) {
+        if (glfwJoystickIsGamepad(jid)) {
+            Gamepad gamepad = new Gamepad(jid);
+            gamepads.put(jid, gamepad);
+            
+            // Notify input abstraction layer
+            if (inputAbstraction != null) {
+                inputAbstraction.onGamepadConnected(gamepad);
+            }
+        } else {
+            // Try to detect as a generic joystick
+            String name = glfwGetJoystickName(jid);
+            logger.info("Non-gamepad joystick connected: {} (ID: {})", name, jid);
+        }
+    }
+
+    private void onGamepadDisconnected(int jid) {
+        Gamepad gamepad = gamepads.remove(jid);
+        if (gamepad != null) {
+            logger.info("Gamepad disconnected: {} (ID: {})", gamepad.getName(), jid);
+            
+            // Notify input abstraction layer
+            if (inputAbstraction != null) {
+                inputAbstraction.onGamepadDisconnected(gamepad);
+            }
+        }
+    }
+    
+    /**
+     * Scan for all connected controllers and add them
+     */
+    public void scanForControllers() {
+        logger.info("Scanning for connected controllers...");
+        for (int jid = GLFW_JOYSTICK_1; jid <= GLFW_JOYSTICK_LAST; jid++) {
+            if (glfwJoystickPresent(jid) && !gamepads.containsKey(jid)) {
+                onGamepadConnected(jid);
+            }
+        }
+        logger.info("Found {} connected controllers", gamepads.size());
+    }
+    
+    /**
+     * Get all connected gamepads
+     */
+    public java.util.Collection<Gamepad> getAllGamepads() {
+        return gamepads.values();
+    }
+    
+    /**
+     * Get gamepad by ID
+     */
+    public Gamepad getGamepad(int id) {
+        return gamepads.get(id);
+    }
+    
+    /**
+     * Get the first connected gamepad
+     */
+    public Gamepad getPrimaryGamepad() {
+        return gamepads.values().stream()
+                .filter(Gamepad::isConnected)
+                .findFirst()
+                .orElse(null);
     }
 
     public Map<Integer, Gamepad> getGamepads() {
@@ -248,7 +369,7 @@ public class InputManager {
     public boolean isMovingForward() {
         boolean gamepadForward = false;
         for (Gamepad pad : gamepads.values()) {
-            if (applyDeadzone(pad.getAxis(GLFW_GAMEPAD_AXIS_LEFT_Y)) < -gamepadDeadzone) {
+            if (pad.isConnected() && applyDeadzone(pad.getAxis(GLFW_GAMEPAD_AXIS_LEFT_Y)) < 0) {
                 gamepadForward = true;
                 break;
             }
@@ -259,7 +380,7 @@ public class InputManager {
     public boolean isMovingBackward() {
         boolean gamepadBackward = false;
         for (Gamepad pad : gamepads.values()) {
-            if (applyDeadzone(pad.getAxis(GLFW_GAMEPAD_AXIS_LEFT_Y)) > gamepadDeadzone) {
+            if (pad.isConnected() && applyDeadzone(pad.getAxis(GLFW_GAMEPAD_AXIS_LEFT_Y)) > 0) {
                 gamepadBackward = true;
                 break;
             }
@@ -270,7 +391,7 @@ public class InputManager {
     public boolean isMovingLeft() {
         boolean gamepadLeft = false;
         for (Gamepad pad : gamepads.values()) {
-            if (applyDeadzone(pad.getAxis(GLFW_GAMEPAD_AXIS_LEFT_X)) < -gamepadDeadzone) {
+            if (pad.isConnected() && applyDeadzone(pad.getAxis(GLFW_GAMEPAD_AXIS_LEFT_X)) < 0) {
                 gamepadLeft = true;
                 break;
             }
@@ -281,7 +402,7 @@ public class InputManager {
     public boolean isMovingRight() {
         boolean gamepadRight = false;
         for (Gamepad pad : gamepads.values()) {
-            if (applyDeadzone(pad.getAxis(GLFW_GAMEPAD_AXIS_LEFT_X)) > gamepadDeadzone) {
+            if (pad.isConnected() && applyDeadzone(pad.getAxis(GLFW_GAMEPAD_AXIS_LEFT_X)) > 0) {
                 gamepadRight = true;
                 break;
             }
@@ -408,9 +529,65 @@ public class InputManager {
         return isKeyJustPressed(GLFW_KEY_F4);
     }
     
+    /**
+     * Get the input abstraction layer for action-based input
+     */
+    public InputAbstractionLayer getInputAbstraction() {
+        return inputAbstraction;
+    }
+    
+    /**
+     * Check if any action is active (keyboard, mouse, or gamepad)
+     */
+    public boolean isActionActive(InputAction action) {
+        return inputAbstraction != null && inputAbstraction.isActionActive(action);
+    }
+    
+    /**
+     * Get analog input value for an action
+     */
+    public float getActionValue(InputAction action) {
+        return inputAbstraction != null ? inputAbstraction.getActionValue(action) : 0.0f;
+    }
+    
+    /**
+     * Check if action was just triggered this frame
+     */
+    public boolean isActionJustTriggered(InputAction action) {
+        return inputAbstraction != null && inputAbstraction.isActionJustTriggered(action);
+    }
+    
+    /**
+     * Get input statistics for debugging
+     */
+    public String getInputStats() {
+        StringBuilder stats = new StringBuilder();
+        stats.append("Connected Controllers: ").append(gamepads.size()).append("\n");
+        
+        for (Gamepad gamepad : gamepads.values()) {
+            stats.append("  - ").append(gamepad.getName())
+                 .append(" (ID: ").append(gamepad.getId())
+                 .append(", Connected: ").append(gamepad.isConnected())
+                 .append(")\n");
+        }
+        
+        if (inputAbstraction != null) {
+            stats.append("\nInput Abstraction Stats:\n");
+            stats.append(inputAbstraction.getDebugInfo());
+        }
+        
+        return stats.toString();
+    }
+
     public void cleanup() {
-        logger.info("Cleaning up input manager");
-        // Reset callbacks
+        logger.info("Cleaning up input manager...");
+        
+        // Cleanup input abstraction layer
+        if (inputAbstraction != null) {
+            inputAbstraction.cleanup();
+        }
+        
+        // Reset GLFW callbacks
         glfwSetKeyCallback(window.getHandle(), null);
         glfwSetMouseButtonCallback(window.getHandle(), null);
         glfwSetCursorPosCallback(window.getHandle(), null);

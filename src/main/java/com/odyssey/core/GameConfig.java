@@ -36,6 +36,12 @@ public class GameConfig {
     private boolean enableFrustumCulling = true;
     private boolean enableOcclusionCulling = false; // Advanced feature
     
+    // Job System settings
+    private int jobSystemWorkerCount = 0; // 0 = auto-detect
+    private int jobQueueCapacity = 1024;
+    private int globalJobQueueCapacity = 2048;
+    private boolean jobSystemStatisticsEnabled = false;
+    
     // Getters and Setters
     public int getWindowWidth() { return windowWidth; }
     public void setWindowWidth(int windowWidth) { this.windowWidth = windowWidth; }
@@ -108,6 +114,26 @@ public class GameConfig {
     public boolean isEnableOcclusionCulling() { return enableOcclusionCulling; }
     public void setEnableOcclusionCulling(boolean enableOcclusionCulling) { 
         this.enableOcclusionCulling = enableOcclusionCulling; 
+    }
+    
+    public int getJobSystemWorkerCount() { return jobSystemWorkerCount; }
+    public void setJobSystemWorkerCount(int jobSystemWorkerCount) { 
+        this.jobSystemWorkerCount = jobSystemWorkerCount; 
+    }
+    
+    public int getJobQueueCapacity() { return jobQueueCapacity; }
+    public void setJobQueueCapacity(int jobQueueCapacity) { 
+        this.jobQueueCapacity = jobQueueCapacity; 
+    }
+    
+    public int getGlobalJobQueueCapacity() { return globalJobQueueCapacity; }
+    public void setGlobalJobQueueCapacity(int globalJobQueueCapacity) { 
+        this.globalJobQueueCapacity = globalJobQueueCapacity; 
+    }
+    
+    public boolean isJobSystemStatisticsEnabled() { return jobSystemStatisticsEnabled; }
+    public void setJobSystemStatisticsEnabled(boolean jobSystemStatisticsEnabled) { 
+        this.jobSystemStatisticsEnabled = jobSystemStatisticsEnabled; 
     }
     
     @Override

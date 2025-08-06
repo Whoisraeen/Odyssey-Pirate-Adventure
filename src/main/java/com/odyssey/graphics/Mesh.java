@@ -1,5 +1,6 @@
 package com.odyssey.graphics;
 
+import com.odyssey.core.memory.MemoryManager;
 import org.lwjgl.system.MemoryUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,17 +28,50 @@ public class Mesh {
     
     private FloatBuffer verticesBuffer;
     private IntBuffer indicesBuffer;
+    private MemoryManager memoryManager;
+    private MemoryManager.MeshData meshData;
     
     public Mesh(float[] vertices, int[] indices) {
+        this(vertices, indices, null);
+    }
+    
+    public Mesh(float[] vertices, int[] indices, MemoryManager memoryManager) {
+        this.memoryManager = memoryManager;
         this.vertexCount = vertices.length / 8; // 3 pos + 3 normal + 2 texCoord
         this.indexCount = indices.length;
         
-        // Create buffers
-        verticesBuffer = MemoryUtil.memAllocFloat(vertices.length);
-        verticesBuffer.put(vertices).flip();
-        
-        indicesBuffer = MemoryUtil.memAllocInt(indices.length);
-        indicesBuffer.put(indices).flip();
+        // Use memory pools if available, otherwise fallback to direct allocation
+        if (memoryManager != null) {
+            meshData = memoryManager.acquireMeshData();
+            
+            // Ensure arrays are large enough
+            if (meshData.vertices.length < vertices.length) {
+                meshData.vertices = new float[vertices.length];
+            }
+            if (meshData.indices.length < indices.length) {
+                meshData.indices = new int[indices.length];
+            }
+            
+            // Copy data
+            System.arraycopy(vertices, 0, meshData.vertices, 0, vertices.length);
+            System.arraycopy(indices, 0, meshData.indices, 0, indices.length);
+            meshData.vertexCount = vertices.length;
+            meshData.indexCount = indices.length;
+            
+            // Create OpenGL buffers from pooled data
+            verticesBuffer = MemoryUtil.memAllocFloat(vertices.length);
+            verticesBuffer.put(vertices).flip();
+            
+            indicesBuffer = MemoryUtil.memAllocInt(indices.length);
+            indicesBuffer.put(indices).flip();
+        } else {
+            // Fallback to direct allocation
+            verticesBuffer = MemoryUtil.memAllocFloat(vertices.length);
+            verticesBuffer.put(vertices).flip();
+            
+            indicesBuffer = MemoryUtil.memAllocInt(indices.length);
+            indicesBuffer.put(indices).flip();
+        }
         
         // Generate VAO
         vaoId = glGenVertexArrays();
@@ -100,6 +134,12 @@ public class Mesh {
         }
         if (indicesBuffer != null) {
             MemoryUtil.memFree(indicesBuffer);
+        }
+        
+        // Return mesh data to pool if using memory manager
+        if (memoryManager != null && meshData != null) {
+            memoryManager.releaseMeshData(meshData);
+            meshData = null;
         }
         
         logger.debug("Cleaned up mesh resources");

@@ -2,6 +2,7 @@ package com.odyssey;
 
 import com.odyssey.core.Engine;
 import com.odyssey.core.GameConfig;
+import com.odyssey.core.CrashReporter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,9 +26,13 @@ public class OdysseyGame {
         logger.info("Starting The Odyssey: Pirate Adventure");
         logger.info("Navigate the Boundless Azure - Build Your Fleet, Command Your Destiny, Shape the Seven Seas");
         
+        GameConfig config = null;
+        CrashReporter crashReporter = null;
+        
         try {
             // Parse command line arguments
-            GameConfig config = parseArguments(args);
+            config = parseArguments(args);
+            crashReporter = new CrashReporter(config);
             
             // Initialize and start the game engine
             Engine engine = new Engine(config);
@@ -36,6 +41,16 @@ public class OdysseyGame {
             
         } catch (Exception e) {
             logger.error("Fatal error occurred during game execution", e);
+            
+            // Report crash if crash reporter is available
+            if (crashReporter != null) {
+                crashReporter.reportCrash("Application startup/main execution", e);
+            } else {
+                // Fallback crash reporting without config
+                CrashReporter fallbackReporter = new CrashReporter(config);
+                fallbackReporter.reportCrash("Application startup (pre-config)", e);
+            }
+            
             System.exit(1);
         }
         

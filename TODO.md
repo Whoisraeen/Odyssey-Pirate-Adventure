@@ -20,7 +20,7 @@
 - [X] **Memory Management & Performance**
   - [X] Memory Pool Allocators - Custom allocators for frequently allocated objects (chunks, entities, particles)
   - [X] Garbage Collection Tuning - JVM GC optimization for low-latency gameplay
-  - [ ] Asset Streaming Pipeline - Progressive loading of distant world content
+  - [X] Asset Streaming Pipeline - Progressive loading of distant world content
   - [ ] Texture Compression - DXT/BC compression for GPU memory efficiency
 
 - [X] **Input & Control Systems**
@@ -31,20 +31,20 @@
 
 - [ ] **Threading & Concurrency**
   - [X] Job System - Work-stealing thread pool for parallel tasks
-  - [ ] Lock-Free Data Structures - For high-frequency inter-thread communication
-  - [ ] Thread-Safe World Access - Safe concurrent access to world data
+  - [X] Lock-Free Data Structures - For high-frequency inter-thread communication
+  - [X] Thread-Safe World Access - Safe concurrent access to world data
 
-- [ ] **Voxel Engine Architecture**
-  - [ ] **Chunk System**
-    - [ ] Implement `Chunk` (e.g., 32x256x32) and `ChunkColumn` data structures.
-    - [ ] Implement a `Block Palette` for chunks to optimize memory.
-    - [ ] Create a multi-threaded `ChunkManager` for asynchronous loading/unloading to prevent stutter.
-    - [ ] Implement a `Chunk Caching` system (e.g., LRU cache).
-    - [ ] Implement chunk serialization to/from disk using a compressed format (e.g., GZip).
-  - [ ] **Voxel Rendering**
-    - [ ] Develop a `Greedy Meshing` algorithm to optimize vertex count for opaque blocks.
-    - [ ] Develop a separate meshing algorithm for transparent blocks (water).
-    - [ ] Implement a `Vertex Array Object` (VAO) pool for chunk meshes.
+- [X] **Voxel Engine Architecture**
+  - [X] **Chunk System**
+    - [X] Implement `Chunk` (e.g., 32x256x32) and `ChunkColumn` data structures.
+    - [X] Implement a `Block Palette` for chunks to optimize memory.
+    - [X] Create a multi-threaded `ChunkManager` for asynchronous loading/unloading to prevent stutter.
+    - [X] Implement a `Chunk Caching` system (e.g., LRU cache).
+    - [X] Implement chunk serialization to/from disk using a compressed format (e.g., GZip).
+  - [X] **Voxel Rendering**
+    - [X] Develop a `Greedy Meshing` algorithm to optimize vertex count for opaque blocks.
+    - [X] Develop a separate meshing algorithm for transparent blocks (water).
+    - [X] Implement a `Vertex Array Object` (VAO) pool for chunk meshes.
     - [ ] Implement a dynamic `Level of Detail (LOD)` system for distant chunks (e.g., using impostors or simplified meshes).
     - [ ] **Advanced Voxel Physics**
     - [ ] Implement a `Fluid Dynamics` system for water/lava (tick-based, spreading).
@@ -617,6 +617,37 @@
 *Focus: Transforming the tech demo into a dynamic, explorable world. The player can walk around and observe, but not yet interact meaningfully.*
 
 - [ ] **Procedural Generation**
+  - [ ] **Advanced Perlin/Gradient Noise System**
+    - [ ] Implement optimized Perlin noise with gradient vectors for terrain generation
+    - [ ] Create multi-octave noise generation for complex terrain features (ridged noise, billow noise, hybrid multifractal)
+    - [ ] Implement Simplex noise for improved performance and visual quality over classic Perlin
+    - [ ] Add noise domain warping for more organic terrain shapes (terrain "twisting")
+    - [ ] **Advanced Cave Generation Systems**
+      - [ ] Implement Perlin Worms algorithm for realistic cave tunnel networks
+      - [ ] Create 3D cellular automata for natural cavern chamber generation
+      - [ ] Add Voronoi-based cave room generation with connecting passages
+      - [ ] Implement density-based marching cubes for smooth cave walls
+      - [ ] Create underwater lava tube generation using flow simulation
+      - [ ] Add karst cave system generation with realistic limestone dissolution patterns
+      - [ ] Implement coral labyrinth generation using L-systems and growth algorithms
+      - [ ] Create sea cave generation with tidal erosion patterns
+      - [ ] Add air pocket placement system for underwater cave breathing spaces
+      - [ ] Implement cave river and underground waterway generation
+      - [ ] Create stalactite/stalagmite placement using drip simulation
+      - [ ] Add bioluminescent feature placement in deep caves
+      - [ ] Implement cave system connectivity validation and player accessibility
+      - [ ] Create treasure chamber placement with puzzle-locked access
+      - [ ] Add dangerous cave feature generation (gas pockets, unstable ceiling, flooding)
+    - [ ] Implement erosion simulation using hydraulic and thermal erosion algorithms
+    - [ ] Add noise-based coral reef generation with realistic branching patterns
+    - [ ] Create procedural island chain generation using ridge noise for archipelago layouts
+    - [ ] Implement noise-based resource vein generation following geological patterns
+    - [ ] Add noise-driven weather pattern generation for realistic storm systems
+    - [ ] Create underwater terrain features using combination of multiple noise layers
+    - [ ] Implement biome transition smoothing using noise-based interpolation
+    - [ ] Add seasonal variation patterns using time-shifted noise functions
+    - [ ] Create realistic coastline generation using fractal noise algorithms
+    - [ ] Implement noise-based vegetation distribution following natural patterns
   - [ ] **World Shape & Climate**
     - [ ] Use layered noise (Simplex/OpenSimplex) for base elevation, temperature, and humidity maps.
     - [ ] Implement a `World Seed` system for reproducible worlds.

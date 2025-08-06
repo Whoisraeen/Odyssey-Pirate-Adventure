@@ -16,7 +16,7 @@ public class GameConfigTest {
         assertEquals(1920, config.getWindowWidth());
         assertEquals(1080, config.getWindowHeight());
         assertFalse(config.isFullscreen());
-        assertTrue(config.isVsyncEnabled());
+        assertTrue(config.isVsync());
         assertEquals(60, config.getTargetFPS());
         
         // Test audio defaults
@@ -26,9 +26,9 @@ public class GameConfigTest {
         assertEquals(0.6f, config.getAmbientVolume());
         
         // Test ocean simulation defaults
-        assertTrue(config.isDynamicTidesEnabled());
-        assertTrue(config.isDynamicWeatherEnabled());
-        assertTrue(config.isDynamicWavesEnabled());
+        assertTrue(config.isEnableTidalSystem());
+        assertTrue(config.isEnableWeatherSystem());
+        assertTrue(config.isEnableDynamicWaves());
         assertEquals(1.0f, config.getOceanSimulationQuality());
     }
     

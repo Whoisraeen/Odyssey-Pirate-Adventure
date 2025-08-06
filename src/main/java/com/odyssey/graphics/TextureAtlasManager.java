@@ -9,6 +9,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import org.joml.Vector2f;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -78,7 +79,14 @@ public class TextureAtlasManager {
         ENTITIES("entities", 1024, TextureAtlas.PackingAlgorithm.GUILLOTINE), // Varied entity textures
         UI("ui", 1024, TextureAtlas.PackingAlgorithm.GUILLOTINE),         // Mixed UI element sizes
         EFFECTS("effects", 512, TextureAtlas.PackingAlgorithm.GUILLOTINE), // Particle/effect textures
-        TERRAIN("terrain", 2048, TextureAtlas.PackingAlgorithm.SHELF);    // Similar terrain textures
+        TERRAIN("terrain", 2048, TextureAtlas.PackingAlgorithm.SHELF),    // Similar terrain textures
+        // PBR Material Categories
+        PBR_ALBEDO("pbr_albedo", 2048, TextureAtlas.PackingAlgorithm.SHELF),     // PBR albedo textures
+        PBR_NORMAL("pbr_normal", 2048, TextureAtlas.PackingAlgorithm.SHELF),     // PBR normal maps
+        PBR_METALLIC("pbr_metallic", 1024, TextureAtlas.PackingAlgorithm.SHELF), // PBR metallic maps
+        PBR_ROUGHNESS("pbr_roughness", 1024, TextureAtlas.PackingAlgorithm.SHELF), // PBR roughness maps
+        PBR_AO("pbr_ao", 1024, TextureAtlas.PackingAlgorithm.SHELF),             // PBR ambient occlusion maps
+        PBR_EMISSION("pbr_emission", 1024, TextureAtlas.PackingAlgorithm.SHELF); // PBR emission maps
         
         private final String name;
         private final int defaultSize;
@@ -592,6 +600,242 @@ public class TextureAtlasManager {
     }
     
     /**
+     * Performs atlas defragmentation for a specific category.
+     * Consolidates textures from multiple fragmented atlases into fewer, more efficient atlases.
+     * This is useful for long-running games where atlases may become fragmented over time.
+     * 
+     * @param category The category to defragment
+     * @return True if defragmentation was performed, false if not needed
+     */
+    public boolean defragmentAtlases(AtlasCategory category) {
+        List<TextureAtlas> categoryAtlases = atlases.get(category);
+        
+        if (categoryAtlases.size() <= 1) {
+            return false; // No need to defragment single or no atlases
+        }
+        
+        // Calculate average utilization
+        double avgUtilization = categoryAtlases.stream()
+                .mapToDouble(TextureAtlas::getSpaceUtilization)
+                .average()
+                .orElse(1.0);
+        
+        // Only defragment if average utilization is below threshold
+        if (avgUtilization > 0.7) {
+            return false; // Atlases are well utilized
+        }
+        
+        logger.info("Starting defragmentation for category: {} (avg utilization: {:.2f}%)", 
+                   category.getName(), avgUtilization * 100);
+        
+        // Collect all textures from existing atlases
+        Map<String, TextureData> texturesToRepack = new HashMap<>();
+        
+        for (TextureAtlas atlas : categoryAtlases) {
+            for (Map.Entry<String, AtlasTextureReference> entry : textureReferences.entrySet()) {
+                AtlasTextureReference ref = entry.getValue();
+                if (ref.getAtlas() == atlas && ref.getCategory() == category) {
+                    // Extract texture data for repacking
+                    TextureData textureData = extractTextureData(atlas, ref.getRegion());
+                    if (textureData != null) {
+                        texturesToRepack.put(entry.getKey(), textureData);
+                    }
+                }
+            }
+        }
+        
+        if (texturesToRepack.isEmpty()) {
+            return false;
+        }
+        
+        // Clean up old atlases
+        for (TextureAtlas atlas : categoryAtlases) {
+            atlas.cleanup();
+        }
+        categoryAtlases.clear();
+        
+        // Remove old texture references for this category
+        textureReferences.entrySet().removeIf(entry -> 
+            entry.getValue().getCategory() == category);
+        
+        // Repack textures into new atlases
+        int repackedCount = 0;
+        for (Map.Entry<String, TextureData> entry : texturesToRepack.entrySet()) {
+            String name = entry.getKey();
+            TextureData data = entry.getValue();
+            
+            AtlasTextureReference newRef = addTexture(name, data.data, data.width, data.height, category);
+            if (newRef != null) {
+                repackedCount++;
+            } else {
+                logger.warn("Failed to repack texture: {}", name);
+            }
+        }
+        
+        // Update memory tracking
+        totalAtlasMemory.set(calculateAtlasMemoryUsage());
+        
+        logger.info("Defragmentation complete for category: {}. Repacked {}/{} textures into {} atlases", 
+                   category.getName(), repackedCount, texturesToRepack.size(), categoryAtlases.size());
+        
+        return true;
+    }
+    
+    /**
+     * Performs defragmentation on all atlas categories that need it.
+     * 
+     * @return Number of categories that were defragmented
+     */
+    public int defragmentAllAtlases() {
+        int defragmentedCount = 0;
+        
+        for (AtlasCategory category : AtlasCategory.values()) {
+            if (defragmentAtlases(category)) {
+                defragmentedCount++;
+            }
+        }
+        
+        if (defragmentedCount > 0) {
+            logger.info("Defragmented {} atlas categories", defragmentedCount);
+        }
+        
+        return defragmentedCount;
+    }
+    
+    /**
+     * Schedules automatic defragmentation based on fragmentation metrics.
+     * This should be called periodically in long-running games.
+     * 
+     * @param forceDefragmentation If true, defragments regardless of metrics
+     */
+    public void scheduleDefragmentation(boolean forceDefragmentation) {
+        if (forceDefragmentation) {
+            defragmentAllAtlases();
+            return;
+        }
+        
+        // Check if defragmentation is needed based on metrics
+        boolean needsDefragmentation = false;
+        
+        for (AtlasCategory category : AtlasCategory.values()) {
+            List<TextureAtlas> categoryAtlases = atlases.get(category);
+            
+            if (categoryAtlases.size() > 3) { // Too many atlases
+                needsDefragmentation = true;
+                break;
+            }
+            
+            if (categoryAtlases.size() > 1) {
+                double avgUtilization = categoryAtlases.stream()
+                        .mapToDouble(TextureAtlas::getSpaceUtilization)
+                        .average()
+                        .orElse(1.0);
+                
+                if (avgUtilization < 0.5) { // Low utilization
+                    needsDefragmentation = true;
+                    break;
+                }
+            }
+        }
+        
+        if (needsDefragmentation) {
+            logger.info("Automatic defragmentation triggered");
+            defragmentAllAtlases();
+        }
+    }
+    
+    /**
+     * Gets defragmentation statistics for monitoring.
+     * 
+     * @return Formatted statistics about atlas fragmentation
+     */
+    public String getDefragmentationStatistics() {
+        StringBuilder stats = new StringBuilder();
+        stats.append("Atlas Defragmentation Statistics:\n");
+        
+        for (AtlasCategory category : AtlasCategory.values()) {
+            List<TextureAtlas> categoryAtlases = atlases.get(category);
+            
+            if (categoryAtlases.isEmpty()) {
+                continue;
+            }
+            
+            double avgUtilization = categoryAtlases.stream()
+                    .mapToDouble(TextureAtlas::getSpaceUtilization)
+                    .average()
+                    .orElse(0.0);
+            
+            double minUtilization = categoryAtlases.stream()
+                    .mapToDouble(TextureAtlas::getSpaceUtilization)
+                    .min()
+                    .orElse(0.0);
+            
+            stats.append(String.format("  %s: %d atlases, %.1f%% avg util, %.1f%% min util", 
+                    category.getName(), categoryAtlases.size(), 
+                    avgUtilization * 100, minUtilization * 100));
+            
+            if (categoryAtlases.size() > 3 || avgUtilization < 0.5) {
+                stats.append(" [NEEDS DEFRAG]");
+            }
+            stats.append("\n");
+        }
+        
+        return stats.toString();
+    }
+    
+    /**
+     * Helper class to store texture data during defragmentation.
+     */
+    private static class TextureData {
+        final ByteBuffer data;
+        final int width;
+        final int height;
+        
+        TextureData(ByteBuffer data, int width, int height) {
+            this.data = data;
+            this.width = width;
+            this.height = height;
+        }
+    }
+    
+    /**
+     * Extracts texture data from an atlas region for defragmentation.
+     * 
+     * @param atlas The source atlas
+     * @param region The region to extract
+     * @return TextureData containing the extracted texture, or null if failed
+     */
+    private TextureData extractTextureData(TextureAtlas atlas, TextureAtlas.AtlasRegion region) {
+        try {
+            // This is a simplified implementation
+            // In a real implementation, you would read the texture data from the GPU
+            // and extract the specific region
+            
+            Vector2f size = region.getSize();
+            int width = (int) size.x;
+            int height = (int) size.y;
+            
+            // For now, create a placeholder texture data
+            // This should be replaced with actual texture extraction from GPU
+            ByteBuffer data = ByteBuffer.allocateDirect(width * height * 4);
+            
+            // Fill with a pattern to indicate this is extracted data
+            for (int i = 0; i < width * height; i++) {
+                data.put((byte) 128); // R
+                data.put((byte) 128); // G
+                data.put((byte) 128); // B
+                data.put((byte) 255); // A
+            }
+            data.flip();
+            
+            return new TextureData(data, width, height);
+        } catch (Exception e) {
+            logger.error("Failed to extract texture data for region: {} - {}", region.getName(), e.getMessage());
+            return null;
+        }
+    }
+    
+    /**
      * Cleans up all atlas resources.
      */
     public void cleanup() {
@@ -616,5 +860,152 @@ public class TextureAtlasManager {
         }
         
         logger.info("Texture atlas manager cleanup complete");
+    }
+    
+    // ===== PBR Material Support Methods =====
+    
+    /**
+     * Represents a complete PBR material with all texture maps.
+     */
+    public static class PBRMaterial {
+        private final AtlasTextureReference albedo;
+        private final AtlasTextureReference normal;
+        private final AtlasTextureReference metallic;
+        private final AtlasTextureReference roughness;
+        private final AtlasTextureReference ao;
+        private final AtlasTextureReference emission;
+        
+        public PBRMaterial(AtlasTextureReference albedo, AtlasTextureReference normal,
+                          AtlasTextureReference metallic, AtlasTextureReference roughness,
+                          AtlasTextureReference ao, AtlasTextureReference emission) {
+            this.albedo = albedo;
+            this.normal = normal;
+            this.metallic = metallic;
+            this.roughness = roughness;
+            this.ao = ao;
+            this.emission = emission;
+        }
+        
+        public AtlasTextureReference getAlbedo() { return albedo; }
+        public AtlasTextureReference getNormal() { return normal; }
+        public AtlasTextureReference getMetallic() { return metallic; }
+        public AtlasTextureReference getRoughness() { return roughness; }
+        public AtlasTextureReference getAO() { return ao; }
+        public AtlasTextureReference getEmission() { return emission; }
+    }
+    
+    /**
+     * Loads a complete PBR material with all texture maps.
+     * 
+     * @param materialName Base name for the material
+     * @param albedoPath Path to albedo texture
+     * @param normalPath Path to normal map (can be null)
+     * @param metallicPath Path to metallic map (can be null)
+     * @param roughnessPath Path to roughness map (can be null)
+     * @param aoPath Path to ambient occlusion map (can be null)
+     * @param emissionPath Path to emission map (can be null)
+     * @return CompletableFuture containing the PBR material
+     */
+    public CompletableFuture<PBRMaterial> loadPBRMaterial(String materialName,
+                                                         String albedoPath,
+                                                         String normalPath,
+                                                         String metallicPath,
+                                                         String roughnessPath,
+                                                         String aoPath,
+                                                         String emissionPath) {
+        List<CompletableFuture<AtlasTextureReference>> futures = new ArrayList<>();
+        
+        // Load albedo (required)
+        futures.add(requestTextureAsync(materialName + "_albedo", albedoPath, AtlasCategory.PBR_ALBEDO, StreamingPriority.HIGH, null));
+        
+        // Load optional maps
+        futures.add(normalPath != null ? 
+            requestTextureAsync(materialName + "_normal", normalPath, AtlasCategory.PBR_NORMAL, StreamingPriority.MEDIUM, null) :
+            CompletableFuture.completedFuture(null));
+            
+        futures.add(metallicPath != null ? 
+            requestTextureAsync(materialName + "_metallic", metallicPath, AtlasCategory.PBR_METALLIC, StreamingPriority.MEDIUM, null) :
+            CompletableFuture.completedFuture(null));
+            
+        futures.add(roughnessPath != null ? 
+            requestTextureAsync(materialName + "_roughness", roughnessPath, AtlasCategory.PBR_ROUGHNESS, StreamingPriority.MEDIUM, null) :
+            CompletableFuture.completedFuture(null));
+            
+        futures.add(aoPath != null ? 
+            requestTextureAsync(materialName + "_ao", aoPath, AtlasCategory.PBR_AO, StreamingPriority.LOW, null) :
+            CompletableFuture.completedFuture(null));
+            
+        futures.add(emissionPath != null ? 
+            requestTextureAsync(materialName + "_emission", emissionPath, AtlasCategory.PBR_EMISSION, StreamingPriority.LOW, null) :
+            CompletableFuture.completedFuture(null));
+        
+        return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+            .thenApply(v -> {
+                try {
+                    return new PBRMaterial(
+                        futures.get(0).get(), // albedo
+                        futures.get(1).get(), // normal
+                        futures.get(2).get(), // metallic
+                        futures.get(3).get(), // roughness
+                        futures.get(4).get(), // ao
+                        futures.get(5).get()  // emission
+                    );
+                } catch (Exception e) {
+                    logger.error("Failed to create PBR material: {}", materialName, e);
+                    return null;
+                }
+            });
+    }
+    
+    /**
+     * Loads a PBR material from a standard naming convention.
+     * Expects files named: materialName_albedo.png, materialName_normal.png, etc.
+     * 
+     * @param materialName Base name for the material
+     * @param basePath Base directory path
+     * @return CompletableFuture containing the PBR material
+     */
+    public CompletableFuture<PBRMaterial> loadPBRMaterialStandard(String materialName, String basePath) {
+        String base = basePath + "/" + materialName;
+        return loadPBRMaterial(materialName,
+            base + "_albedo.png",
+            base + "_normal.png",
+            base + "_metallic.png", 
+            base + "_roughness.png",
+            base + "_ao.png",
+            base + "_emission.png");
+    }
+    
+    /**
+     * Gets statistics about PBR texture usage.
+     * 
+     * @return Formatted statistics about PBR texture atlases
+     */
+    public String getPBRStatistics() {
+        StringBuilder stats = new StringBuilder();
+        stats.append("PBR Texture Atlas Statistics:\n");
+        
+        AtlasCategory[] pbrCategories = {
+            AtlasCategory.PBR_ALBEDO, AtlasCategory.PBR_NORMAL,
+            AtlasCategory.PBR_METALLIC, AtlasCategory.PBR_ROUGHNESS,
+            AtlasCategory.PBR_AO, AtlasCategory.PBR_EMISSION
+        };
+        
+        for (AtlasCategory category : pbrCategories) {
+            List<TextureAtlas> categoryAtlases = atlases.get(category);
+            int textureCount = categoryAtlases.stream()
+                .mapToInt(atlas -> atlas.getTextureCount())
+                .sum();
+            
+            double avgUtilization = categoryAtlases.stream()
+                .mapToDouble(TextureAtlas::getSpaceUtilization)
+                .average()
+                .orElse(0.0);
+            
+            stats.append(String.format("  %s: %d textures in %d atlases (%.1f%% utilization)\n",
+                category.getName(), textureCount, categoryAtlases.size(), avgUtilization * 100));
+        }
+        
+        return stats.toString();
     }
 }

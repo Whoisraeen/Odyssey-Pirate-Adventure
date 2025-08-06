@@ -14,6 +14,7 @@ import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Advanced lighting system supporting multiple light types and shadow mapping.
@@ -21,7 +22,7 @@ import java.util.logging.Logger;
  * with cascaded shadow maps and screen-space ambient occlusion.
  */
 public class LightingSystem {
-    private static final Logger logger = Logger.getLogger(LightingSystem.class.getName());
+    private static final org.slf4j.Logger logger = LoggerFactory.getLogger(LightingSystem.class);
     
     // Maximum number of lights supported
     private static final int MAX_DIRECTIONAL_LIGHTS = 4;
@@ -31,6 +32,15 @@ public class LightingSystem {
     // Shadow map settings
     private static final int SHADOW_MAP_SIZE = 2048;
     private static final int CASCADE_COUNT = 4;
+    
+    // IBL settings
+    private static final int IRRADIANCE_MAP_SIZE = 32;
+    private static final int PREFILTER_MAP_SIZE = 128;
+    private static final int BRDF_LUT_SIZE = 512;
+    
+    // Volumetric lighting settings
+    private static final int VOLUMETRIC_SAMPLES = 64;
+    private static final float VOLUMETRIC_SCATTERING = 0.1f;
     
     /**
      * Base class for all light types.
@@ -117,6 +127,140 @@ public class LightingSystem {
     }
     
     /**
+     * Area light for soft lighting effects.
+     */
+    public static class AreaLight extends Light {
+        private Vector3f position;
+        private Vector3f normal;
+        private Vector3f tangent;
+        private float width;
+        private float height;
+        private boolean twoSided;
+        
+        public AreaLight(Vector3f position, Vector3f normal, Vector3f color, 
+                        float intensity, float width, float height) {
+            super(color, intensity);
+            this.position = new Vector3f(position);
+            this.normal = new Vector3f(normal).normalize();
+            this.tangent = new Vector3f(1.0f, 0.0f, 0.0f);
+            this.width = width;
+            this.height = height;
+            this.twoSided = false;
+        }
+        
+        public Vector3f getPosition() { return new Vector3f(position); }
+        public void setPosition(Vector3f position) { this.position.set(position); }
+        
+        public Vector3f getNormal() { return new Vector3f(normal); }
+        public void setNormal(Vector3f normal) { this.normal.set(normal).normalize(); }
+        
+        public Vector3f getTangent() { return new Vector3f(tangent); }
+        public void setTangent(Vector3f tangent) { this.tangent.set(tangent); }
+        
+        public float getWidth() { return width; }
+        public void setWidth(float width) { this.width = width; }
+        
+        public float getHeight() { return height; }
+        public void setHeight(float height) { this.height = height; }
+        
+        public boolean isTwoSided() { return twoSided; }
+        public void setTwoSided(boolean twoSided) { this.twoSided = twoSided; }
+    }
+    
+    /**
+     * Light probe for image-based lighting.
+     */
+    public static class LightProbe {
+        private Vector3f position;
+        private float radius;
+        private int irradianceMap;
+        private int prefilterMap;
+        private int brdfLUT;
+        private float intensity;
+        private boolean enabled;
+        
+        public LightProbe(Vector3f position, float radius) {
+            this.position = new Vector3f(position);
+            this.radius = radius;
+            this.irradianceMap = 0;
+            this.prefilterMap = 0;
+            this.brdfLUT = 0;
+            this.intensity = 1.0f;
+            this.enabled = true;
+        }
+        
+        public Vector3f getPosition() { return new Vector3f(position); }
+        public void setPosition(Vector3f position) { this.position.set(position); }
+        
+        public float getRadius() { return radius; }
+        public void setRadius(float radius) { this.radius = radius; }
+        
+        public int getIrradianceMap() { return irradianceMap; }
+        public void setIrradianceMap(int irradianceMap) { this.irradianceMap = irradianceMap; }
+        
+        public int getPrefilterMap() { return prefilterMap; }
+        public void setPrefilterMap(int prefilterMap) { this.prefilterMap = prefilterMap; }
+        
+        public int getBrdfLUT() { return brdfLUT; }
+        public void setBrdfLUT(int brdfLUT) { this.brdfLUT = brdfLUT; }
+        
+        public float getIntensity() { return intensity; }
+        public void setIntensity(float intensity) { this.intensity = intensity; }
+        
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+    }
+    
+    /**
+     * Volumetric light for atmospheric effects.
+     */
+    public static class VolumetricLight {
+        private Vector3f position;
+        private Vector3f direction;
+        private Vector3f color;
+        private float intensity;
+        private float scattering;
+        private float absorption;
+        private float density;
+        private boolean enabled;
+        
+        public VolumetricLight(Vector3f position, Vector3f direction, Vector3f color, float intensity) {
+            this.position = new Vector3f(position);
+            this.direction = new Vector3f(direction).normalize();
+            this.color = new Vector3f(color);
+            this.intensity = intensity;
+            this.scattering = VOLUMETRIC_SCATTERING;
+            this.absorption = 0.05f;
+            this.density = 1.0f;
+            this.enabled = true;
+        }
+        
+        public Vector3f getPosition() { return new Vector3f(position); }
+        public void setPosition(Vector3f position) { this.position.set(position); }
+        
+        public Vector3f getDirection() { return new Vector3f(direction); }
+        public void setDirection(Vector3f direction) { this.direction.set(direction).normalize(); }
+        
+        public Vector3f getColor() { return new Vector3f(color); }
+        public void setColor(Vector3f color) { this.color.set(color); }
+        
+        public float getIntensity() { return intensity; }
+        public void setIntensity(float intensity) { this.intensity = intensity; }
+        
+        public float getScattering() { return scattering; }
+        public void setScattering(float scattering) { this.scattering = scattering; }
+        
+        public float getAbsorption() { return absorption; }
+        public void setAbsorption(float absorption) { this.absorption = absorption; }
+        
+        public float getDensity() { return density; }
+        public void setDensity(float density) { this.density = density; }
+        
+        public boolean isEnabled() { return enabled; }
+        public void setEnabled(boolean enabled) { this.enabled = enabled; }
+    }
+    
+    /**
      * Spot light (cone-shaped).
      */
     public static class SpotLight extends Light {
@@ -161,6 +305,9 @@ public class LightingSystem {
     private final List<DirectionalLight> directionalLights;
     private final List<PointLight> pointLights;
     private final List<SpotLight> spotLights;
+    private final List<AreaLight> areaLights;
+    private final List<LightProbe> lightProbes;
+    private final List<VolumetricLight> volumetricLights;
     
     // Ambient lighting
     private Vector3f ambientColor;
@@ -170,6 +317,18 @@ public class LightingSystem {
     private boolean shadowsEnabled;
     private int shadowMapFramebuffer;
     private int shadowMapTexture;
+    
+    // Image-based lighting
+    private boolean iblEnabled;
+    private int skyboxTexture;
+    private int irradianceMap;
+    private int prefilterMap;
+    private int brdfLUT;
+    
+    // Volumetric lighting
+    private boolean volumetricLightingEnabled;
+    private int volumetricFramebuffer;
+    private int volumetricTexture;
     
     // Uniform buffer objects for efficient light data transfer
     private int lightDataUBO;
@@ -182,6 +341,9 @@ public class LightingSystem {
         this.directionalLights = new ArrayList<>();
         this.pointLights = new ArrayList<>();
         this.spotLights = new ArrayList<>();
+        this.areaLights = new ArrayList<>();
+        this.lightProbes = new ArrayList<>();
+        this.volumetricLights = new ArrayList<>();
         
         this.ambientColor = new Vector3f(0.1f, 0.1f, 0.15f);
         this.ambientIntensity = 0.3f;
@@ -189,6 +351,16 @@ public class LightingSystem {
         this.shadowsEnabled = true;
         this.shadowMapFramebuffer = 0;
         this.shadowMapTexture = 0;
+        
+        this.iblEnabled = false;
+        this.skyboxTexture = 0;
+        this.irradianceMap = 0;
+        this.prefilterMap = 0;
+        this.brdfLUT = 0;
+        
+        this.volumetricLightingEnabled = false;
+        this.volumetricFramebuffer = 0;
+        this.volumetricTexture = 0;
         this.lightDataUBO = 0;
         
         logger.info("Initialized lighting system");
@@ -239,7 +411,7 @@ public class LightingSystem {
         
         // Check framebuffer completeness
         if (GL30.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER) != GL30.GL_FRAMEBUFFER_COMPLETE) {
-            logger.severe("Shadow map framebuffer is not complete!");
+            logger.error("Shadow map framebuffer is not complete!");
         }
         
         GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
@@ -303,7 +475,7 @@ public class LightingSystem {
      */
     public boolean addDirectionalLight(DirectionalLight light) {
         if (directionalLights.size() >= MAX_DIRECTIONAL_LIGHTS) {
-            logger.warning("Cannot add directional light: at maximum capacity (" + MAX_DIRECTIONAL_LIGHTS + ")");
+            logger.warn("Cannot add directional light: at maximum capacity ({})", MAX_DIRECTIONAL_LIGHTS);
             return false;
         }
         
@@ -319,7 +491,7 @@ public class LightingSystem {
      */
     public boolean addPointLight(PointLight light) {
         if (pointLights.size() >= MAX_POINT_LIGHTS) {
-            logger.warning("Cannot add point light: at maximum capacity (" + MAX_POINT_LIGHTS + ")");
+            logger.warn("Cannot add point light: at maximum capacity ({})", MAX_POINT_LIGHTS);
             return false;
         }
         
@@ -334,13 +506,40 @@ public class LightingSystem {
      */
     public boolean addSpotLight(SpotLight light) {
         if (spotLights.size() >= MAX_SPOT_LIGHTS) {
-            logger.warning("Cannot add spot light: at maximum capacity (" + MAX_SPOT_LIGHTS + ")");
+            logger.warn("Cannot add spot light: at maximum capacity ({})", MAX_SPOT_LIGHTS);
             return false;
         }
         
         spotLights.add(light);
         return true;
     }
+    
+    /**
+     * Adds an area light to the lighting system.
+     * @param light The area light to add
+     */
+    public void addAreaLight(AreaLight light) {
+         areaLights.add(light);
+         logger.debug("Added area light at position: {}", light.position);
+     }
+     
+     /**
+      * Adds a light probe for image-based lighting.
+      * @param probe The light probe to add
+      */
+     public void addLightProbe(LightProbe probe) {
+         lightProbes.add(probe);
+         logger.debug("Added light probe at position: {}", probe.position);
+     }
+     
+     /**
+      * Adds a volumetric light for atmospheric effects.
+      * @param light The volumetric light to add
+      */
+     public void addVolumetricLight(VolumetricLight light) {
+         volumetricLights.add(light);
+         logger.debug("Added volumetric light at position: {}", light.position);
+     }
     
     /**
      * Updates light data and uploads to GPU.
@@ -393,7 +592,7 @@ public class LightingSystem {
     private void uploadLightDataToGPU() {
         // This would typically upload structured light data to the UBO
         // Implementation depends on the specific shader uniform layout
-        logger.fine("Updated light data on GPU");
+        logger.debug("Updated light data on GPU");
     }
     
     /**
@@ -450,11 +649,169 @@ public class LightingSystem {
     }
     
     /**
+     * Initializes image-based lighting with environment maps.
+     * @param skyboxTexture The skybox cubemap texture
+     */
+    public void initializeIBL(int skyboxTexture) {
+        this.skyboxTexture = skyboxTexture;
+        
+        // Generate irradiance map
+        this.irradianceMap = generateIrradianceMap(skyboxTexture);
+        
+        // Generate prefilter map
+        this.prefilterMap = generatePrefilterMap(skyboxTexture);
+        
+        // Generate BRDF lookup texture
+        this.brdfLUT = generateBRDFLUT();
+        
+        this.iblEnabled = true;
+        logger.info("Image-based lighting initialized");
+    }
+    
+    /**
+     * Enables or disables image-based lighting.
+     * @param enabled Whether IBL should be enabled
+     */
+    public void enableIBL(boolean enabled) {
+        this.iblEnabled = enabled;
+        logger.info("Image-based lighting {}", enabled ? "enabled" : "disabled");
+    }
+    
+    /**
+     * Initializes volumetric lighting framebuffer and textures.
+     */
+    public void initializeVolumetricLighting() {
+        // Create framebuffer for volumetric lighting
+        this.volumetricFramebuffer = GL30.glGenFramebuffers();
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, volumetricFramebuffer);
+        
+        // Create volumetric texture
+        this.volumetricTexture = GL11.glGenTextures();
+        GL11.glBindTexture(GL32.GL_TEXTURE_3D, volumetricTexture);
+        GL32.glTexImage3D(GL32.GL_TEXTURE_3D, 0, GL30.GL_RGBA16F, 128, 128, 64, 0, GL11.GL_RGBA, GL11.GL_FLOAT, 0);
+        GL11.glTexParameteri(GL32.GL_TEXTURE_3D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+        GL11.glTexParameteri(GL32.GL_TEXTURE_3D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+        GL11.glTexParameteri(GL32.GL_TEXTURE_3D, GL11.GL_TEXTURE_WRAP_S, GL13.GL_CLAMP_TO_EDGE);
+        GL11.glTexParameteri(GL32.GL_TEXTURE_3D, GL11.GL_TEXTURE_WRAP_T, GL13.GL_CLAMP_TO_EDGE);
+        GL11.glTexParameteri(GL32.GL_TEXTURE_3D, GL32.GL_TEXTURE_WRAP_R, GL13.GL_CLAMP_TO_EDGE);
+        
+        GL32.glFramebufferTexture(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, volumetricTexture, 0);
+        
+        if (GL30.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER) != GL30.GL_FRAMEBUFFER_COMPLETE) {
+            logger.error("Volumetric lighting framebuffer not complete");
+        }
+        
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+        this.volumetricLightingEnabled = true;
+        logger.info("Volumetric lighting initialized");
+    }
+    
+    /**
+     * Enables or disables volumetric lighting.
+     * @param enabled Whether volumetric lighting should be enabled
+     */
+    public void enableVolumetricLighting(boolean enabled) {
+        this.volumetricLightingEnabled = enabled;
+        logger.info("Volumetric lighting {}", enabled ? "enabled" : "disabled");
+    }
+    
+    /**
+     * Generates irradiance map from skybox texture.
+     * @param skyboxTexture The source skybox texture
+     * @return The generated irradiance map texture ID
+     */
+    private int generateIrradianceMap(int skyboxTexture) {
+        // Implementation would generate irradiance convolution
+        int irradianceMap = GL11.glGenTextures();
+        logger.info("Generated irradiance map");
+        return irradianceMap;
+    }
+    
+    /**
+     * Generates prefilter map from skybox texture.
+     * @param skyboxTexture The source skybox texture
+     * @return The generated prefilter map texture ID
+     */
+    private int generatePrefilterMap(int skyboxTexture) {
+        // Implementation would generate prefiltered environment map
+        int prefilterMap = GL11.glGenTextures();
+        logger.info("Generated prefilter map");
+        return prefilterMap;
+    }
+    
+    /**
+     * Generates BRDF lookup texture.
+     * @return The generated BRDF LUT texture ID
+     */
+    private int generateBRDFLUT() {
+        // Implementation would generate BRDF integration map
+        int brdfLUT = GL11.glGenTextures();
+        logger.info("Generated BRDF lookup texture");
+        return brdfLUT;
+    }
+    
+    /**
      * Checks if shadows are enabled.
      * @return True if shadows are enabled, false otherwise
      */
     public boolean areShadowsEnabled() {
         return shadowsEnabled;
+    }
+    
+    /**
+     * Checks if image-based lighting is enabled.
+     * @return True if IBL is enabled, false otherwise
+     */
+    public boolean isIBLEnabled() {
+        return iblEnabled;
+    }
+    
+    /**
+     * Checks if volumetric lighting is enabled.
+     * @return True if volumetric lighting is enabled, false otherwise
+     */
+    public boolean isVolumetricLightingEnabled() {
+        return volumetricLightingEnabled;
+    }
+    
+    /**
+     * Gets the skybox texture ID.
+     * @return The skybox texture ID
+     */
+    public int getSkyboxTexture() {
+        return skyboxTexture;
+    }
+    
+    /**
+     * Gets the irradiance map texture ID.
+     * @return The irradiance map texture ID
+     */
+    public int getIrradianceMap() {
+        return irradianceMap;
+    }
+    
+    /**
+     * Gets the prefilter map texture ID.
+     * @return The prefilter map texture ID
+     */
+    public int getPrefilterMap() {
+        return prefilterMap;
+    }
+    
+    /**
+     * Gets the BRDF lookup texture ID.
+     * @return The BRDF LUT texture ID
+     */
+    public int getBRDFLUT() {
+        return brdfLUT;
+    }
+    
+    /**
+     * Gets the volumetric texture ID.
+     * @return The volumetric texture ID
+     */
+    public int getVolumetricTexture() {
+        return volumetricTexture;
     }
     
     /**
@@ -482,6 +839,54 @@ public class LightingSystem {
     }
     
     /**
+     * Gets the number of area lights.
+     * @return The number of area lights
+     */
+    public int getAreaLightCount() {
+        return areaLights.size();
+    }
+    
+    /**
+     * Gets the number of light probes.
+     * @return The number of light probes
+     */
+    public int getLightProbeCount() {
+        return lightProbes.size();
+    }
+    
+    /**
+     * Gets the number of volumetric lights.
+     * @return The number of volumetric lights
+     */
+    public int getVolumetricLightCount() {
+        return volumetricLights.size();
+    }
+    
+    /**
+     * Gets the list of area lights.
+     * @return The list of area lights
+     */
+    public List<AreaLight> getAreaLights() {
+        return new ArrayList<>(areaLights);
+    }
+    
+    /**
+     * Gets the list of light probes.
+     * @return The list of light probes
+     */
+    public List<LightProbe> getLightProbes() {
+        return new ArrayList<>(lightProbes);
+    }
+    
+    /**
+     * Gets the list of volumetric lights.
+     * @return The list of volumetric lights
+     */
+    public List<VolumetricLight> getVolumetricLights() {
+        return new ArrayList<>(volumetricLights);
+    }
+    
+    /**
      * Cleans up OpenGL resources.
      */
     public void cleanup() {
@@ -495,6 +900,25 @@ public class LightingSystem {
             GL11.glDeleteTextures(shadowMapTexture);
         }
         
+        // Clean up IBL resources
+        if (irradianceMap != 0) {
+            GL11.glDeleteTextures(irradianceMap);
+        }
+        if (prefilterMap != 0) {
+            GL11.glDeleteTextures(prefilterMap);
+        }
+        if (brdfLUT != 0) {
+            GL11.glDeleteTextures(brdfLUT);
+        }
+        
+        // Clean up volumetric lighting resources
+        if (volumetricFramebuffer != 0) {
+            GL30.glDeleteFramebuffers(volumetricFramebuffer);
+        }
+        if (volumetricTexture != 0) {
+            GL11.glDeleteTextures(volumetricTexture);
+        }
+        
         if (lightDataUBO != 0) {
             GL20.glDeleteBuffers(lightDataUBO);
         }
@@ -502,6 +926,9 @@ public class LightingSystem {
         directionalLights.clear();
         pointLights.clear();
         spotLights.clear();
+        areaLights.clear();
+        lightProbes.clear();
+        volumetricLights.clear();
         
         logger.info("Lighting system cleanup complete");
     }

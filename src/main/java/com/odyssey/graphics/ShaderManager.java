@@ -254,21 +254,21 @@ public class ShaderManager {
             layout (location = 1) in vec3 normal;
             layout (location = 2) in vec2 texCoord;
             
-            uniform mat4 projectionMatrix;
-            uniform mat4 viewMatrix;
-            uniform mat4 modelMatrix;
+            uniform mat4 u_projectionMatrix;
+            uniform mat4 u_viewMatrix;
+            uniform mat4 u_modelMatrix;
             
             out vec3 fragPos;
             out vec3 fragNormal;
             out vec2 fragTexCoord;
             
             void main() {
-                vec4 worldPos = modelMatrix * vec4(position, 1.0);
+                vec4 worldPos = u_modelMatrix * vec4(position, 1.0);
                 fragPos = worldPos.xyz;
-                fragNormal = mat3(transpose(inverse(modelMatrix))) * normal;
+                fragNormal = mat3(transpose(inverse(u_modelMatrix))) * normal;
                 fragTexCoord = texCoord;
                 
-                gl_Position = projectionMatrix * viewMatrix * worldPos;
+                gl_Position = u_projectionMatrix * u_viewMatrix * worldPos;
             }
             """;
     }
@@ -281,30 +281,22 @@ public class ShaderManager {
             in vec3 fragNormal;
             in vec2 fragTexCoord;
             
-            uniform vec3 lightDirection;
-            uniform vec3 lightColor;
-            uniform vec3 ambientColor;
-            uniform vec3 objectColor;
-            uniform sampler2D diffuseTexture;
-            uniform bool useTexture;
+            uniform vec3 u_color;
             
             out vec4 fragColor;
             
             void main() {
                 vec3 normal = normalize(fragNormal);
-                vec3 lightDir = normalize(-lightDirection);
                 
-                // Sample texture if available
-                vec3 baseColor = useTexture ? texture(diffuseTexture, fragTexCoord).rgb : objectColor;
-                
-                // Ambient lighting
-                vec3 ambient = ambientColor;
-                
-                // Diffuse lighting
+                // Simple directional lighting
+                vec3 lightDir = normalize(vec3(-0.5, -1.0, -0.3));
                 float diff = max(dot(normal, lightDir), 0.0);
-                vec3 diffuse = diff * lightColor;
                 
-                vec3 result = (ambient + diffuse) * baseColor;
+                // Ambient + diffuse lighting
+                vec3 ambient = vec3(0.3);
+                vec3 diffuse = vec3(0.7) * diff;
+                
+                vec3 result = (ambient + diffuse) * u_color;
                 fragColor = vec4(result, 1.0);
             }
             """;

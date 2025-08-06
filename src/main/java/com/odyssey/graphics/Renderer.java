@@ -39,6 +39,15 @@ public class Renderer {
     private LightingSystem lightingSystem;
     private OceanSystem oceanSystem;
     
+    // PBR and Deferred Rendering Systems
+    private DeferredRenderer deferredRenderer;
+    private PostProcessingSystem postProcessingSystem;
+    private PBRShader pbrShader;
+    
+    // Rendering mode
+    private boolean useDeferredRendering = true;
+    private boolean usePBRMaterials = true;
+    
     // Meshes
     private Mesh cubeMesh;
     private Mesh planeMesh;
@@ -94,6 +103,9 @@ public class Renderer {
         
         // Initialize ocean system
         initializeOceanSystem();
+        
+        // Initialize PBR and deferred rendering systems
+        initializePBRAndDeferredRendering();
         
         // Initialize meshes
         initializeMeshes();
@@ -190,6 +202,35 @@ public class Renderer {
          }
      }
     
+    /**
+       * Initializes the PBR and deferred rendering systems.
+       */
+      private void initializePBRAndDeferredRendering() {
+          try {
+              if (usePBRMaterials) {
+                  pbrShader = new PBRShader();
+                  pbrShader.initialize();
+                  logger.info("PBR shader system initialized successfully");
+              }
+              
+              if (useDeferredRendering) {
+                  deferredRenderer = new DeferredRenderer();
+                  deferredRenderer.initialize(config.getWindowWidth(), config.getWindowHeight());
+                  logger.info("Deferred rendering system initialized successfully");
+              }
+              
+              postProcessingSystem = new PostProcessingSystem();
+              postProcessingSystem.initialize(config.getWindowWidth(), config.getWindowHeight());
+              logger.info("Post-processing system initialized successfully");
+              
+          } catch (Exception e) {
+              logger.error("Failed to initialize PBR/deferred rendering systems", e);
+              // Fall back to forward rendering
+              useDeferredRendering = false;
+              usePBRMaterials = false;
+          }
+      }
+    
     private void initializeMeshes() {
         cubeMesh = Mesh.createCube();
         planeMesh = Mesh.createPlane(50.0f);
@@ -282,11 +323,11 @@ public class Renderer {
     }
     
     public void renderScene() {
-        // Render ocean plane
-        renderOcean();
-        
-        // Render some test cubes for visual feedback
-        renderTestCubes();
+        if (useDeferredRendering && deferredRenderer != null) {
+            renderSceneDeferred();
+        } else {
+            renderSceneForward();
+        }
         
         // Render debug information if enabled
         if (config.isDebugMode()) {
@@ -295,85 +336,219 @@ public class Renderer {
     }
     
     /**
-     * Renders the ocean surface using the advanced water shader system.
+     * Renders the scene using deferred rendering pipeline.
      */
-    public void renderOcean() {
-        // The ocean rendering is now handled by the OceanSystem
-        // This method is kept for compatibility but delegates to the ocean system
+    private void renderSceneDeferred() {
+        // Geometry pass - render to G-Buffer
+        deferredRenderer.beginGeometryPass();
+        
+        // Render ocean with PBR materials
+        if (usePBRMaterials && pbrShader != null) {
+            renderOceanPBR();
+        } else {
+            renderOcean();
+        }
+        
+        // Render test cubes with PBR materials
+        if (usePBRMaterials && pbrShader != null) {
+            renderTestCubesPBR();
+        } else {
+            renderTestCubes();
+        }
+        
+        deferredRenderer.endGeometryPass();
+        
+        // Lighting pass
+        deferredRenderer.performLightingPass(lightingSystem, camera.getPosition());
+        
+        // Post-processing pass
+        if (postProcessingSystem != null) {
+            // Apply bloom effect using the bright texture from deferred renderer
+            postProcessingSystem.applyBloom(deferredRenderer.getFinalTexture());
+            
+            // Apply volumetric lighting (using depth texture and a placeholder shadow map)
+            postProcessingSystem.applyVolumetricLighting(deferredRenderer.getDepthTexture(), 0);
+            
+            // Perform final composition with tonemapping and gamma correction
+            postProcessingSystem.performFinalComposition(
+                deferredRenderer.getFinalTexture(), 
+                0, // bloom texture (would need to be retrieved from bloom system)
+                0  // volumetric texture (would need to be retrieved from volumetric system)
+            );
+        }
+        
+        // Present final result
+        deferredRenderer.presentFinalResult();
+    }
+    
+    /**
+     * Renders the scene using forward rendering pipeline (fallback).
+     */
+    private void renderSceneForward() {
+        // Render ocean plane
+        renderOcean();
+        
+        // Render some test cubes for visual feedback
+        renderTestCubes();
+    }
+    
+    /**
+     * Renders the ocean using PBR materials.
+     */
+    private void renderOceanPBR() {
+        if (oceanSystem != null) {
+            // The ocean system should be updated to support PBR materials
+            oceanSystem.render(this);
+        } else {
+            renderSimpleOceanPBR();
+        }
+    }
+    
+    /**
+     * Renders the ocean using forward rendering.
+     */
+    private void renderOcean() {
         if (oceanSystem != null) {
             oceanSystem.render(this);
         } else {
-            // Fallback to simple ocean rendering if ocean system is not available
             renderSimpleOcean();
         }
     }
     
     /**
-     * Fallback method for simple ocean rendering when OceanSystem is not available.
+     * Renders a simple ocean using basic shader.
      */
     private void renderSimpleOcean() {
-        // Get ocean shader from shader manager
-        Shader oceanShader = shaderManager.getShader("ocean");
-        if (oceanShader == null) {
-            logger.warn("Ocean shader not found, skipping ocean rendering");
-            return;
-        }
-        
-        // Render ocean using ocean shader
-        oceanShader.bind();
-        
-        // Set uniforms
-        oceanShader.setUniform("projectionMatrix", camera.getProjectionMatrix());
-        oceanShader.setUniform("viewMatrix", camera.getViewMatrix());
-        oceanShader.setUniform("lightDirection", lightDirection);
-        oceanShader.setUniform("lightColor", lightColor);
-        oceanShader.setUniform("ambientColor", ambientColor);
-        oceanShader.setUniform("cameraPosition", camera.getPosition());
-        oceanShader.setUniform("time", (float) (System.currentTimeMillis() / 1000.0));
-        
-        // Render ocean plane at sea level
-        modelMatrix.identity().translate(0, 64, 0).scale(200);
-        oceanShader.setUniform("modelMatrix", modelMatrix);
-        
-        planeMesh.render();
-        
-        oceanShader.unbind();
-    }
-    
-    private void renderTestCubes() {
-        // Get basic shader from shader manager
+        // Use basic shader for forward rendering
         Shader basicShader = shaderManager.getShader("basic");
         if (basicShader == null) {
-            logger.warn("Basic shader not found, skipping test cube rendering");
+            logger.warn("Basic shader not found, skipping ocean rendering");
             return;
         }
         
         basicShader.bind();
         
-        // Set uniforms
-        basicShader.setUniform("projectionMatrix", camera.getProjectionMatrix());
-        basicShader.setUniform("viewMatrix", camera.getViewMatrix());
-        basicShader.setUniform("lightDirection", lightDirection);
-        basicShader.setUniform("lightColor", lightColor);
-        basicShader.setUniform("ambientColor", ambientColor);
+        // Set matrices
+        basicShader.setUniform("u_projectionMatrix", camera.getProjectionMatrix());
+        basicShader.setUniform("u_viewMatrix", camera.getViewMatrix());
         
-        // Render a grid of test cubes above the ocean
+        // Set ocean color
+        basicShader.setUniform("u_color", new Vector3f(0.1f, 0.3f, 0.8f)); // Ocean blue
+        
+        // Render ocean plane at sea level
+        modelMatrix.identity().translate(0, 64, 0).scale(200);
+        basicShader.setUniform("u_modelMatrix", modelMatrix);
+        
+        planeMesh.render();
+        
+        basicShader.unbind();
+    }
+    
+    /**
+     * Renders test cubes using forward rendering.
+     */
+    private void renderTestCubes() {
+        // Use basic shader for forward rendering
+        Shader basicShader = shaderManager.getShader("basic");
+        if (basicShader == null) {
+            logger.warn("Basic shader not found, skipping test cubes rendering");
+            return;
+        }
+        
+        basicShader.bind();
+        
+        // Set matrices
+        basicShader.setUniform("u_projectionMatrix", camera.getProjectionMatrix());
+        basicShader.setUniform("u_viewMatrix", camera.getViewMatrix());
+        
+        // Render a grid of test cubes with different colors
         for (int x = -2; x <= 2; x++) {
             for (int z = -2; z <= 2; z++) {
                 modelMatrix.identity().translate(x * 20, 75, z * 20).scale(3);
-                basicShader.setUniform("modelMatrix", modelMatrix);
+                basicShader.setUniform("u_modelMatrix", modelMatrix);
                 
                 // Different colors for different positions
-                float r = (x + 2) / 4.0f;
-                float g = (z + 2) / 4.0f;
-                float b = 0.5f;
-                basicShader.setUniform("objectColor", new Vector3f(r, g, b));
+                Vector3f color = new Vector3f(
+                    0.5f + (x + 2) / 8.0f,
+                    0.5f + (z + 2) / 8.0f,
+                    0.7f
+                );
+                basicShader.setUniform("u_color", color);
                 
                 cubeMesh.render();
             }
         }
         
         basicShader.unbind();
+    }
+    
+    /**
+     * Renders a simple ocean using PBR shader.
+     */
+    private void renderSimpleOceanPBR() {
+        if (pbrShader == null) {
+            renderSimpleOcean();
+            return;
+        }
+        
+        pbrShader.bind();
+        
+        // Set matrices
+        modelMatrix.identity().translate(0, 64, 0).scale(200);
+        pbrShader.setMatrices(modelMatrix, camera.getViewMatrix(), camera.getProjectionMatrix());
+        pbrShader.setCameraPosition(camera.getPosition());
+        
+        // Set lighting parameters
+        pbrShader.setLightingParameters(lightingSystem);
+        
+        // Set ocean material properties
+        Vector3f oceanAlbedo = new Vector3f(0.1f, 0.3f, 0.8f); // Ocean blue
+        pbrShader.setMaterialFactors(oceanAlbedo, 0.0f, 0.1f, new Vector3f(0.0f), 1.0f);
+        
+        planeMesh.render();
+        
+        pbrShader.unbind();
+    }
+    
+    /**
+     * Renders test cubes using PBR materials.
+     */
+    private void renderTestCubesPBR() {
+        if (pbrShader == null) {
+            renderTestCubes();
+            return;
+        }
+        
+        pbrShader.bind();
+        
+        // Set lighting parameters
+        pbrShader.setLightingParameters(lightingSystem);
+        pbrShader.setCameraPosition(camera.getPosition());
+        
+        // Render a grid of test cubes with different PBR materials
+        for (int x = -2; x <= 2; x++) {
+            for (int z = -2; z <= 2; z++) {
+                modelMatrix.identity().translate(x * 20, 75, z * 20).scale(3);
+                pbrShader.setMatrices(modelMatrix, camera.getViewMatrix(), camera.getProjectionMatrix());
+                
+                // Different PBR materials for different positions
+                float metallic = (x + 2) / 4.0f;
+                float roughness = (z + 2) / 4.0f;
+                
+                Vector3f albedo = new Vector3f(
+                    0.5f + (x + 2) / 8.0f,
+                    0.5f + (z + 2) / 8.0f,
+                    0.7f
+                );
+                
+                // Set material factors for this cube
+                pbrShader.setMaterialFactors(albedo, metallic, Math.max(0.1f, roughness), new Vector3f(0.0f), 1.0f);
+                
+                cubeMesh.render();
+            }
+        }
+        
+        pbrShader.unbind();
     }
     
     private void renderDebugInfo() {
@@ -386,8 +561,22 @@ public class Renderer {
     }
     
     public void cleanup() {
-        logger.info("Cleaning up renderer resources");
+        logger.info("Cleaning up renderer resources...");
         
+        // Cleanup new PBR and deferred rendering systems
+        if (pbrShader != null) {
+            pbrShader.cleanup();
+        }
+        
+        if (deferredRenderer != null) {
+            deferredRenderer.cleanup();
+        }
+        
+        if (postProcessingSystem != null) {
+            postProcessingSystem.cleanup();
+        }
+        
+        // Cleanup existing systems
         if (batchRenderer != null) {
             batchRenderer.cleanup();
         }
@@ -412,6 +601,7 @@ public class Renderer {
             shaderManager.cleanup();
         }
         
+        // Cleanup meshes
         if (cubeMesh != null) {
             cubeMesh.cleanup();
         }
@@ -419,51 +609,71 @@ public class Renderer {
         if (planeMesh != null) {
             planeMesh.cleanup();
         }
+        
+        logger.info("Renderer cleanup completed");
     }
     
 
     
     // Camera interface
+    // Getter methods for existing systems
     public Camera getCamera() {
         return camera;
     }
     
-    /**
-     * Gets the material manager for material operations.
-     * @return The material manager instance
-     */
+    public ShaderManager getShaderManager() {
+        return shaderManager;
+    }
+    
     public MaterialManager getMaterialManager() {
         return materialManager;
     }
     
-    /**
-     * Gets the batch renderer for efficient rendering operations.
-     * @return The batch renderer instance
-     */
     public BatchRenderer getBatchRenderer() {
         return batchRenderer;
     }
     
-    /**
-     * Gets the texture atlas manager for texture operations.
-     * @return The texture atlas manager instance
-     */
     public TextureAtlasManager getTextureAtlasManager() {
         return textureAtlasManager;
     }
     
-    /**
-     * Gets the lighting system for lighting operations.
-     * @return The lighting system instance
-     */
     public LightingSystem getLightingSystem() {
         return lightingSystem;
     }
     
-    /**
-     * Renders a water plane with the specified dimensions.
-     * Used by the advanced water shader system.
-     */
+    public OceanSystem getOceanSystem() {
+        return oceanSystem;
+    }
+    
+    // Getter methods for new PBR and deferred rendering systems
+    public PBRShader getPBRShader() {
+        return pbrShader;
+    }
+    
+    public DeferredRenderer getDeferredRenderer() {
+        return deferredRenderer;
+    }
+    
+    public PostProcessingSystem getPostProcessingSystem() {
+        return postProcessingSystem;
+    }
+    
+    public boolean isUsingDeferredRendering() {
+        return useDeferredRendering;
+    }
+    
+    public boolean isUsingPBRMaterials() {
+        return usePBRMaterials;
+    }
+    
+    public void setUseDeferredRendering(boolean useDeferredRendering) {
+        this.useDeferredRendering = useDeferredRendering;
+    }
+    
+    public void setUsePBRMaterials(boolean usePBRMaterials) {
+        this.usePBRMaterials = usePBRMaterials;
+    }
+    
     public void renderWaterPlane(float x, float y, float z, float width, float height) {
         modelMatrix.identity().translate(x + width/2, y, z + height/2).scale(width, 1, height);
         
@@ -571,8 +781,7 @@ public class Renderer {
     public Vector3f getLightColor() { return new Vector3f(lightColor); }
     public Vector3f getAmbientColor() { return new Vector3f(ambientColor); }
     
-    // Ocean system getter
-    public OceanSystem getOceanSystem() { return oceanSystem; }
+
     
     // Getters and setters
     public Matrix4f getModelMatrix() { return new Matrix4f(modelMatrix); }

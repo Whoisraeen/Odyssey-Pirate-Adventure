@@ -593,10 +593,17 @@ public class WorldGenerator {
     public BlockType getBlockAt(int x, int y, int z) {
         float terrainHeight = getHeightAt(x, z);
         
-        // Air above terrain
+        // Handle blocks above terrain
         if (y > terrainHeight) {
-            return y <= SEA_LEVEL ? BlockType.WATER : BlockType.AIR;
+            // If we're above terrain but below or at sea level, it's water
+            if (y <= SEA_LEVEL) {
+                return BlockType.WATER;
+            } else {
+                return BlockType.AIR;
+            }
         }
+        
+        // Handle blocks at or below terrain level
         
         // Check for ore deposits
         Vector3f pos = new Vector3f(x, y, z);

@@ -708,6 +708,15 @@ public class TextureAtlas {
     }
     
     /**
+     * Gets the number of textures in the atlas.
+     * Alias for getRegionCount() for compatibility.
+     * @return The number of texture regions
+     */
+    public int getTextureCount() {
+        return getRegionCount();
+    }
+    
+    /**
      * Binds the atlas texture for rendering.
      */
     public void bind() {

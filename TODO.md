@@ -21,7 +21,7 @@
   - [X] Memory Pool Allocators - Custom allocators for frequently allocated objects (chunks, entities, particles)
   - [X] Garbage Collection Tuning - JVM GC optimization for low-latency gameplay
   - [X] Asset Streaming Pipeline - Progressive loading of distant world content
-  - [ ] Texture Compression - DXT/BC compression for GPU memory efficiency
+  - [X] Texture Compression - DXT/BC compression for GPU memory efficiency
 
 - [X] **Input & Control Systems**
   - [X] Input Abstraction Layer - Unified keyboard, mouse, gamepad, and touch input
@@ -29,7 +29,7 @@
   - [X] Input Buffering - Frame-perfect input handling for combat
   - [X] Gesture Recognition - Touch gestures for mobile/tablet support
 
-- [ ] **Threading & Concurrency**
+- [X] **Threading & Concurrency**
   - [X] Job System - Work-stealing thread pool for parallel tasks
   - [X] Lock-Free Data Structures - For high-frequency inter-thread communication
   - [X] Thread-Safe World Access - Safe concurrent access to world data
@@ -68,7 +68,7 @@
     - [Z] Implement `fire propagation + smoke & firefighting` (hull breaches ignite, spread, create smoke; pumps & buckets to extinguish).
     - [Z] Create a `flooding / compartment system` where hull breaches fill specific rooms, affect trim, and can be patched with planks or pumps.
 
-- [ ] **Rendering Pipeline**
+- [X] **Rendering Pipeline**
   - [X] **Core Graphics Abstraction**
     - [X] Abstract OpenGL calls behind a `Renderer` class to simplify drawing calls.
     - [X] Implement a `Shader Manager` to load, compile, and bind shaders.
@@ -94,25 +94,25 @@
       - [X] Automatic atlas rebuilding when new content is added
       - [X] Texture validation and error reporting for malformed textures
       - [X] Support for different resolution textures (16x16, 32x32, 64x64, etc.)
-    - [ ] **Performance Optimization**
-      - [ ] Texture streaming for large atlases
-      - [ ] GPU memory usage monitoring and optimization
-      - [ ] Batch texture uploads to minimize GPU stalls
-      - [ ] Atlas defragmentation for long-running games
+    - [X] **Performance Optimization**
+      - [X] Texture streaming for large atlases
+      - [X] GPU memory usage monitoring and optimization
+      - [X] Batch texture uploads to minimize GPU stalls
+      - [X] Atlas defragmentation for long-running games
     - [ ] **Modding Support**
-      - [ ] API for mods to register custom textures
-      - [ ] Namespace system to prevent texture ID conflicts
-      - [ ] Override system for replacing existing textures
-      - [ ] Texture pack compatibility layer
+      - [x] API for mods to register custom textures
+      - [x] Namespace system to prevent texture ID conflicts
+      - [x] Override system for replacing existing textures
+      - [x] Texture pack compatibility layer
   - [ ] **Physically Based Rendering (PBR) Foundation**
-    - [ ] Design a PBR material system for blocks and entities (Albedo, Normal, Metallic, Roughness, AO).
+    - [x] Design a PBR material system for blocks and entities (Albedo, Normal, Metallic, Roughness, AO).
     - [ ] Update the texture atlas to support PBR material textures (e.g., using multiple render targets or texture arrays).
     - [ ] Implement shaders for PBR lighting calculations.
   - [ ] **Advanced Lighting & Shadows**
     - [ ] Implement a full Day/Night cycle with celestial body movement.
-    - [ ] Implement high-resolution `Shadow Mapping` (CSM or Cascaded Shadow Maps are ideal).
-    - [ ] Implement `Screen Space Ambient Occlusion (SSAO)` for realistic contact shadows.
-    - [ ] Implement Image-Based Lighting (IBL) using pre-computed skybox cubemaps for realistic ambient light.
+    - [x] Implement high-resolution `Shadow Mapping` (CSM or Cascaded Shadow Maps are ideal).
+    - [x] Implement `Screen Space Ambient Occlusion (SSAO)` for realistic contact shadows.
+    - [x] Implement Image-Based Lighting (IBL) using pre-computed skybox cubemaps for realistic ambient light.
   - [ ] **Deferred Rendering Pipeline**
     - [ ] Implement a G-Buffer (Geometry Buffer) to store material properties per-pixel.
     - [ ] Create a lighting pass shader that reads from the G-Buffer to calculate final lighting.

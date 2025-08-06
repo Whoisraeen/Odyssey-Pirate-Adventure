@@ -171,10 +171,6 @@ public class InputManager {
         glfwSetCursorPosCallback(window.getHandle(), (windowHandle, xpos, ypos) -> {
             mouseX = xpos;
             mouseY = ypos;
-            // Debug logging (very limited to avoid spam)
-            if (Math.random() < 0.001) { // Log roughly 1 in 1000 mouse movements
-                logger.debug("Mouse position updated: x={}, y={}", xpos, ypos);
-            }
         });
         
         // Set up scroll callback
@@ -208,18 +204,20 @@ public class InputManager {
     }
     
     public void update() {
-        // Calculate mouse delta
+        // Calculate mouse deltas
         mouseDeltaX = mouseX - lastMouseX;
         mouseDeltaY = mouseY - lastMouseY;
         
-        // Debug logging for mouse delta (limited to avoid spam)
-        if (Math.random() < 0.01 && (Math.abs(mouseDeltaX) > 0.001 || Math.abs(mouseDeltaY) > 0.001)) {
-            logger.debug("Mouse delta: deltaX={}, deltaY={}, mouseX={}, mouseY={}, lastX={}, lastY={}", 
-                mouseDeltaX, mouseDeltaY, mouseX, mouseY, lastMouseX, lastMouseY);
+        // When mouse is captured, reset cursor to prevent drift
+        if (mouseCaptured) {
+            // Reset to window center
+            glfwSetCursorPos(window.getHandle(), 960, 540); // Assuming 1920x1080, could be made dynamic
+            lastMouseX = 960;
+            lastMouseY = 540;
+        } else {
+            lastMouseX = mouseX;
+            lastMouseY = mouseY;
         }
-        
-        lastMouseX = mouseX;
-        lastMouseY = mouseY;
         
         // Clear just pressed/released states
         keyJustPressed.clear();

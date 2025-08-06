@@ -279,18 +279,9 @@ public class Engine {
         GameStateManager.GameState currentState = gameStateManager.getCurrentState();
         boolean isPlayingState = currentState instanceof GameStateManager.PlayingState;
         
-        // Auto-capture mouse in playing state (more aggressive approach)
+        // Auto-capture mouse in playing state
         if (isPlayingState && !inputManager.isMouseCaptured()) {
             inputManager.setMouseCaptured(true);
-            logger.debug("Auto-capturing mouse in playing state");
-        }
-        
-        // Also capture on any mouse movement
-        if (isPlayingState && (Math.abs(mouseDeltaX) > 0.001 || Math.abs(mouseDeltaY) > 0.001)) {
-            if (!inputManager.isMouseCaptured()) {
-                inputManager.setMouseCaptured(true);
-                logger.debug("Capturing mouse due to movement: deltaX={}, deltaY={}", mouseDeltaX, mouseDeltaY);
-            }
         }
         
         // Note: ESC key handling for mouse release is in the main game loop

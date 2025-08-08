@@ -183,11 +183,11 @@
   - [ ] **Path Tracing (Ultimate Goal)**
     - [ ] Implement a full Path Tracing renderer for offline-quality global illumination, as a separate "cinematic" mode.
 
-- [ ] **Entity Component System (ECS) & Physics**
-  - [ ] Implement a robust ECS framework (e.g., Ashley or a custom one).
-  - [ ] Define core components: `TransformComponent`, `PhysicsComponent`, `HealthComponent`, `RenderableComponent`.
-  - [ ] Implement a 3D physics engine with AABB collision detection and response.
-  - [ ] Implement a `BuoyancyComponent` that applies upward force based on water displacement.
+- [Z] **Entity Component System (ECS) & Physics**
+  - [Z] Implement a robust ECS framework (e.g., Ashley or a custom one).
+  - [Z] Define core components: `TransformComponent`, `PhysicsComponent`, `HealthComponent`, `RenderableComponent`.
+  - [Z] Implement a 3D physics engine with AABB collision detection and response.
+  - [Z] Implement a `BuoyancyComponent` that applies upward force based on water displacement.
 
 - [ ] **Advanced Ocean Physics & Simulation**
   - [ ] **Tidal System Implementation**
@@ -201,6 +201,7 @@
     - [ ] Abyssal zone (50-200 blocks) with bioluminescent creatures
     - [ ] Hadal depths (200+ blocks) with extreme pressure mechanics
   - [ ] **Marine Ecosystem Simulation**
+    - [Z] Fix Vector type mismatches in marine AI system (Vector2f/Vector3f compatibility)
     - [ ] Plankton population affecting water clarity and fish spawns
     - [ ] Dynamic fish school migration patterns
     - [ ] Predator-prey relationships with realistic hunting behaviors
@@ -213,81 +214,81 @@
     - [ ] Weathering system for materials (rust, decay, patina)
     - [ ] Material fatigue and stress mechanics for ship hulls
 
-- [ ] **UI/UX Framework**
-  - [ ] Build a scene-graph based UI system.
-  - [ ] Implement TrueType font rendering (e.g., using `lwjgl-stb`).
-  - [ ] Create a library of core UI widgets: `Button`, `Slider`, `Checkbox`, `TextBox`, `ScrollView`.
-  - [ ] Implement UI event handling (click, hover, drag).
-  - [ ] **Controller UI**
-    - [ ] Create built-in controller gamepad layouts.
-    - [ ] Design and implement a `Radial UI` for console-style interaction.
+- [Z] **UI/UX Framework**
+  - [Z] Build a scene-graph based UI system.
+  - [Z] Implement TrueType font rendering (e.g., using `lwjgl-stb`).
+  - [Z] Create a library of core UI widgets: `Button`, `Slider`, `Checkbox`, `TextBox`, `ScrollView`.
+  - [Z] Implement UI event handling (click, hover, drag).
+  - [Z] **Controller UI**
+    - [Z] Create built-in controller gamepad layouts.
+    - [Z] Design and implement a `Radial UI` for console-style interaction.
 
 - [ ] **World Persistence & Rollback**
   - [ ] Implement a region-file format with journaling and auto-backup.
   - [ ] Create an in-game `/rollback` admin command.
 
-- [ ] **World-Save Architecture**
-  - [ ] **World Root Layout**
-    - [ ] Define `/saves/<WorldName>/` directory structure
-      - [ ] `region/` – chunk/region binaries
-      - [ ] `playerdata/` – per-UUID player files
-      - [ ] `data/` – global maps, structures, world events
-      - [ ] `dimension/<DimName>/region/` for alternate realms
-      - [ ] `session.lock` + write-ahead log
-  - [ ] **Region-File Format (`.oreg`)**
-    - [ ] Fixed 32 × 32 chunk tiles per file
-    - [ ] 8 KB header (chunk offsets, timestamps, compression flags)
-    - [ ] Chunk payloads Zstandard-compressed NBT/CBOR
-    - [ ] Sparse free-list to reduce fragmentation
-  - [ ] **Chunk Serialization Layer**
-    - [ ] Versioned schemas allowing future block-ID remaps
-    - [ ] Async read/write queue with main-thread back-pressure
-  - [ ] **Level Metadata (`level.meta`)**
-    - [ ] Store seed, rules, time, weather, generator settings
-    - [ ] Dual format: human-readable JSON + fast binary mirror
-  - [ ] **Player-Data Files**
-    - [ ] UUID-named (`<uuid>.odp`) inventories, XP, effects, last location, bound ship, advancements
-  - [ ] **Global Map & Advancements Storage**
-    - [ ] `data/maps/` – PNG + palette per explored chart
-    - [ ] `advancements.dat` – compressed JSON toast progress
-  - [ ] **Write-Ahead Journaling**
-    - [ ] Append-only log of block/entity changes, committed every N ticks
-    - [ ] Crash-safe recovery routine at boot
-  - [ ] **Snapshot / Auto-Backup System**
-    - [ ] `snapshots/<timestamp>/` zstd-tarballs
-    - [ ] Configurable interval & retention
-  - [ ] **Save Compression & Encryption Options**
-    - [ ] Toggle: none / lz4 / zstd
-    - [ ] Optional AES-GCM encryption for server realms
-  - [ ] **World-Save API for Mods**
-    - [ ] Reserved NBT "capability" tags in chunks & player files
-    - [ ] `/data <namespace> get|set` command for scripts
+- [Z] **World-Save Architecture**
+  - [Z] **World Root Layout**
+    - [Z] Define `/saves/<WorldName>/` directory structure
+      - [Z] `region/` – chunk/region binaries
+      - [Z] `playerdata/` – per-UUID player files
+      - [Z] `data/` – global maps, structures, world events
+      - [Z] `dimension/<DimName>/region/` for alternate realms
+      - [Z] `session.lock` + write-ahead log
+  - [Z] **Region-File Format (`.oreg`)**
+    - [Z] Fixed 32 × 32 chunk tiles per file
+    - [Z] 8 KB header (chunk offsets, timestamps, compression flags)
+    - [Z] Chunk payloads Zstandard-compressed NBT/CBOR
+    - [Z] Sparse free-list to reduce fragmentation
+  - [Z] **Chunk Serialization Layer**
+    - [Z] Versioned schemas allowing future block-ID remaps
+    - [Z] Async read/write queue with main-thread back-pressure
+  - [Z] **Level Metadata (`level.meta`)**
+    - [Z] Store seed, rules, time, weather, generator settings
+    - [Z] Dual format: human-readable JSON + fast binary mirror
+  - [Z] **Player-Data Files**
+    - [Z] UUID-named (`<uuid>.odp`) inventories, XP, effects, last location, bound ship, advancements
+  - [Z] **Global Map & Advancements Storage**
+    - [Z] `data/maps/` – PNG + palette per explored chart
+    - [Z] `advancements.dat` – compressed JSON toast progress
+  - [Z] **Write-Ahead Journaling**
+    - [Z] Append-only log of block/entity changes, committed every N ticks
+    - [Z] Crash-safe recovery routine at boot
+  - [Z] **Snapshot / Auto-Backup System**
+    - [Z] `snapshots/<timestamp>/` zstd-tarballs
+    - [Z] Configurable interval & retention
+  - [Z] **Save Compression & Encryption Options**
+    - [Z] Toggle: none / lz4 / zstd
+    - [Z] Optional AES-GCM encryption for server realms
+  - [Z] **World-Save API for Mods**
+    - [Z] Reserved NBT "capability" tags in chunks & player files
+    - [Z] `/data <namespace> get|set` command for scripts
 
-- [ ] **Migration & Distribution Tooling**
-  - [ ] **Version-Upgrade Migrator**
-    - [ ] Auto-detect old chunk schema → remap & bump header version
-  - [ ] **World Export / Import**
-    - [ ] Pack selected dimensions into `.odysseyWorld` archive
-    - [ ] Optionally strip playerdata for sharing
-  - [ ] **Delta-Patch Generator**
-    - [ ] Create binary diff between two snapshots for lightweight updates
-  - [ ] **Cloud-Sync Hooks**
-    - [ ] Auth upload/download of zipped snapshots (Steam Cloud, Dropbox, custom URL)
-  - [ ] **Corruption Scanner & Repair CLI**
-    - [ ] Verify region headers, CRC chunk payloads, rebuild free-list
-  - [ ] **External Editor Spec & Samples**
-    - [ ] Publish `.oreg`/`.odp` format docs + reference parser code
-  - [ ] **Lock & Conflict Detection**
-    - [ ] `session.lock` heartbeat with PID/host to block concurrent writes
+- [Z] **Migration & Distribution Tooling**
+  - [Z] **Version-Upgrade Migrator**
+    - [Z] Auto-detect old chunk schema → remap & bump header version
+  - [Z] **World Export / Import**
+    - [Z] Pack selected dimensions into `.odysseyWorld` archive
+    - [Z] Optionally strip playerdata for sharing
+  - [Z] **Delta-Patch Generator**
+    - [Z] Create binary diff between two snapshots for lightweight updates
+  - [Z] **Cloud-Sync Hooks**
+    - [Z] Auth upload/download of zipped snapshots (Steam Cloud, Dropbox, custom URL)
+  - [Z] **Corruption Scanner & Repair CLI**
+    - [Z] Verify region headers, CRC chunk payloads, rebuild free-list
+  - [Z] **External Editor Spec & Samples**
+    - [Z] Publish `.oreg`/`.odp` format docs + reference parser code
+  - [Z] **Lock & Conflict Detection**
+    - [Z] `session.lock` heartbeat with PID/host to block concurrent writes
 
 - [ ] **Command Console & Scripting Hooks**
   - [ ] Implement a text-command parser for admin commands (`/tp`, `/give`, `/weather`, etc.).
   - [ ] Implement server-side Lua scripting hooks early so all later systems are scriptable.
 
-- [ ] **Block-/Sky-Light Engine**
-  - [ ] Incremental flood-fill lighting with queued relight updates
-  - [ ] Separate sky light vs. emissive block light channels
-  - [ ] Relight on block add/remove, world height changes, or time-of-day
+- [Z] **Block-/Sky-Light Engine**
+  - [Z] Incremental flood-fill lighting with queued relight updates
+  - [Z] Separate sky light vs. emissive block light channels
+  - [Z] Relight on block add/remove, world height changes, or time-of-day
 
 - [ ] **Random-Tick Scheduler**
   - [ ] Global tick list for crop growth, leaf decay, fire spread, coral death, etc.

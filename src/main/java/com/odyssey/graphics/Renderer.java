@@ -62,6 +62,9 @@ public class Renderer {
     // Rendering state
     private boolean wireframeMode = false;
     
+    // Framebuffer efficiency - cache framebuffer state to avoid redundant operations
+    private boolean needsDepthCopy = true;
+    
     // Lighting
     private Vector3f lightDirection = new Vector3f(0.3f, -0.7f, 0.2f).normalize();
     private Vector3f lightColor = new Vector3f(1.0f, 0.95f, 0.8f);
@@ -263,6 +266,9 @@ public class Renderer {
     }
     
     public void beginFrame(double deltaTime, float clearR, float clearG, float clearB, float clearA) {
+        // Reset framebuffer efficiency flags for new frame
+        needsDepthCopy = true;
+        
         // Check for shader hot-reloading in debug mode
         if (config.isDebugMode()) {
             shaderManager.checkForUpdates();
@@ -393,8 +399,9 @@ public class Renderer {
         
         // Render sky as overlay on final framebuffer (after deferred pipeline)
         // This ensures sky renders to the screen, not the G-Buffer
-        if (skyRenderer != null) {
+        if (skyRenderer != null && currentTimeOfDaySystem != null) {
             // Copy depth buffer from G-Buffer to default framebuffer for proper depth testing
+            // Only copy when sky renderer is active and time of day system is available
             copyDepthBuffer();
             
             // Render sky with proper depth testing
@@ -509,9 +516,10 @@ public class Renderer {
     /**
      * Copies the depth buffer from G-Buffer to the default framebuffer.
      * This allows sky rendering to properly depth test against rendered geometry.
+     * Uses caching to avoid redundant operations.
      */
     private void copyDepthBuffer() {
-        if (deferredRenderer == null) return;
+        if (deferredRenderer == null || !needsDepthCopy) return;
         
         try {
             // Get window dimensions
@@ -534,6 +542,9 @@ public class Renderer {
             
             // Restore default framebuffer binding
             GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+            
+            // Mark depth copy as completed for this frame
+            needsDepthCopy = false;
             
         } catch (Exception e) {
             logger.warn("Failed to copy depth buffer for sky rendering: {}", e.getMessage());

@@ -385,12 +385,18 @@ public class ChunkMeshGenerator {
                 break;
             case GRASS:
                 if (face == Face.TOP) {
-                    u1 = 0.5f; v1 = 0.0f; u2 = 0.75f; v2 = 0.25f; // Grass top
+                    // Grass top texture - positioned in second row, first slot
+                    u1 = 0.0f; v1 = 0.25f; u2 = 0.25f; v2 = 0.5f; // Grass top
                 } else if (face == Face.BOTTOM) {
+                    // Dirt bottom for grass blocks
                     u1 = 0.25f; v1 = 0.0f; u2 = 0.5f; v2 = 0.25f; // Dirt bottom
                 } else {
-                    u1 = 0.75f; v1 = 0.0f; u2 = 1.0f; v2 = 0.25f; // Grass side
+                    // Grass side texture - positioned in second row, second slot
+                    u1 = 0.25f; v1 = 0.25f; u2 = 0.5f; v2 = 0.5f; // Grass side
                 }
+                break;
+            case SAND:
+                u1 = 0.0f; v1 = 0.5f; u2 = 0.25f; v2 = 0.75f;
                 break;
             case WATER:
                 u1 = 0.0f; v1 = 0.25f; u2 = 0.25f; v2 = 0.5f;
@@ -594,8 +600,10 @@ public class ChunkMeshGenerator {
         // Simplified block type detection from texture coordinates
         if (u < 0.25f && v < 0.25f) return BlockType.STONE;
         if (u >= 0.25f && u < 0.5f && v < 0.25f) return BlockType.DIRT;
-        if (u >= 0.5f && u < 0.75f && v < 0.25f) return BlockType.GRASS;
-        if (v >= 0.25f && v < 0.5f) return BlockType.WATER;
+        if ((u < 0.25f && v >= 0.25f && v < 0.5f) || 
+            (u >= 0.25f && u < 0.5f && v >= 0.25f && v < 0.5f)) return BlockType.GRASS;
+        if (u < 0.25f && v >= 0.5f && v < 0.75f) return BlockType.SAND;
+        if (u < 0.25f && v >= 0.25f && v < 0.5f && u >= 0.0f) return BlockType.WATER;
         return BlockType.STONE; // Default
     }
     

@@ -1,6 +1,7 @@
 package com.odyssey.world.ocean;
 
 import com.odyssey.graphics.Renderer;
+import com.odyssey.game.ecs.World;
 import org.joml.Vector2f;
 import org.joml.Vector3f;
 import org.slf4j.Logger;
@@ -36,6 +37,10 @@ public class MarineEcosystem {
     // Migration and spawning
     private final List<MigrationRoute> migrationRoutes = new ArrayList<>();
     private final Map<SpeciesType, SpawningGround> spawningGrounds = new EnumMap<>(SpeciesType.class);
+    
+    // ECS Integration
+    private MarineEcosystemIntegration ecsIntegration;
+    private boolean useECSSystem = false;
     
     public enum SpeciesType {
         PLANKTON, SMALL_FISH, MEDIUM_FISH, LARGE_FISH, 
@@ -207,6 +212,21 @@ public class MarineEcosystem {
                    totalCreatures, SpeciesType.values().length);
     }
     
+    /**
+     * Initialize the ecosystem with ECS integration.
+     */
+    public void initializeWithECS(World world) {
+        // Initialize the basic ecosystem first
+        initialize();
+        
+        // Set up ECS integration
+        ecsIntegration = new MarineEcosystemIntegration(world, this);
+        ecsIntegration.initialize();
+        useECSSystem = true;
+        
+        logger.info("Marine ecosystem initialized with ECS integration");
+    }
+    
     private void initializeSpeciesPopulations() {
         Random random = new Random();
         
@@ -343,11 +363,18 @@ public class MarineEcosystem {
     }
     
     public void update(double deltaTime) {
+        // Update ECS integration if enabled
+        if (useECSSystem && ecsIntegration != null) {
+            ecsIntegration.update(deltaTime);
+        }
+        
         // Update environmental factors
         updateEnvironmentalFactors(deltaTime);
         
-        // Update creature behaviors
-        updateCreatureBehaviors(deltaTime);
+        // Update creature behaviors (only if not using ECS)
+        if (!useECSSystem) {
+            updateCreatureBehaviors(deltaTime);
+        }
         
         // Process predator-prey interactions
         processPredatorPreyInteractions(deltaTime);
@@ -708,6 +735,14 @@ public class MarineEcosystem {
     
     public void cleanup() {
         logger.info("Cleaning up marine ecosystem");
+        
+        // Cleanup ECS integration if enabled
+        if (useECSSystem && ecsIntegration != null) {
+            ecsIntegration.cleanup();
+            ecsIntegration = null;
+            useECSSystem = false;
+        }
+        
         speciesPopulations.clear();
         fishSchools.clear();
         predatorPacks.clear();
@@ -742,5 +777,54 @@ public class MarineEcosystem {
             }
         }
         return nearby;
+    }
+    
+    // ECS Integration Methods
+    
+    /**
+     * Check if ECS system is enabled.
+     */
+    public boolean isUsingECSSystem() {
+        return useECSSystem;
+    }
+    
+    /**
+     * Get the ECS integration instance.
+     */
+    public MarineEcosystemIntegration getECSIntegration() {
+        return ecsIntegration;
+    }
+    
+    /**
+     * Enable or disable ECS system.
+     */
+    public void setUseECSSystem(boolean useECS) {
+        this.useECSSystem = useECS;
+        if (useECS && ecsIntegration != null) {
+            logger.info("ECS system enabled for marine ecosystem");
+        } else if (!useECS) {
+            logger.info("ECS system disabled for marine ecosystem");
+        }
+    }
+    
+    /**
+     * Get species populations for ECS integration.
+     */
+    public Map<SpeciesType, List<MarineCreature>> getSpeciesPopulations() {
+        return speciesPopulations;
+    }
+    
+    /**
+     * Get fish schools for ECS integration.
+     */
+    public List<School> getFishSchools() {
+        return fishSchools;
+    }
+    
+    /**
+     * Get predator packs for ECS integration.
+     */
+    public List<PredatorPack> getPredatorPacks() {
+        return predatorPacks;
     }
 }

@@ -1,6 +1,9 @@
 package com.odyssey.graphics;
 
 import java.nio.ByteBuffer;
+import java.nio.IntBuffer;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -10,6 +13,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 import org.joml.Vector2f;
+import org.lwjgl.stb.STBImage;
+import org.lwjgl.system.MemoryStack;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -644,10 +649,88 @@ public class TextureAtlasManager {
         createPlaceholderTexture("missing_entity", AtlasCategory.ENTITIES);
         createPlaceholderTexture("missing_ui", AtlasCategory.UI);
         
+        // Load block textures
+        loadBlockTextures();
+        
         // Create default PBR material placeholders
         createDefaultPBRTextures();
         
         logger.info("Preloaded default placeholder textures and PBR materials");
+    }
+    
+    /**
+     * Loads block textures from the resources directory.
+     */
+    private void loadBlockTextures() {
+        try {
+            logger.info("Starting to load block textures...");
+            
+            // Load sand texture
+            String sandTexturePath = "src/main/resources/textures/blocks/sand.png";
+            try {
+                AtlasTextureReference sandTexture = loadAndAddTextureToAtlas("sand", sandTexturePath, AtlasCategory.BLOCKS);
+                if (sandTexture != null) {
+                    logger.info("Loaded sand texture successfully");
+                } else {
+                    logger.warn("Failed to load sand texture, using placeholder");
+                    createPlaceholderTexture("sand", AtlasCategory.BLOCKS);
+                }
+            } catch (Exception e) {
+                logger.error("Exception while loading sand texture: " + e.getMessage(), e);
+                createPlaceholderTexture("sand", AtlasCategory.BLOCKS);
+            }
+            
+            logger.info("Sand texture loading completed, proceeding to grass textures...");
+        
+        // Load grass textures
+        String grassTopPath = "src/main/resources/textures/blocks/grass_top.png";
+        String grassSidePath = "src/main/resources/textures/blocks/grass_side.png";
+        
+        logger.info("Attempting to load grass textures...");
+        
+        if (Files.exists(Paths.get(grassTopPath))) {
+            AtlasTextureReference grassTopTexture = loadAndAddTextureToAtlas("grass_top", grassTopPath, AtlasCategory.BLOCKS);
+            if (grassTopTexture != null) {
+                logger.info("Loaded grass top texture successfully from: {}", grassTopPath);
+            } else {
+                logger.warn("Failed to load grass top texture from: {}", grassTopPath);
+                createPlaceholderTexture("grass_top", AtlasCategory.BLOCKS);
+            }
+        } else {
+            logger.warn("Grass top texture not found at: {}", grassTopPath);
+            createPlaceholderTexture("grass_top", AtlasCategory.BLOCKS);
+        }
+        
+        if (Files.exists(Paths.get(grassSidePath))) {
+            AtlasTextureReference grassSideTexture = loadAndAddTextureToAtlas("grass_side", grassSidePath, AtlasCategory.BLOCKS);
+            if (grassSideTexture != null) {
+                logger.info("Loaded grass side texture successfully from: {}", grassSidePath);
+            } else {
+                logger.warn("Failed to load grass side texture from: {}", grassSidePath);
+                createPlaceholderTexture("grass_side", AtlasCategory.BLOCKS);
+            }
+        } else {
+            logger.warn("Grass side texture not found at: {}", grassSidePath);
+            createPlaceholderTexture("grass_side", AtlasCategory.BLOCKS);
+        }
+        
+            // TODO: Load other block textures (stone, dirt, water, etc.)
+            // For now, create placeholders for other block types
+            createPlaceholderTexture("stone", AtlasCategory.BLOCKS);
+            createPlaceholderTexture("dirt", AtlasCategory.BLOCKS);
+            createPlaceholderTexture("water", AtlasCategory.BLOCKS);
+            
+            logger.info("Completed loading block textures");
+        } catch (Exception e) {
+            logger.error("Critical exception in loadBlockTextures method: " + e.getMessage(), e);
+            // Create basic placeholders to ensure the game can continue
+            createPlaceholderTexture("sand", AtlasCategory.BLOCKS);
+            createPlaceholderTexture("grass_top", AtlasCategory.BLOCKS);
+            createPlaceholderTexture("grass_side", AtlasCategory.BLOCKS);
+            createPlaceholderTexture("stone", AtlasCategory.BLOCKS);
+            createPlaceholderTexture("dirt", AtlasCategory.BLOCKS);
+            createPlaceholderTexture("water", AtlasCategory.BLOCKS);
+        }
     }
     
     /**
@@ -757,6 +840,21 @@ public class TextureAtlasManager {
     }
     
     /**
+     * Helper class to hold texture data and dimensions.
+     */
+    private static class TextureData {
+        public final ByteBuffer data;
+        public final int width;
+        public final int height;
+        
+        public TextureData(ByteBuffer data, int width, int height) {
+            this.data = data;
+            this.width = width;
+            this.height = height;
+        }
+    }
+    
+    /**
      * Loads texture data from file and adds it to an atlas.
      * 
      * @param name The unique name for the texture
@@ -772,18 +870,18 @@ public class TextureAtlasManager {
         
         try {
             // Load texture data directly from file for atlas use
-            ByteBuffer textureData = loadTextureDataFromFile(texturePath);
+            TextureData textureData = loadTextureDataWithDimensions(texturePath);
             if (textureData == null) {
                 logger.error("Failed to load texture data from: " + texturePath);
                 return null;
             }
             
-            // For now, assume standard texture dimensions - this should be improved
-            // to read actual dimensions from the file
-            int width = 256; // Default size - should be read from file
-            int height = 256;
+            AtlasTextureReference result = addTexture(name, textureData.data, textureData.width, textureData.height, category);
             
-            return addTexture(name, textureData, width, height, category);
+            // Free the STBImage data now that we've added it to the atlas
+            STBImage.stbi_image_free(textureData.data);
+            
+            return result;
         } catch (Exception e) {
             logger.error("Failed to load and add texture to atlas: " + name + " - " + e.getMessage());
             return null;
@@ -791,17 +889,50 @@ public class TextureAtlasManager {
     }
     
     /**
+     * Loads raw texture data from a file for atlas use with dimensions.
+     * 
+     * @param texturePath Path to the texture file
+     * @return TextureData containing RGBA texture data and dimensions, or null if failed
+     */
+    private TextureData loadTextureDataWithDimensions(String texturePath) {
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            IntBuffer widthBuffer = stack.mallocInt(1);
+            IntBuffer heightBuffer = stack.mallocInt(1);
+            IntBuffer channelsBuffer = stack.mallocInt(1);
+            
+            // Load image data with forced RGBA format
+            ByteBuffer imageData = STBImage.stbi_load(texturePath, widthBuffer, heightBuffer, 
+                                                      channelsBuffer, 4);
+            
+            if (imageData == null) {
+                logger.error("Failed to load texture: {} - {}", texturePath, STBImage.stbi_failure_reason());
+                return null;
+            }
+            
+            int width = widthBuffer.get(0);
+            int height = heightBuffer.get(0);
+            int channels = channelsBuffer.get(0);
+            
+            logger.debug("Loaded texture {}x{} with {} channels from {}", width, height, channels, texturePath);
+            
+            // Use the STBImage data directly - we'll manage the memory differently
+            // Note: The caller is responsible for freeing this data when done
+            return new TextureData(imageData, width, height);
+        } catch (Exception e) {
+            logger.error("Exception loading texture from file: {} - {}", texturePath, e.getMessage());
+            return null;
+        }
+    }
+    
+    /**
      * Loads raw texture data from a file for atlas use.
-     * This is a simplified implementation that should be expanded.
      * 
      * @param texturePath Path to the texture file
      * @return ByteBuffer containing RGBA texture data, or null if failed
      */
     private ByteBuffer loadTextureDataFromFile(String texturePath) {
-        // This is a placeholder implementation
-        // In a real implementation, you would use STBImage or similar to load the raw data
-        logger.warn("loadTextureDataFromFile is not fully implemented for: " + texturePath);
-        return null;
+        TextureData textureData = loadTextureDataWithDimensions(texturePath);
+        return textureData != null ? textureData.data : null;
     }
     
     /**
@@ -1138,20 +1269,7 @@ public class TextureAtlasManager {
         return stats.toString();
     }
     
-    /**
-     * Helper class to store texture data during defragmentation.
-     */
-    private static class TextureData {
-        final ByteBuffer data;
-        final int width;
-        final int height;
-        
-        TextureData(ByteBuffer data, int width, int height) {
-            this.data = data;
-            this.width = width;
-            this.height = height;
-        }
-    }
+    // TextureData class is already defined above - removed duplicate
     
     /**
      * Extracts texture data from an atlas region for defragmentation.

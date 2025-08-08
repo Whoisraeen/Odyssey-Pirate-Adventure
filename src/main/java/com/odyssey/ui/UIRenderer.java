@@ -2,11 +2,12 @@ package com.odyssey.ui;
 
 import com.odyssey.graphics.Renderer;
 import org.joml.Matrix4f;
-import org.joml.Vector3f;
 import org.joml.Vector4f;
+import org.lwjgl.system.MemoryStack;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,6 +29,9 @@ public class UIRenderer {
     private Matrix4f projectionMatrix;
     private int windowWidth, windowHeight;
     
+    // Font rendering
+    private FontRenderer fontRenderer;
+    
     // UI elements to render
     private final List<UIElement> elements = new ArrayList<>();
     
@@ -35,11 +39,18 @@ public class UIRenderer {
         this.windowWidth = windowWidth;
         this.windowHeight = windowHeight;
         
+        logger.info("Initializing UI renderer with window size: {}x{}", windowWidth, windowHeight);
+        
         createShaders();
         createBuffers();
         updateProjection();
         
-        logger.info("UI renderer initialized");
+        // Initialize font renderer
+        fontRenderer = new FontRenderer();
+        fontRenderer.initialize();
+        fontRenderer.setProjectionMatrix(projectionMatrix);
+        
+        logger.info("UI renderer initialized successfully");
     }
     
     private void createShaders() {
@@ -132,6 +143,11 @@ public class UIRenderer {
         this.windowWidth = width;
         this.windowHeight = height;
         updateProjection();
+        
+        // Update font renderer projection
+        if (fontRenderer != null) {
+            fontRenderer.setProjectionMatrix(projectionMatrix);
+        }
     }
     
     public void beginFrame() {
@@ -196,25 +212,73 @@ public class UIRenderer {
     }
     
     public void drawText(String text, float x, float y, float size, Vector4f color) {
-        // For now, just draw a placeholder rectangle for text
-        // In a full implementation, this would use a font rendering system
-        logger.debug("Drawing text: '{}' at ({}, {}) size={}", text, x, y, size);
+        if (fontRenderer != null) {
+            // Use proper font rendering
+            logger.debug("Drawing text: '{}' at ({}, {}) size={}", text, x, y, size);
+            
+            // Create a font at the requested size if needed
+            FontRenderer.Font font = fontRenderer.getDefaultFont();
+            if (font != null && Math.abs(font.getSize() - size) > 1.0f) {
+                // For now, scale the default font - in a full implementation,
+                // we'd cache fonts at different sizes
+                float scale = size / font.getSize();
+                // Apply scaling during rendering (simplified approach)
+            }
+            
+            fontRenderer.renderText(text, x, y, color);
+        } else {
+            // Fallback to placeholder rectangles
+            logger.debug("Drawing text placeholder: '{}' at ({}, {}) size={}", text, x, y, size);
+            
+            float textWidth = text.length() * size * 0.6f;
+            float textHeight = size;
+            
+            // Draw a background rectangle for better visibility
+            elements.add(new RectangleElement(x - 4, y - 4, textWidth + 8, textHeight + 8, 
+                new Vector4f(0.0f, 0.0f, 0.0f, 0.7f)));
+            
+            // Draw the text rectangle with the specified color
+            elements.add(new RectangleElement(x, y, textWidth, textHeight, color));
+        }
+    }
+    
+    /**
+     * Calculates the width of text in pixels for layout purposes.
+     */
+    public float getTextWidth(String text, float size) {
+        if (fontRenderer != null) {
+            FontRenderer.Font font = fontRenderer.getDefaultFont();
+            if (font != null) {
+                float scale = size / font.getSize();
+                return fontRenderer.getTextWidth(text, font) * scale;
+            }
+        }
         
-        float textWidth = text.length() * size * 0.6f;
-        float textHeight = size;
+        // Fallback calculation
+        return text.length() * size * 0.6f;
+    }
+    
+    /**
+     * Gets the line height for the given font size.
+     */
+    public float getLineHeight(float size) {
+        if (fontRenderer != null) {
+            FontRenderer.Font font = fontRenderer.getDefaultFont();
+            if (font != null) {
+                float scale = size / font.getSize();
+                return font.getLineHeight() * scale;
+            }
+        }
         
-        // Draw a background rectangle for better visibility
-        elements.add(new RectangleElement(x - 4, y - 4, textWidth + 8, textHeight + 8, 
-            new Vector4f(0.0f, 0.0f, 0.0f, 0.7f)));
-        
-        // Draw the text rectangle with the specified color
-        elements.add(new RectangleElement(x, y, textWidth, textHeight, color));
-        
-        logger.debug("Text '{}' rendered as rectangle {}x{} at ({}, {})", 
-                    text, textWidth, textHeight, x, y);
+        // Fallback calculation
+        return size * 1.2f;
     }
     
     public void cleanup() {
+        if (fontRenderer != null) {
+            fontRenderer.cleanup();
+        }
+        
         if (vao != 0) glDeleteVertexArrays(vao);
         if (vbo != 0) glDeleteBuffers(vbo);
         if (shaderProgram != 0) glDeleteProgram(shaderProgram);

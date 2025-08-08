@@ -873,6 +873,18 @@ public class ChunkManager {
     }
     
     /**
+     * Gets a chunk column at the specified chunk coordinates.
+     * 
+     * @param chunkX the chunk x-coordinate
+     * @param chunkZ the chunk z-coordinate
+     * @return the chunk column, or null if not loaded
+     */
+    public ChunkColumn getChunkColumn(int chunkX, int chunkZ) {
+        ChunkPosition position = new ChunkPosition(chunkX, chunkZ);
+        return chunkColumns.get(position);
+    }
+    
+    /**
      * Gets the LOD manager for advanced configuration.
      * 
      * @return the chunk LOD manager

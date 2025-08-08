@@ -384,6 +384,47 @@ public class SkyRenderer {
     }
     
     /**
+     * Renders the sky dome during geometry pass with optimized depth handling.
+     * This avoids the need for depth buffer copying by rendering sky at depth = 1.0.
+     * @param viewMatrix The camera view matrix
+     * @param projectionMatrix The camera projection matrix
+     * @param timeOfDaySystem The time of day system (can be null for default values)
+     */
+    public void renderDuringGeometryPass(Matrix4f viewMatrix, Matrix4f projectionMatrix, TimeOfDaySystem timeOfDaySystem) {
+        if (skyShader == null || skyVAO == 0) {
+            return;
+        }
+        
+        // Enable depth writing and set depth to far plane
+        glDepthMask(true);
+        glDepthFunc(GL_LEQUAL);
+        
+        skyShader.bind();
+        
+        // Remove translation from view matrix (keep rotation only)
+        Matrix4f skyViewMatrix = new Matrix4f(viewMatrix);
+        skyViewMatrix.m30(0).m31(0).m32(0);
+        
+        skyShader.setUniform("u_projectionMatrix", projectionMatrix);
+        skyShader.setUniform("u_viewMatrix", skyViewMatrix);
+        skyShader.setUniform("u_cameraPos", new Vector3f(0.0f, 0.0f, 0.0f)); // Camera position for atmospheric calculations
+        
+        // Set atmospheric scattering parameters and time of day uniforms
+        setSkyUniforms(timeOfDaySystem);
+        
+        // Render sky dome
+        glBindVertexArray(skyVAO);
+        glDrawElements(GL_TRIANGLES, vertexCount, GL_UNSIGNED_INT, 0);
+        glBindVertexArray(0);
+        
+        skyShader.unbind();
+        
+        // Restore normal depth state
+        glDepthMask(true);
+        glDepthFunc(GL_LESS);
+    }
+    
+    /**
      * Renders the sky dome with time of day information.
      * @param viewMatrix The camera view matrix
      * @param projectionMatrix The camera projection matrix
@@ -408,6 +449,27 @@ public class SkyRenderer {
         skyShader.setUniform("u_viewMatrix", skyViewMatrix);
         skyShader.setUniform("u_cameraPos", new Vector3f(0.0f, 0.0f, 0.0f)); // Camera position for atmospheric calculations
         
+        // Set atmospheric scattering parameters and time of day uniforms
+        setSkyUniforms(timeOfDaySystem);
+        
+        // Render sky dome
+        glBindVertexArray(skyVAO);
+        glDrawElements(GL_TRIANGLES, vertexCount, GL_UNSIGNED_INT, 0);
+        glBindVertexArray(0);
+        
+        skyShader.unbind();
+        
+        // Restore depth state
+        glDepthMask(true);
+        glDepthFunc(GL_LESS);
+    }
+    
+    /**
+     * Sets atmospheric scattering parameters and time of day uniforms for the sky shader.
+     * This method centralizes uniform setting to avoid code duplication.
+     * @param timeOfDaySystem The time of day system (can be null for default values)
+     */
+    private void setSkyUniforms(TimeOfDaySystem timeOfDaySystem) {
         // Atmospheric scattering parameters (Earth-like values)
         skyShader.setUniform("u_planetRadius", 6371000.0f); // Earth radius in meters
         skyShader.setUniform("u_atmosphereRadius", 6471000.0f); // Atmosphere extends 100km above surface
@@ -436,17 +498,6 @@ public class SkyRenderer {
             skyShader.setUniform("u_moonIntensity", 0.3f);
             skyShader.setUniform("u_timeOfDay", 0.5f); // 0.0 = midnight, 0.5 = noon, 1.0 = midnight
         }
-        
-        // Render sky dome
-        glBindVertexArray(skyVAO);
-        glDrawElements(GL_TRIANGLES, vertexCount, GL_UNSIGNED_INT, 0);
-        glBindVertexArray(0);
-        
-        skyShader.unbind();
-        
-        // Restore depth state
-        glDepthMask(true);
-        glDepthFunc(GL_LESS);
     }
     
     /**

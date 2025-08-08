@@ -13,6 +13,7 @@
   - `[Z]` for tasks that are completed
   - `[X]` for tasks that are in progress
   - After completing a task, compile and execute the game to make sure there are no code issues.
+  - Remember its a Maven project not gradle
 
 ---
 

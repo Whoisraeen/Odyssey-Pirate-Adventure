@@ -32,6 +32,10 @@ public class Chunk {
     private final ChunkPosition position;
     private final BlockType[][][] blocks;
     
+    // Lighting data
+    private final byte[][][] skyLight;
+    private final byte[][][] blockLight;
+    
     // Thread safety
     protected final ReadWriteLock lock = new ReentrantReadWriteLock();
     
@@ -52,11 +56,14 @@ public class Chunk {
     public Chunk(ChunkPosition position) {
         this.position = position;
         this.blocks = new BlockType[CHUNK_SIZE][CHUNK_HEIGHT][CHUNK_SIZE];
+        this.skyLight = new byte[CHUNK_SIZE][CHUNK_HEIGHT][CHUNK_SIZE];
+        this.blockLight = new byte[CHUNK_SIZE][CHUNK_HEIGHT][CHUNK_SIZE];
         this.lastAccessTime = System.currentTimeMillis();
         this.lastModificationTime = System.currentTimeMillis();
         
-        // Initialize with air blocks
+        // Initialize with air blocks and lighting
         initializeWithAir();
+        initializeLighting();
     }
     
     /**
@@ -320,6 +327,122 @@ public class Chunk {
     }
     
     /**
+     * Gets the sky light level at the specified local coordinates.
+     * 
+     * @param x the local x-coordinate (0-15)
+     * @param y the y-coordinate (0-255)
+     * @param z the local z-coordinate (0-15)
+     * @return the sky light level (0-15)
+     * @throws IndexOutOfBoundsException if coordinates are invalid
+     */
+    public byte getSkyLight(int x, int y, int z) {
+        validateCoordinates(x, y, z);
+        
+        lock.readLock().lock();
+        try {
+            return skyLight[x][y][z];
+        } finally {
+            lock.readLock().unlock();
+        }
+    }
+    
+    /**
+     * Sets the sky light level at the specified local coordinates.
+     * 
+     * @param x the local x-coordinate (0-15)
+     * @param y the y-coordinate (0-255)
+     * @param z the local z-coordinate (0-15)
+     * @param level the sky light level (0-15)
+     * @throws IndexOutOfBoundsException if coordinates are invalid
+     * @throws IllegalArgumentException if level is not in range 0-15
+     */
+    public void setSkyLight(int x, int y, int z, byte level) {
+        if (level < 0 || level > 15) {
+            throw new IllegalArgumentException("Light level must be between 0 and 15, got: " + level);
+        }
+        validateCoordinates(x, y, z);
+        
+        lock.writeLock().lock();
+        try {
+            if (skyLight[x][y][z] != level) {
+                skyLight[x][y][z] = level;
+                isDirty.set(true);
+                lastModificationTime = System.currentTimeMillis();
+            }
+        } finally {
+            lock.writeLock().unlock();
+        }
+    }
+    
+    /**
+     * Gets the block light level at the specified local coordinates.
+     * 
+     * @param x the local x-coordinate (0-15)
+     * @param y the y-coordinate (0-255)
+     * @param z the local z-coordinate (0-15)
+     * @return the block light level (0-15)
+     * @throws IndexOutOfBoundsException if coordinates are invalid
+     */
+    public byte getBlockLight(int x, int y, int z) {
+        validateCoordinates(x, y, z);
+        
+        lock.readLock().lock();
+        try {
+            return blockLight[x][y][z];
+        } finally {
+            lock.readLock().unlock();
+        }
+    }
+    
+    /**
+     * Sets the block light level at the specified local coordinates.
+     * 
+     * @param x the local x-coordinate (0-15)
+     * @param y the y-coordinate (0-255)
+     * @param z the local z-coordinate (0-15)
+     * @param level the block light level (0-15)
+     * @throws IndexOutOfBoundsException if coordinates are invalid
+     * @throws IllegalArgumentException if level is not in range 0-15
+     */
+    public void setBlockLight(int x, int y, int z, byte level) {
+        if (level < 0 || level > 15) {
+            throw new IllegalArgumentException("Light level must be between 0 and 15, got: " + level);
+        }
+        validateCoordinates(x, y, z);
+        
+        lock.writeLock().lock();
+        try {
+            if (blockLight[x][y][z] != level) {
+                blockLight[x][y][z] = level;
+                isDirty.set(true);
+                lastModificationTime = System.currentTimeMillis();
+            }
+        } finally {
+            lock.writeLock().unlock();
+        }
+    }
+    
+    /**
+     * Gets the combined light level (max of sky and block light) at the specified coordinates.
+     * 
+     * @param x the local x-coordinate (0-15)
+     * @param y the y-coordinate (0-255)
+     * @param z the local z-coordinate (0-15)
+     * @return the combined light level (0-15)
+     * @throws IndexOutOfBoundsException if coordinates are invalid
+     */
+    public byte getCombinedLight(int x, int y, int z) {
+        validateCoordinates(x, y, z);
+        
+        lock.readLock().lock();
+        try {
+            return (byte) Math.max(skyLight[x][y][z], blockLight[x][y][z]);
+        } finally {
+            lock.readLock().unlock();
+        }
+    }
+    
+    /**
      * Initializes the chunk with air blocks.
      */
     private void initializeWithAir() {
@@ -327,6 +450,21 @@ public class Chunk {
             for (int y = 0; y < CHUNK_HEIGHT; y++) {
                 for (int z = 0; z < CHUNK_SIZE; z++) {
                     blocks[x][y][z] = BlockType.AIR;
+                }
+            }
+        }
+    }
+    
+    /**
+     * Initializes the lighting arrays with default values.
+     * Sky light starts at maximum (15) and block light starts at minimum (0).
+     */
+    private void initializeLighting() {
+        for (int x = 0; x < CHUNK_SIZE; x++) {
+            for (int y = 0; y < CHUNK_HEIGHT; y++) {
+                for (int z = 0; z < CHUNK_SIZE; z++) {
+                    skyLight[x][y][z] = 15; // Full sky light by default
+                    blockLight[x][y][z] = 0; // No block light by default
                 }
             }
         }

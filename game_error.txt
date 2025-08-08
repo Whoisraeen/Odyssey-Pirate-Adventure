@@ -1,0 +1,68 @@
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.TextureAtlas <init>
+INFO: Created texture atlas with size: 2048x2048
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.TextureAtlas addTexture
+INFO: Added texture 'missing_texture' to atlas at position (0, 0) with size (16x16)
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.TextureAtlas <init>
+INFO: Created texture atlas with size: 1024x1024
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.TextureAtlas addTexture
+INFO: Added texture 'missing_entity' to atlas at position (0, 0) with size (16x16)
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.TextureAtlas <init>
+INFO: Created texture atlas with size: 1024x1024
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.TextureAtlas addTexture
+INFO: Added texture 'missing_ui' to atlas at position (0, 0) with size (16x16)
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.TextureAtlas addTexture
+INFO: Added texture 'sand' to atlas at position (0, 16) with size (1024x1024)
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.TextureAtlas addTexture
+INFO: Added texture 'grass_top' to atlas at position (1024, 16) with size (1024x1024)
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.TextureAtlas addTexture
+WARNING: Cannot fit texture 'grass_side' (1024x1024) in atlas
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.TextureAtlas <init>
+INFO: Created texture atlas with size: 2048x2048
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.TextureAtlas addTexture
+INFO: Added texture 'grass_side' to atlas at position (0, 0) with size (1024x1024)
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.TextureAtlas addTexture
+INFO: Added texture 'stone' to atlas at position (16, 0) with size (16x16)
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.TextureAtlas addTexture
+INFO: Added texture 'dirt' to atlas at position (32, 0) with size (16x16)
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.TextureAtlas addTexture
+INFO: Added texture 'water' to atlas at position (48, 0) with size (16x16)
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.TextureAtlas <init>
+INFO: Created texture atlas with size: 2048x2048
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.TextureAtlas addTexture
+INFO: Added texture 'default_albedo' to atlas at position (0, 0) with size (16x16)
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.TextureAtlas <init>
+INFO: Created texture atlas with size: 2048x2048
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.TextureAtlas addTexture
+INFO: Added texture 'default_normal' to atlas at position (0, 0) with size (16x16)
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.TextureAtlas <init>
+INFO: Created texture atlas with size: 1024x1024
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.TextureAtlas addTexture
+INFO: Added texture 'default_metallic' to atlas at position (0, 0) with size (16x16)
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.TextureAtlas <init>
+INFO: Created texture atlas with size: 1024x1024
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.TextureAtlas addTexture
+INFO: Added texture 'default_roughness' to atlas at position (0, 0) with size (16x16)
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.TextureAtlas <init>
+INFO: Created texture atlas with size: 1024x1024
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.TextureAtlas addTexture
+INFO: Added texture 'default_ao' to atlas at position (0, 0) with size (16x16)
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.TextureAtlas <init>
+INFO: Created texture atlas with size: 1024x1024
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.TextureAtlas addTexture
+INFO: Added texture 'default_emission' to atlas at position (0, 0) with size (16x16)
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.TextureAtlas <init>
+INFO: Created texture atlas with size: 1024x1024
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.TextureAtlas addTexture
+INFO: Added texture 'default_height' to atlas at position (0, 0) with size (16x16)
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.TextureAtlas <init>
+INFO: Created texture atlas with size: 2048x2048
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.TextureAtlas addTexture
+INFO: Added texture 'default_combined' to atlas at position (0, 0) with size (16x16)
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.WaterShader initializeReflectionFramebuffer
+INFO: Initialized reflection framebuffer: 1024x1024
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.WaterShader initializeRefractionFramebuffer
+INFO: Initialized refraction framebuffer: 1280x720
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.WaterShader loadWaterTextures
+INFO: Loaded water textures with procedural generation
+Aug 07, 2025 9:26:46 PM com.odyssey.graphics.WaterShader <init>
+INFO: Initialized water shader system with quality: ULTRA

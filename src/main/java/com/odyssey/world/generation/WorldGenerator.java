@@ -43,15 +43,49 @@ public class WorldGenerator {
     private final List<TreasureLocation> treasureLocations = new ArrayList<>();
     
     public enum BlockType {
-        AIR(0), WATER(1), SAND(2), STONE(3), DIRT(4), GRASS(5),
-        WOOD(6), LEAVES(7), COAL_ORE(8), IRON_ORE(9), GOLD_ORE(10),
-        OBSIDIAN(11), LAVA(12), CORAL(13), SEAWEED(14), PALM_WOOD(15),
-        VOLCANIC_ROCK(16), LIMESTONE(17), MARBLE(18), CRYSTAL(19);
+        AIR(0, 0, 0), 
+        WATER(1, 2, 0), 
+        SAND(2, 15, 0), 
+        STONE(3, 15, 0), 
+        DIRT(4, 15, 0), 
+        GRASS(5, 15, 0),
+        WOOD(6, 15, 0), 
+        LEAVES(7, 5, 0), 
+        COAL_ORE(8, 15, 0), 
+        IRON_ORE(9, 15, 0), 
+        GOLD_ORE(10, 15, 0),
+        OBSIDIAN(11, 15, 0), 
+        LAVA(12, 5, 15), 
+        CORAL(13, 10, 2), 
+        SEAWEED(14, 2, 0), 
+        PALM_WOOD(15, 15, 0),
+        VOLCANIC_ROCK(16, 15, 0), 
+        LIMESTONE(17, 15, 0), 
+        MARBLE(18, 15, 0), 
+        CRYSTAL(19, 5, 10);
         
         public final int id;
+        public final int opacity; // 0 = transparent, 15 = opaque
+        public final int emission; // 0 = no light, 15 = max light
         
-        BlockType(int id) {
+        BlockType(int id, int opacity, int emission) {
             this.id = id;
+            this.opacity = opacity;
+            this.emission = emission;
+        }
+        
+        /**
+         * Returns true if this block type is transparent to light.
+         */
+        public boolean isTransparent() {
+            return opacity == 0;
+        }
+        
+        /**
+         * Returns true if this block type emits light.
+         */
+        public boolean isEmissive() {
+            return emission > 0;
         }
     }
     
@@ -1037,6 +1071,9 @@ public class WorldGenerator {
     public void initialize() {
         logger.info("Initializing advanced world generator with seed: {}", seed);
         
+        // Generate spawn island first to ensure player has land nearby
+        generateSpawnIsland();
+        
         // Pre-generate some major islands
         generateMajorIslands(20);
         
@@ -1056,6 +1093,40 @@ public class WorldGenerator {
                    generatedIslands.size(), volcanicIslands.size(), geologicalFeatures.size());
     }
     
+    /**
+     * Generates a starter island near the spawn point to ensure players have land nearby.
+     */
+    private void generateSpawnIsland() {
+        // Create a spawn island within 100-200 blocks of origin
+        float angle = random.nextFloat() * 2 * (float)Math.PI;
+        float distance = 100 + random.nextFloat() * 100; // 100-200 blocks from spawn
+        
+        Vector2f center = new Vector2f(
+            (float)Math.cos(angle) * distance,
+            (float)Math.sin(angle) * distance
+        );
+        
+        // Make it a decent-sized tropical atoll for a good starting experience
+        float radius = 80 + random.nextFloat() * 40; // 80-120 block radius
+        float height = 25 + random.nextFloat() * 15; // 25-40 blocks above sea level
+        
+        Island spawnIsland = new Island(center, radius, height, IslandType.TROPICAL_ATOLL);
+        
+        // Generate island features
+        generateIslandFeatures(spawnIsland);
+        
+        // Add extra resources for starting players
+        spawnIsland.resources.put("coconuts", 100 + random.nextInt(50));
+        spawnIsland.resources.put("palm_wood", 50 + random.nextInt(30));
+        spawnIsland.resources.put("fresh_water", 1); // Ensure fresh water source
+        spawnIsland.resources.put("basic_tools", 1); // Some basic starting tools
+        
+        generatedIslands.add(spawnIsland);
+        
+        logger.info("Generated spawn island at ({}, {}) with radius {} and height {}", 
+                   center.x, center.y, radius, height);
+    }
+
     private void generateMajorIslands(int count) {
         for (int i = 0; i < count; i++) {
             Vector2f center = new Vector2f(

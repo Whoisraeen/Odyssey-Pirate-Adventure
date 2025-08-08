@@ -1,0 +1,20 @@
+{
+  "default_font": {
+    "name": "default",
+    "size": 16,
+    "fallback_paths": [
+      "C:/Windows/Fonts/arial.ttf",
+      "C:/Windows/Fonts/calibri.ttf",
+      "/System/Library/Fonts/Arial.ttf",
+      "/System/Library/Fonts/Helvetica.ttc",
+      "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+      "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
+    ]
+  },
+  "ui_fonts": {
+    "small": 12,
+    "normal": 16,
+    "large": 20,
+    "title": 24
+  }
+}

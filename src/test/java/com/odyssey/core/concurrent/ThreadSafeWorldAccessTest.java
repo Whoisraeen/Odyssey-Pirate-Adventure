@@ -19,6 +19,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.lang.reflect.Field;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -73,13 +74,41 @@ class ThreadSafeWorldAccessTest {
     @Test
     void testPlayerPositionUpdate() {
         ThreadSafeWorldAccess.Vector3f newPosition = new ThreadSafeWorldAccess.Vector3f(10.5f, 20.0f, 30.5f);
-        
+
         worldAccess.updatePlayerPosition(newPosition);
-        
+
         ThreadSafeWorldAccess.Vector3f retrieved = worldAccess.getPlayerPosition();
         assertEquals(10.5f, retrieved.x, 0.001f);
         assertEquals(20.0f, retrieved.y, 0.001f);
         assertEquals(30.5f, retrieved.z, 0.001f);
+    }
+
+    @Test
+    void testGetPlayerPositionConsistency() throws Exception {
+        // Access the internal atomic reference to compare against returned values
+        Field field = ThreadSafeWorldAccess.class.getDeclaredField("playerPosition");
+        field.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        AtomicReference<ThreadSafeWorldAccess.Vector3f> internal =
+            (AtomicReference<ThreadSafeWorldAccess.Vector3f>) field.get(worldAccess);
+
+        Thread updater = new Thread(() -> {
+            for (int i = 0; i < 10000; i++) {
+                worldAccess.updatePlayerPosition(new ThreadSafeWorldAccess.Vector3f(i, i + 1, i + 2));
+            }
+        });
+        updater.start();
+
+        boolean mismatchFound = false;
+        for (int i = 0; i < 10000 && !mismatchFound; i++) {
+            ThreadSafeWorldAccess.Vector3f observed = worldAccess.getPlayerPosition();
+            ThreadSafeWorldAccess.Vector3f actual = internal.get();
+            if (!observed.equals(actual)) {
+                mismatchFound = true;
+            }
+        }
+        updater.join();
+        assertFalse(mismatchFound, "Observed inconsistent player position");
     }
     
     @Test

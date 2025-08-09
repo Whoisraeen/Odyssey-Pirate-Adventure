@@ -106,6 +106,7 @@ public final class WorldSaveFormat {
     
     // Level data format
     public static final int LEVEL_DATA_VERSION = 1;
+    public static final int LEVEL_MAGIC = 0x4F4C564C; // "OLVL" in ASCII
     
     // Current world save format version
     public static final int CURRENT_VERSION = 1;

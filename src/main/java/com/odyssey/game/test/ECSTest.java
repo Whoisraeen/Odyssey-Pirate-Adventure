@@ -7,7 +7,7 @@ import com.odyssey.game.components.PhysicsComponent;
 import com.odyssey.game.components.HealthComponent;
 import com.odyssey.game.components.RenderableComponent;
 import com.odyssey.game.systems.PhysicsSystem;
-import com.odyssey.game.math.Vector2f;
+import org.joml.Vector3f;
 
 /**
  * Simple test class to verify the ECS system is working correctly.
@@ -26,7 +26,7 @@ public class ECSTest {
         
         // Create a test entity
         Entity testEntity = world.createEntity()
-            .add(new TransformComponent(10, 20))
+            .add(new TransformComponent(10, 20, 0))
             .add(new PhysicsComponent(5.0f))
             .add(new HealthComponent(100.0f))
             .add(new RenderableComponent("test_texture.png"));
@@ -46,8 +46,8 @@ public class ECSTest {
         System.out.println("  " + renderable);
         
         // Apply some forces
-        physics.applyForce(new Vector2f(100, 0)); // Push right
-        physics.applyForce(new Vector2f(0, 50));  // Push up
+        physics.applyForce(new Vector3f(100, 0, 0)); // Push right
+        physics.applyForce(new Vector3f(0, 50, 0));  // Push up
         
         System.out.println("\nAfter applying forces:");
         System.out.println("  " + physics);

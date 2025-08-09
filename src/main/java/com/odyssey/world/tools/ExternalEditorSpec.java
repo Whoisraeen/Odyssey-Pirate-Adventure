@@ -1,6 +1,6 @@
 package com.odyssey.world.tools;
 
-import com.odyssey.world.save.WorldSaveFormat;
+import com.odyssey.world.save.format.WorldSaveFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -86,7 +86,7 @@ public class ExternalEditorSpec {
     /**
      * Generates the complete external editor specification.
      */
-    public void generateFullSpecification(Path outputPath) throws IOException {
+    public static void generateFullSpecification(Path outputPath) throws IOException {
         logger.info("Generating full external editor specification at: {}", outputPath);
         
         Files.createDirectories(outputPath);
@@ -107,7 +107,7 @@ public class ExternalEditorSpec {
     /**
      * Generates comprehensive documentation for the world format.
      */
-    public void generateDocumentation(Path outputPath) throws IOException {
+    public static void generateDocumentation(Path outputPath) throws IOException {
         Path docsPath = outputPath.resolve("docs");
         Files.createDirectories(docsPath);
         
@@ -132,7 +132,7 @@ public class ExternalEditorSpec {
     /**
      * Generates schema files for validation and tooling.
      */
-    public void generateSchemaFiles(Path outputPath) throws IOException {
+    public static void generateSchemaFiles(Path outputPath) throws IOException {
         Path schemaPath = outputPath.resolve("schemas");
         Files.createDirectories(schemaPath);
         
@@ -151,7 +151,7 @@ public class ExternalEditorSpec {
     /**
      * Generates sample world files for testing and reference.
      */
-    public void generateSampleFiles(Path outputPath) throws IOException {
+    public static void generateSampleFiles(Path outputPath) throws IOException {
         Path samplesPath = outputPath.resolve("samples");
         Files.createDirectories(samplesPath);
         
@@ -170,7 +170,7 @@ public class ExternalEditorSpec {
     /**
      * Generates tooling examples and utilities.
      */
-    public void generateToolingExamples(Path outputPath) throws IOException {
+    public static void generateToolingExamples(Path outputPath) throws IOException {
         Path toolsPath = outputPath.resolve("tools");
         Files.createDirectories(toolsPath);
         
@@ -189,7 +189,7 @@ public class ExternalEditorSpec {
     /**
      * Generates validation scripts for format verification.
      */
-    public void generateValidationScripts(Path outputPath) throws IOException {
+    public static void generateValidationScripts(Path outputPath) throws IOException {
         Path validationPath = outputPath.resolve("validation");
         Files.createDirectories(validationPath);
         
@@ -200,9 +200,296 @@ public class ExternalEditorSpec {
         logger.info("Validation scripts generated at: {}", validationPath);
     }
     
+    // Tooling generation methods
+    
+    private static void generatePythonExamples(Path pythonPath) throws IOException {
+        Files.createDirectories(pythonPath);
+        
+        String pythonExample = """
+            #!/usr/bin/env python3
+            \"\"\"
+            Odyssey World Format Python Example
+            
+            This example demonstrates how to read and write Odyssey world files in Python.
+            \"\"\"
+            
+            import struct
+            import json
+            import gzip
+            from pathlib import Path
+            
+            class OdysseyWorldReader:
+                def __init__(self, world_path):
+                    self.world_path = Path(world_path)
+                
+                def read_level_data(self):
+                    \"\"\"Read level.json file.\"\"\"
+                    level_file = self.world_path / "level.json"
+                    if level_file.exists():
+                        with open(level_file, 'r') as f:
+                            return json.load(f)
+                    return None
+                
+                def read_region_file(self, region_x, region_z):
+                    \"\"\"Read a region file.\"\"\"
+                    region_file = self.world_path / "regions" / f"r.{region_x}.{region_z}.region"
+                    if not region_file.exists():
+                        return None
+                    
+                    with open(region_file, 'rb') as f:
+                        # Read header
+                        magic = struct.unpack('>I', f.read(4))[0]
+                        if magic != 0x4F524547:  # "OREG"
+                            raise ValueError("Invalid region file magic number")
+                        
+                        version = struct.unpack('>I', f.read(4))[0]
+                        chunk_count = struct.unpack('>I', f.read(4))[0]
+                        
+                        # Read chunk table
+                        chunks = {}
+                        for i in range(chunk_count):
+                            chunk_x = struct.unpack('>i', f.read(4))[0]
+                            chunk_z = struct.unpack('>i', f.read(4))[0]
+                            offset = struct.unpack('>Q', f.read(8))[0]
+                            size = struct.unpack('>I', f.read(4))[0]
+                            chunks[(chunk_x, chunk_z)] = (offset, size)
+                        
+                        return chunks
+            
+            def main():
+                # Example usage
+                reader = OdysseyWorldReader("example_world")
+                level_data = reader.read_level_data()
+                if level_data:
+                    print(f"World: {level_data.get('worldName', 'Unknown')}")
+                    print(f"Seed: {level_data.get('seed', 0)}")
+            
+            if __name__ == "__main__":
+                main()
+            """;
+        
+        Files.writeString(pythonPath.resolve("odyssey_reader.py"), pythonExample);
+    }
+    
+    private static void generateJavaScriptExamples(Path jsPath) throws IOException {
+        Files.createDirectories(jsPath);
+        
+        String jsExample = """
+            /**
+             * Odyssey World Format JavaScript Example
+             * 
+             * This example demonstrates how to read Odyssey world files in Node.js.
+             */
+            
+            const fs = require('fs');
+            const path = require('path');
+            const zlib = require('zlib');
+            
+            class OdysseyWorldReader {
+                constructor(worldPath) {
+                    this.worldPath = worldPath;
+                }
+                
+                readLevelData() {
+                    const levelFile = path.join(this.worldPath, 'level.json');
+                    if (fs.existsSync(levelFile)) {
+                        const data = fs.readFileSync(levelFile, 'utf8');
+                        return JSON.parse(data);
+                    }
+                    return null;
+                }
+                
+                readRegionFile(regionX, regionZ) {
+                    const regionFile = path.join(this.worldPath, 'regions', `r.${regionX}.${regionZ}.region`);
+                    if (!fs.existsSync(regionFile)) {
+                        return null;
+                    }
+                    
+                    const buffer = fs.readFileSync(regionFile);
+                    let offset = 0;
+                    
+                    // Read header
+                    const magic = buffer.readUInt32BE(offset);
+                    offset += 4;
+                    
+                    if (magic !== 0x4F524547) { // "OREG"
+                        throw new Error('Invalid region file magic number');
+                    }
+                    
+                    const version = buffer.readUInt32BE(offset);
+                    offset += 4;
+                    
+                    const chunkCount = buffer.readUInt32BE(offset);
+                    offset += 4;
+                    
+                    // Read chunk table
+                    const chunks = {};
+                    for (let i = 0; i < chunkCount; i++) {
+                        const chunkX = buffer.readInt32BE(offset);
+                        offset += 4;
+                        const chunkZ = buffer.readInt32BE(offset);
+                        offset += 4;
+                        const chunkOffset = buffer.readBigUInt64BE(offset);
+                        offset += 8;
+                        const size = buffer.readUInt32BE(offset);
+                        offset += 4;
+                        
+                        chunks[`${chunkX},${chunkZ}`] = { offset: chunkOffset, size };
+                    }
+                    
+                    return chunks;
+                }
+            }
+            
+            // Example usage
+            function main() {
+                const reader = new OdysseyWorldReader('example_world');
+                const levelData = reader.readLevelData();
+                if (levelData) {
+                    console.log(`World: ${levelData.worldName || 'Unknown'}`);
+                    console.log(`Seed: ${levelData.seed || 0}`);
+                }
+            }
+            
+            if (require.main === module) {
+                main();
+            }
+            
+            module.exports = OdysseyWorldReader;
+            """;
+        
+        Files.writeString(jsPath.resolve("odyssey-reader.js"), jsExample);
+    }
+    
+    private static void generateCppExamples(Path cppPath) throws IOException {
+        Files.createDirectories(cppPath);
+        
+        String cppExample = """
+            /**
+             * Odyssey World Format C++ Example
+             * 
+             * This example demonstrates how to read Odyssey world files in C++.
+             */
+            
+            #include <iostream>
+            #include <fstream>
+            #include <string>
+            #include <vector>
+            #include <map>
+            #include <cstdint>
+            #include <filesystem>
+            
+            namespace odyssey {
+            
+            struct ChunkInfo {
+                uint64_t offset;
+                uint32_t size;
+            };
+            
+            class WorldReader {
+            private:
+                std::filesystem::path worldPath;
+                
+            public:
+                WorldReader(const std::string& path) : worldPath(path) {}
+                
+                bool readLevelData(std::string& jsonData) {
+                    auto levelFile = worldPath / "level.json";
+                    if (!std::filesystem::exists(levelFile)) {
+                        return false;
+                    }
+                    
+                    std::ifstream file(levelFile);
+                    if (!file.is_open()) {
+                        return false;
+                    }
+                    
+                    std::string line;
+                    jsonData.clear();
+                    while (std::getline(file, line)) {
+                        jsonData += line + "\\n";
+                    }
+                    
+                    return true;
+                }
+                
+                bool readRegionFile(int regionX, int regionZ, std::map<std::pair<int, int>, ChunkInfo>& chunks) {
+                    auto regionFile = worldPath / "regions" / ("r." + std::to_string(regionX) + "." + std::to_string(regionZ) + ".region");
+                    if (!std::filesystem::exists(regionFile)) {
+                        return false;
+                    }
+                    
+                    std::ifstream file(regionFile, std::ios::binary);
+                    if (!file.is_open()) {
+                        return false;
+                    }
+                    
+                    // Read header
+                    uint32_t magic;
+                    file.read(reinterpret_cast<char*>(&magic), sizeof(magic));
+                    magic = __builtin_bswap32(magic); // Convert from big-endian
+                    
+                    if (magic != 0x4F524547) { // "OREG"
+                        return false;
+                    }
+                    
+                    uint32_t version;
+                    file.read(reinterpret_cast<char*>(&version), sizeof(version));
+                    version = __builtin_bswap32(version);
+                    
+                    uint32_t chunkCount;
+                    file.read(reinterpret_cast<char*>(&chunkCount), sizeof(chunkCount));
+                    chunkCount = __builtin_bswap32(chunkCount);
+                    
+                    // Read chunk table
+                    for (uint32_t i = 0; i < chunkCount; i++) {
+                        int32_t chunkX, chunkZ;
+                        uint64_t offset;
+                        uint32_t size;
+                        
+                        file.read(reinterpret_cast<char*>(&chunkX), sizeof(chunkX));
+                        file.read(reinterpret_cast<char*>(&chunkZ), sizeof(chunkZ));
+                        file.read(reinterpret_cast<char*>(&offset), sizeof(offset));
+                        file.read(reinterpret_cast<char*>(&size), sizeof(size));
+                        
+                        chunkX = __builtin_bswap32(chunkX);
+                        chunkZ = __builtin_bswap32(chunkZ);
+                        offset = __builtin_bswap64(offset);
+                        size = __builtin_bswap32(size);
+                        
+                        chunks[{chunkX, chunkZ}] = {offset, size};
+                    }
+                    
+                    return true;
+                }
+            };
+            
+            } // namespace odyssey
+            
+            int main() {
+                odyssey::WorldReader reader("example_world");
+                
+                std::string levelData;
+                if (reader.readLevelData(levelData)) {
+                    std::cout << "Level data loaded successfully" << std::endl;
+                    // Parse JSON here if needed
+                }
+                
+                std::map<std::pair<int, int>, odyssey::ChunkInfo> chunks;
+                if (reader.readRegionFile(0, 0, chunks)) {
+                    std::cout << "Region file loaded with " << chunks.size() << " chunks" << std::endl;
+                }
+                
+                return 0;
+            }
+            """;
+        
+        Files.writeString(cppPath.resolve("odyssey_reader.cpp"), cppExample);
+    }
+    
     // Documentation generation methods
     
-    private void generateMainReadme(Path outputPath) throws IOException {
+    private static void generateMainReadme(Path outputPath) throws IOException {
         String readme = """
             # Odyssey World Format Specification
             
@@ -306,9 +593,9 @@ public class ExternalEditorSpec {
                 SPEC_VERSION,
                 ODYSSEY_VERSION,
                 new Date(),
-                WorldSaveFormat.LEVEL_MAGIC, WorldSaveFormat.LEVEL_MAGIC,
-                WorldSaveFormat.REGION_MAGIC, WorldSaveFormat.REGION_MAGIC,
-                WorldSaveFormat.CHUNK_MAGIC, WorldSaveFormat.CHUNK_MAGIC
+                WorldSaveFormat.REGION_MAGIC_NUMBER, WorldSaveFormat.REGION_MAGIC_NUMBER,
+                WorldSaveFormat.JOURNAL_MAGIC_NUMBER, WorldSaveFormat.JOURNAL_MAGIC_NUMBER,
+                WorldSaveFormat.REGION_MAGIC_NUMBER, WorldSaveFormat.REGION_MAGIC_NUMBER
             );
         
         Files.writeString(outputPath.resolve("README.md"), readme);
@@ -734,7 +1021,7 @@ public class ExternalEditorSpec {
             2. **Invalid Chunk**: Skip corrupted chunks, log errors
             3. **Partial Writes**: Use atomic operations where possible
             4. **Backup Strategy**: Keep backup copies of critical regions
-            """.formatted(WorldSaveFormat.REGION_MAGIC);
+            """.formatted(WorldSaveFormat.REGION_MAGIC_NUMBER);
         
         Files.writeString(docsPath.resolve("region_file_spec.md"), spec);
     }
@@ -926,7 +1213,7 @@ public class ExternalEditorSpec {
             2. Sanitize player names and custom data
             3. Limit inventory item counts and NBT complexity
             4. Verify world UUID matches current world
-            """.formatted(WorldSaveFormat.PLAYER_MAGIC);
+            """.formatted(0x4F504C52); // "OPLR" - Odyssey Player
         
         Files.writeString(docsPath.resolve("player_data_spec.md"), spec);
     }
@@ -1141,7 +1428,7 @@ public class ExternalEditorSpec {
             3. **Memory Management**: Unload distant chunks
             4. **Network Optimization**: Send only changed sections
             5. **Caching Strategy**: Cache frequently accessed chunks
-            """.formatted(WorldSaveFormat.CHUNK_MAGIC);
+            """.formatted(0x4F43484B); // "OCHK" - Odyssey Chunk
         
         Files.writeString(docsPath.resolve("chunk_data_spec.md"), spec);
     }
@@ -1781,8 +2068,6 @@ public class ExternalEditorSpec {
             For additional support or questions, please refer to the official documentation
             or contact the development team.
             """;
-        
-        return content.toString();
     }
     
     // Helper methods for generating specific documentation files
@@ -2123,6 +2408,535 @@ public class ExternalEditorSpec {
               "required": ["version", "uuid", "name", "position", "health", "hunger"]
             }
             """;
+    }
+    
+    private static String generateBinaryFormatSpecs() {
+        return """
+            # Binary Format Specifications
+            
+            This document describes the binary format specifications for Odyssey world files.
+            
+            ## Region File Format (.mca)
+            
+            Region files store 32x32 chunks in a compressed format:
+            
+            ```
+            Header (8192 bytes):
+            - Chunk locations (4096 bytes): 4 bytes per chunk (3 bytes offset, 1 byte size)
+            - Chunk timestamps (4096 bytes): 4 bytes per chunk (Unix timestamp)
+            
+            Chunk Data:
+            - Length (4 bytes): Size of compressed chunk data
+            - Compression type (1 byte): 0=uncompressed, 1=gzip, 2=zlib, 3=lz4
+            - Compressed chunk data (variable length)
+            ```
+            
+            ## Chunk Format
+            
+            Each chunk contains:
+            - Version (4 bytes)
+            - Chunk coordinates (8 bytes: 4 bytes X, 4 bytes Z)
+            - Last modified timestamp (8 bytes)
+            - Section count (4 bytes)
+            - Sections data (variable length)
+            - Heightmaps (variable length)
+            - Entities (variable length NBT)
+            - Tile entities (variable length NBT)
+            
+            ## Level.dat Format
+            
+            World metadata stored in NBT format:
+            - Root compound tag containing world settings
+            - Version information for compatibility
+            - Spawn coordinates and world generation settings
+            - Game rules and difficulty settings
+            - Tidal system configuration
+            """;
+    }
+    
+    private static String generateMinimalWorld() {
+        return """
+            # Minimal World Example
+            
+            This is a minimal world structure for testing:
+            
+            ```
+            minimal_world/
+            ├── level.dat
+            ├── session.lock
+            └── region/
+                └── r.0.0.mca
+            ```
+            
+            ## level.dat Content
+            
+            ```json
+            {
+              "version": 3,
+              "worldName": "Minimal Test World",
+              "seed": 12345,
+              "gameType": "creative",
+              "difficulty": "peaceful",
+              "spawnX": 0,
+              "spawnY": 64,
+              "spawnZ": 0,
+              "time": 0,
+              "weather": {
+                "raining": false,
+                "thundering": false,
+                "rainTime": 0,
+                "thunderTime": 0
+              },
+              "tidal": {
+                "enabled": true,
+                "cycle": 20,
+                "currentPhase": 0.0
+              }
+            }
+            ```
+            
+            ## Region File Content
+            
+            Contains a single chunk at (0,0) with:
+            - Bedrock layer at Y=0
+            - Stone layers from Y=1 to Y=63
+            - Water layer at Y=64
+            - Air above Y=64
+            
+            This minimal world is suitable for basic testing and validation.
+            """;
+    }
+    
+    private static String generateComplexWorld() {
+        return """
+            # Complex World Example
+            
+            This example demonstrates a complex world with multiple features:
+            
+            ```
+            complex_world/
+            ├── level.dat
+            ├── session.lock
+            ├── region/
+            │   ├── r.0.0.mca
+            │   ├── r.0.1.mca
+            │   ├── r.1.0.mca
+            │   └── r.1.1.mca
+            ├── playerdata/
+            │   └── 550e8400-e29b-41d4-a716-446655440000.dat
+            └── data/
+                ├── tides.dat
+                └── weather.dat
+            ```
+            
+            ## Features Included
+            
+            - Multiple biomes (ocean, island, deep ocean)
+            - Complex terrain with islands and underwater features
+            - Ships and maritime structures
+            - Advanced tidal system with multiple phases
+            - Weather patterns and storms
+            - Player data with inventory and progress
+            
+            ## Biome Distribution
+            
+            - Ocean biome: 60% of world
+            - Deep ocean: 25% of world
+            - Islands: 10% of world
+            - Coastal areas: 5% of world
+            
+            ## Maritime Features
+            
+            - Shipwrecks with loot
+            - Underwater ruins
+            - Coral reefs
+            - Kelp forests
+            - Tidal pools
+            - Lighthouse structures
+            
+            This complex world showcases the full capabilities of the Odyssey format.
+            """;
+    }
+    
+    private static void generateCorruptedSamples(Path samplesPath) throws IOException {
+        Files.createDirectories(samplesPath);
+        
+        String readme = """
+            # Corrupted Sample Files
+            
+            These samples demonstrate various corruption scenarios for testing error handling:
+            
+            ## 1. Truncated Region File
+            
+            File: `corrupted_truncated.mca`
+            - Missing chunk data sections
+            - Incomplete header information
+            - Tests recovery mechanisms
+            
+            ## 2. Invalid Compression
+            
+            File: `corrupted_compression.mca`
+            - Corrupted zlib/lz4 data
+            - Invalid compression type flags
+            - Tests decompression error handling
+            
+            ## 3. Malformed NBT Data
+            
+            File: `corrupted_nbt.dat`
+            - Invalid NBT tag structures
+            - Truncated compound tags
+            - Tests NBT parser resilience
+            
+            ## 4. Version Mismatch
+            
+            File: `corrupted_version.dat`
+            - Unsupported version numbers
+            - Missing version information
+            - Tests backward compatibility
+            
+            ## 5. Checksum Failures
+            
+            File: `corrupted_checksum.mca`
+            - Modified data with invalid checksums
+            - Tests data integrity verification
+            
+            ## Error Handling Guidelines
+            
+            When encountering corrupted data:
+            1. Log the specific error with context
+            2. Attempt graceful degradation
+            3. Provide user-friendly error messages
+            4. Offer recovery options when possible
+            5. Prevent data loss during recovery
+            
+            These samples help ensure robust error handling in external editors.
+            """;
+        
+        Files.writeString(samplesPath.resolve("README.md"), readme);
+    }
+    
+    private static void generateFormatValidator(Path validationPath) throws IOException {
+        String validator = """
+            #!/usr/bin/env python3
+            \"\"\"
+            Odyssey World Format Validator
+            
+            This script validates Odyssey world files for format compliance.
+            \"\"\"
+            
+            import os
+            import sys
+            import struct
+            import json
+            import gzip
+            from pathlib import Path
+            
+            class OdysseyFormatValidator:
+                def __init__(self):
+                    self.errors = []
+                    self.warnings = []
+                
+                def validate_world(self, world_path):
+                    \"\"\"Validate an entire world directory.\"\"\"
+                    world_path = Path(world_path)
+                    
+                    if not world_path.exists():
+                        self.errors.append(f"World directory does not exist: {world_path}")
+                        return False
+                    
+                    # Check required files and directories
+                    self.check_world_structure(world_path)
+                    self.validate_level_dat(world_path / "level.json")
+                    self.validate_region_files(world_path / "region")
+                    
+                    return len(self.errors) == 0
+                
+                def check_world_structure(self, world_path):
+                    \"\"\"Check basic world directory structure.\"\"\"
+                    required_files = ["level.json"]
+                    required_dirs = ["region", "playerdata"]
+                    
+                    for file_name in required_files:
+                        if not (world_path / file_name).exists():
+                            self.errors.append(f"Missing required file: {file_name}")
+                    
+                    for dir_name in required_dirs:
+                        if not (world_path / dir_name).is_dir():
+                            self.errors.append(f"Missing required directory: {dir_name}")
+                
+                def validate_level_dat(self, level_path):
+                    \"\"\"Validate level.json file.\"\"\"
+                    if not level_path.exists():
+                        return
+                    
+                    try:
+                        with open(level_path, 'r') as f:
+                            level_data = json.load(f)
+                        
+                        required_fields = ["version", "worldName", "seed", "gameType"]
+                        for field in required_fields:
+                            if field not in level_data:
+                                self.errors.append(f"Missing required field in level.json: {field}")
+                    
+                    except json.JSONDecodeError as e:
+                        self.errors.append(f"Invalid JSON in level.json: {e}")
+                    except Exception as e:
+                        self.errors.append(f"Error reading level.json: {e}")
+                
+                def validate_region_files(self, region_dir):
+                    \"\"\"Validate all region files in the region directory.\"\"\"
+                    if not region_dir.exists():
+                        return
+                    
+                    for region_file in region_dir.glob("*.region"):
+                        self.validate_region_file(region_file)
+                
+                def validate_region_file(self, region_path):
+                    \"\"\"Validate a single region file.\"\"\"
+                    try:
+                        with open(region_path, 'rb') as f:
+                            # Read magic number
+                            magic = struct.unpack('>I', f.read(4))[0]
+                            if magic != 0x4F524547:  # "OREG"
+                                self.errors.append(f"Invalid magic number in {region_path.name}")
+                            
+                            # Read version
+                            version = struct.unpack('>I', f.read(4))[0]
+                            if version != 1:
+                                self.warnings.append(f"Unexpected version {version} in {region_path.name}")
+                    
+                    except Exception as e:
+                        self.errors.append(f"Error reading region file {region_path.name}: {e}")
+                
+                def print_results(self):
+                    \"\"\"Print validation results.\"\"\"
+                    if self.errors:
+                        print("ERRORS:")
+                        for error in self.errors:
+                            print(f"  - {error}")
+                    
+                    if self.warnings:
+                        print("WARNINGS:")
+                        for warning in self.warnings:
+                            print(f"  - {warning}")
+                    
+                    if not self.errors and not self.warnings:
+                        print("Validation passed: No issues found.")
+            
+            def main():
+                if len(sys.argv) != 2:
+                    print("Usage: python format_validator.py <world_directory>")
+                    sys.exit(1)
+                
+                validator = OdysseyFormatValidator()
+                success = validator.validate_world(sys.argv[1])
+                validator.print_results()
+                
+                sys.exit(0 if success else 1)
+            
+            if __name__ == "__main__":
+                main()
+            """;
+        
+        Files.writeString(validationPath.resolve("format_validator.py"), validator);
+    }
+    
+    private static void generateIntegrityChecker(Path validationPath) throws IOException {
+        String checker = """
+            #!/usr/bin/env python3
+            \"\"\"
+            Odyssey World Integrity Checker
+            
+            This script checks the integrity of Odyssey world data.
+            \"\"\"
+            
+            import os
+            import sys
+            import hashlib
+            import json
+            from pathlib import Path
+            
+            class OdysseyIntegrityChecker:
+                def __init__(self):
+                    self.issues = []
+                
+                def check_world_integrity(self, world_path):
+                    \"\"\"Check integrity of an entire world.\"\"\"
+                    world_path = Path(world_path)
+                    
+                    if not world_path.exists():
+                        self.issues.append(f"World directory does not exist: {world_path}")
+                        return False
+                    
+                    self.check_file_consistency(world_path)
+                    self.check_data_corruption(world_path)
+                    self.check_cross_references(world_path)
+                    
+                    return len(self.issues) == 0
+                
+                def check_file_consistency(self, world_path):
+                    \"\"\"Check for file consistency issues.\"\"\"
+                    # Check for orphaned files
+                    region_dir = world_path / "region"
+                    if region_dir.exists():
+                        for region_file in region_dir.glob("*.region"):
+                            # Parse region coordinates from filename
+                            name_parts = region_file.stem.split('.')
+                            if len(name_parts) != 3 or name_parts[0] != 'r':
+                                self.issues.append(f"Invalid region filename: {region_file.name}")
+                
+                def check_data_corruption(self, world_path):
+                    \"\"\"Check for data corruption.\"\"\"
+                    level_file = world_path / "level.json"
+                    if level_file.exists():
+                        try:
+                            with open(level_file, 'r') as f:
+                                json.load(f)
+                        except json.JSONDecodeError:
+                            self.issues.append("Corrupted level.json file")
+                
+                def check_cross_references(self, world_path):
+                    \"\"\"Check cross-references between files.\"\"\"
+                    # This would check things like:
+                    # - Player references in level.json match playerdata files
+                    # - Region files contain expected chunks
+                    # - Entity references are valid
+                    pass
+                
+                def print_results(self):
+                    \"\"\"Print integrity check results.\"\"\"
+                    if self.issues:
+                        print("INTEGRITY ISSUES:")
+                        for issue in self.issues:
+                            print(f"  - {issue}")
+                    else:
+                        print("Integrity check passed: No issues found.")
+            
+            def main():
+                if len(sys.argv) != 2:
+                    print("Usage: python integrity_checker.py <world_directory>")
+                    sys.exit(1)
+                
+                checker = OdysseyIntegrityChecker()
+                success = checker.check_world_integrity(sys.argv[1])
+                checker.print_results()
+                
+                sys.exit(0 if success else 1)
+            
+            if __name__ == "__main__":
+                main()
+            """;
+        
+        Files.writeString(validationPath.resolve("integrity_checker.py"), checker);
+    }
+    
+    private static void generateCompatibilityTester(Path validationPath) throws IOException {
+        String tester = """
+            #!/usr/bin/env python3
+            \"\"\"
+            Odyssey World Compatibility Tester
+            
+            This script tests compatibility between different versions of Odyssey world format.
+            \"\"\"
+            
+            import os
+            import sys
+            import json
+            import struct
+            from pathlib import Path
+            
+            class OdysseyCompatibilityTester:
+                def __init__(self):
+                    self.compatibility_issues = []
+                    self.supported_versions = [1]  # Currently supported format versions
+                
+                def test_compatibility(self, world_path):
+                    \"\"\"Test compatibility of a world with current format.\"\"\"
+                    world_path = Path(world_path)
+                    
+                    if not world_path.exists():
+                        self.compatibility_issues.append(f"World directory does not exist: {world_path}")
+                        return False
+                    
+                    self.check_format_version(world_path)
+                    self.check_feature_compatibility(world_path)
+                    self.check_migration_requirements(world_path)
+                    
+                    return len(self.compatibility_issues) == 0
+                
+                def check_format_version(self, world_path):
+                    \"\"\"Check if the world format version is supported.\"\"\"
+                    level_file = world_path / "level.json"
+                    if level_file.exists():
+                        try:
+                            with open(level_file, 'r') as f:
+                                level_data = json.load(f)
+                            
+                            version = level_data.get("version", 0)
+                            if version not in self.supported_versions:
+                                self.compatibility_issues.append(
+                                    f"Unsupported world format version: {version}. "
+                                    f"Supported versions: {self.supported_versions}"
+                                )
+                        
+                        except Exception as e:
+                            self.compatibility_issues.append(f"Error reading level.json: {e}")
+                
+                def check_feature_compatibility(self, world_path):
+                    \"\"\"Check if world features are compatible with current version.\"\"\"
+                    level_file = world_path / "level.json"
+                    if level_file.exists():
+                        try:
+                            with open(level_file, 'r') as f:
+                                level_data = json.load(f)
+                            
+                            # Check for deprecated features
+                            deprecated_features = []
+                            if "oldTidalSystem" in level_data:
+                                deprecated_features.append("oldTidalSystem")
+                            
+                            if deprecated_features:
+                                self.compatibility_issues.append(
+                                    f"World uses deprecated features: {deprecated_features}"
+                                )
+                        
+                        except Exception as e:
+                            self.compatibility_issues.append(f"Error checking features: {e}")
+                
+                def check_migration_requirements(self, world_path):
+                    \"\"\"Check if the world requires migration.\"\"\"
+                    # This would check for:
+                    # - Old file formats that need conversion
+                    # - Data structures that need updating
+                    # - Missing required fields that need defaults
+                    pass
+                
+                def print_results(self):
+                    \"\"\"Print compatibility test results.\"\"\"
+                    if self.compatibility_issues:
+                        print("COMPATIBILITY ISSUES:")
+                        for issue in self.compatibility_issues:
+                            print(f"  - {issue}")
+                        print("\\nThe world may need migration before it can be used.")
+                    else:
+                        print("Compatibility test passed: World is compatible with current format.")
+            
+            def main():
+                if len(sys.argv) != 2:
+                    print("Usage: python compatibility_tester.py <world_directory>")
+                    sys.exit(1)
+                
+                tester = OdysseyCompatibilityTester()
+                success = tester.test_compatibility(sys.argv[1])
+                tester.print_results()
+                
+                sys.exit(0 if success else 1)
+            
+            if __name__ == "__main__":
+                main()
+            """;
+        
+        Files.writeString(validationPath.resolve("compatibility_tester.py"), tester);
     }
     
     // Inner classes for organization

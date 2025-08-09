@@ -217,11 +217,13 @@
 - [Z] **UI/UX Framework**
   - [Z] Build a scene-graph based UI system.
   - [Z] Implement TrueType font rendering (e.g., using `lwjgl-stb`).
-  - [Z] Create a library of core UI widgets: `Button`, `Slider`, `Checkbox`, `TextBox`, `ScrollView`.
+  - [Z] Create a library of core UI widgets: `Button`, `Slider`, `Checkbox`, `TextBox`, `ScrollView`, `TextNode`.
   - [Z] Implement UI event handling (click, hover, drag).
   - [Z] **Controller UI**
     - [Z] Create built-in controller gamepad layouts.
     - [Z] Design and implement a `Radial UI` for console-style interaction.
+  - [ ] **Main Menu System**
+    - [ ] Re-enable main menu rendering and navigation (temporarily disabled in GameStateManager.java)
 
 - [ ] **World Persistence & Rollback**
   - [ ] Implement a region-file format with journaling and auto-backup.

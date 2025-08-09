@@ -4,7 +4,7 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
-import org.lwjgl.opengl.GL20;
+// OpenGL bindings are referenced with fully qualified class names to avoid unused-import warnings
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -133,10 +133,29 @@ public class LightingPassShader {
     }
     
     /**
+     * Binds the SSAO texture.
+     */
+    public void bindSSAOTexture(int ssaoTexture) {
+        // Bind SSAO texture to texture unit 11
+        shader.setUniform("u_ssaoTexture", 11);
+        org.lwjgl.opengl.GL13.glActiveTexture(org.lwjgl.opengl.GL13.GL_TEXTURE0 + 11);
+        org.lwjgl.opengl.GL11.glBindTexture(org.lwjgl.opengl.GL11.GL_TEXTURE_2D, ssaoTexture);
+    }
+    
+    /**
      * Sets camera position for view-dependent calculations.
      */
     public void setCameraPosition(Vector3f cameraPosition) {
         shader.setUniform("u_cameraPosition", cameraPosition);
+    }
+    
+    /**
+     * Sets light space matrices for cascaded shadow mapping.
+     */
+    public void setShadowMatrices(Matrix4f[] lightSpaceMatrices) {
+        for (int i = 0; i < lightSpaceMatrices.length && i < 4; i++) {
+            shader.setUniform("u_lightSpaceMatrix[" + i + "]", lightSpaceMatrices[i]);
+        }
     }
     
     /**
@@ -250,6 +269,10 @@ public class LightingPassShader {
             
             // Shadow map
             uniform sampler2D u_shadowMap;
+            uniform mat4 u_lightSpaceMatrix[4];
+            
+            // SSAO
+            uniform sampler2D u_ssaoTexture;
             
             // Camera
             uniform vec3 u_cameraPosition;
@@ -302,6 +325,50 @@ public class LightingPassShader {
             const float PI = 3.14159265359;
             const float EPSILON = 0.001;
             
+            // Shadow mapping function with PCF
+            float calculateShadow(vec3 worldPos, vec3 normal, vec3 lightDir) {
+                if (!u_shadowsEnabled) return 1.0;
+                
+                // Transform world position to light space
+                vec4 lightSpacePos = u_lightSpaceMatrix[0] * vec4(worldPos, 1.0);
+                
+                // Perform perspective divide
+                vec3 projCoords = lightSpacePos.xyz / lightSpacePos.w;
+                
+                // Transform to [0,1] range
+                projCoords = projCoords * 0.5 + 0.5;
+                
+                // Check if position is outside shadow map
+                if (projCoords.z > 1.0 || projCoords.x < 0.0 || projCoords.x > 1.0 || 
+                    projCoords.y < 0.0 || projCoords.y > 1.0) {
+                    return 1.0;
+                }
+                
+                // Get closest depth value from shadow map
+                float closestDepth = texture(u_shadowMap, projCoords.xy).r;
+                
+                // Get depth of current fragment from light's perspective
+                float currentDepth = projCoords.z;
+                
+                // Calculate bias to prevent shadow acne
+                // Tuned normal-dependent bias to reduce acne while minimizing peter-panning
+                float bias = max(0.0015 * (1.0 - dot(normal, lightDir)), 0.0005);
+                
+                // PCF (Percentage Closer Filtering) for soft shadows
+                float shadow = 0.0;
+                vec2 texelSize = 1.0 / textureSize(u_shadowMap, 0);
+                
+                for(int x = -2; x <= 2; ++x) {
+                    for(int y = -2; y <= 2; ++y) {
+                        float pcfDepth = texture(u_shadowMap, projCoords.xy + vec2(x, y) * texelSize).r;
+                        shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;
+                    }
+                }
+                shadow /= 25.0;
+                
+                return 1.0 - shadow;
+            }
+            
             // PBR functions
             vec3 fresnelSchlick(float cosTheta, vec3 F0) {
                 return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
@@ -343,13 +410,19 @@ public class LightingPassShader {
                 return ggx1 * ggx2;
             }
             
-            vec3 calculateDirectionalLight(DirectionalLight light, vec3 N, vec3 V, vec3 albedo, float metallic, float roughness, vec3 F0) {
+            vec3 calculateDirectionalLight(DirectionalLight light, vec3 worldPos, vec3 N, vec3 V, vec3 albedo, float metallic, float roughness, vec3 F0) {
                 vec3 L = normalize(-light.direction);
                 vec3 H = normalize(V + L);
                 
                 float NdotL = max(dot(N, L), 0.0);
                 
                 if (NdotL <= 0.0) return vec3(0.0);
+                
+                // Calculate shadow factor
+                float shadowFactor = 1.0;
+                if (light.castsShadows) {
+                    shadowFactor = calculateShadow(worldPos, N, L);
+                }
                 
                 // Cook-Torrance BRDF
                 float NDF = distributionGGX(N, H, roughness);
@@ -365,7 +438,7 @@ public class LightingPassShader {
                 vec3 specular = numerator / denominator;
                 
                 vec3 radiance = light.color * light.intensity;
-                return (kD * albedo / PI + specular) * radiance * NdotL;
+                return (kD * albedo / PI + specular) * radiance * NdotL * shadowFactor;
             }
             
             vec3 calculatePointLight(PointLight light, vec3 worldPos, vec3 N, vec3 V, vec3 albedo, float metallic, float roughness, vec3 F0) {
@@ -474,7 +547,10 @@ public class LightingPassShader {
                 float roughness = gNormal.a;
                 vec3 worldPos = gPosition.rgb;
                 vec3 emission = gEmission.rgb;
-                float ao = gEmission.a;
+                
+                // Sample SSAO
+                float ssao = texture(u_ssaoTexture, v_texCoord).r;
+                float ao = gEmission.a * ssao;
                 
                 // Calculate view direction
                 vec3 V = normalize(u_cameraPosition - worldPos);
@@ -488,7 +564,7 @@ public class LightingPassShader {
                 
                 // Directional lights
                 for (int i = 0; i < u_directionalLightCount && i < 4; i++) {
-                    Lo += calculateDirectionalLight(u_directionalLights[i], normal, V, albedo, metallic, roughness, F0);
+                    Lo += calculateDirectionalLight(u_directionalLights[i], worldPos, normal, V, albedo, metallic, roughness, F0);
                 }
                 
                 // Point lights

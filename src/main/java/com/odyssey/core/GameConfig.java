@@ -24,6 +24,9 @@ public class GameConfig {
     private float effectsVolume = 1.0f;
     private float ambientVolume = 0.6f;
     
+    // Input settings
+    private float mouseSensitivity = 0.008f; // Default mouse sensitivity for raw mouse input feel
+    
     // Ocean simulation settings
     private boolean enableTidalSystem = true;
     private boolean enableWeatherSystem = true;
@@ -83,6 +86,11 @@ public class GameConfig {
     
     public float getAmbientVolume() { return ambientVolume; }
     public void setAmbientVolume(float ambientVolume) { this.ambientVolume = ambientVolume; }
+    
+    public float getMouseSensitivity() { return mouseSensitivity; }
+    public void setMouseSensitivity(float mouseSensitivity) { 
+        this.mouseSensitivity = Math.max(0.001f, Math.min(0.02f, mouseSensitivity)); 
+    }
     
     public boolean isEnableTidalSystem() { return enableTidalSystem; }
     public void setEnableTidalSystem(boolean enableTidalSystem) { this.enableTidalSystem = enableTidalSystem; }

@@ -5,6 +5,7 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
+import org.lwjgl.opengl.GL14;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.opengl.GL31;
@@ -318,6 +319,13 @@ public class LightingSystem {
     private int shadowMapFramebuffer;
     private int shadowMapTexture;
     
+    // Cascaded shadow maps
+    private int[] cascadeShadowMapFramebuffers = new int[CASCADE_COUNT];
+    private int[] cascadeShadowMapTextures = new int[CASCADE_COUNT];
+    private float[] cascadeDistances = {10.0f, 25.0f, 50.0f, 100.0f};
+    private Matrix4f[] cascadeLightSpaceMatrices = new Matrix4f[CASCADE_COUNT];
+    private boolean cascadedShadowsEnabled = true;
+    
     // Image-based lighting
     private boolean iblEnabled;
     private int skyboxTexture;
@@ -371,6 +379,10 @@ public class LightingSystem {
      */
     public void initialize() {
         initializeShadowMapping();
+        
+        // Initialize cascaded shadow maps
+        initializeCascadedShadowMaps();
+        
         initializeUniformBuffers();
         setupDefaultLights();
         
@@ -416,6 +428,51 @@ public class LightingSystem {
         
         GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
         logger.info("Shadow mapping initialized with " + SHADOW_MAP_SIZE + "x" + SHADOW_MAP_SIZE + " resolution");
+    }
+    
+    /**
+     * Initializes cascaded shadow maps for improved shadow quality.
+     */
+    private void initializeCascadedShadowMaps() {
+        // Initialize cascade light space matrices
+        for (int i = 0; i < CASCADE_COUNT; i++) {
+            cascadeLightSpaceMatrices[i] = new Matrix4f();
+        }
+        
+        // Create framebuffers and textures for each cascade
+        for (int i = 0; i < CASCADE_COUNT; i++) {
+            // Create framebuffer
+            cascadeShadowMapFramebuffers[i] = GL30.glGenFramebuffers();
+            GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, cascadeShadowMapFramebuffers[i]);
+            
+            // Create depth texture
+            cascadeShadowMapTextures[i] = GL11.glGenTextures();
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, cascadeShadowMapTextures[i]);
+            GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL30.GL_DEPTH_COMPONENT24, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE, 0, GL11.GL_DEPTH_COMPONENT, GL11.GL_FLOAT, 0);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL13.GL_CLAMP_TO_BORDER);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL13.GL_CLAMP_TO_BORDER);
+            
+            // Set border color to white (no shadow)
+            float[] borderColor = {1.0f, 1.0f, 1.0f, 1.0f};
+            GL11.glTexParameterfv(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_BORDER_COLOR, borderColor);
+            
+            // Attach depth texture to framebuffer
+            GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_ATTACHMENT, GL11.GL_TEXTURE_2D, cascadeShadowMapTextures[i], 0);
+            
+            // No color buffer needed
+            GL11.glDrawBuffer(GL11.GL_NONE);
+            GL11.glReadBuffer(GL11.GL_NONE);
+            
+            // Check framebuffer completeness
+            if (GL30.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER) != GL30.GL_FRAMEBUFFER_COMPLETE) {
+                logger.error("Cascade shadow map framebuffer {} not complete", i);
+            }
+        }
+        
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+        logger.info("Cascaded shadow maps initialized with {} cascades", CASCADE_COUNT);
     }
     
     /**
@@ -609,7 +666,11 @@ public class LightingSystem {
         // Update shadow maps for directional lights
         for (DirectionalLight light : directionalLights) {
             if (light.isEnabled() && light.castsShadows()) {
-                updateDirectionalLightShadowMap(light, viewMatrix, projectionMatrix);
+                if (cascadedShadowsEnabled) {
+                    updateCascadedShadowMaps(light, viewMatrix, projectionMatrix);
+                } else {
+                    updateDirectionalLightShadowMap(light, viewMatrix, projectionMatrix);
+                }
             }
         }
     }
@@ -634,6 +695,130 @@ public class LightingSystem {
     }
     
     /**
+     * Updates cascaded shadow maps for a directional light.
+     * @param light The directional light
+     * @param viewMatrix The current view matrix
+     * @param projectionMatrix The current projection matrix
+     */
+    private void updateCascadedShadowMaps(DirectionalLight light, Matrix4f viewMatrix, Matrix4f projectionMatrix) {
+        // Calculate frustum corners for each cascade
+        Matrix4f invViewProj = new Matrix4f(projectionMatrix).mul(viewMatrix).invert();
+        
+        float nearPlane = 0.1f;
+        for (int i = 0; i < CASCADE_COUNT; i++) {
+            float farPlane = cascadeDistances[i];
+            
+            // Calculate frustum corners in world space
+            Vector3f[] frustumCorners = calculateFrustumCorners(invViewProj, nearPlane, farPlane);
+            
+            // Calculate light space matrix for this cascade
+            Matrix4f lightSpaceMatrix = calculateLightSpaceMatrix(light, frustumCorners);
+            cascadeLightSpaceMatrices[i].set(lightSpaceMatrix);
+            
+            nearPlane = farPlane;
+        }
+        
+        // Set the first cascade as the main light space matrix for compatibility
+        light.setLightSpaceMatrix(cascadeLightSpaceMatrices[0]);
+    }
+    
+    /**
+     * Calculates frustum corners in world space for a given near and far plane.
+     * @param invViewProj Inverse view-projection matrix
+     * @param nearPlane Near plane distance
+     * @param farPlane Far plane distance
+     * @return Array of 8 frustum corners in world space
+     */
+    private Vector3f[] calculateFrustumCorners(Matrix4f invViewProj, float nearPlane, float farPlane) {
+        Vector3f[] corners = new Vector3f[8];
+        
+        // NDC coordinates for frustum corners
+        Vector4f[] ndcCorners = {
+            new Vector4f(-1, -1, -1, 1), // Near bottom-left
+            new Vector4f( 1, -1, -1, 1), // Near bottom-right
+            new Vector4f( 1,  1, -1, 1), // Near top-right
+            new Vector4f(-1,  1, -1, 1), // Near top-left
+            new Vector4f(-1, -1,  1, 1), // Far bottom-left
+            new Vector4f( 1, -1,  1, 1), // Far bottom-right
+            new Vector4f( 1,  1,  1, 1), // Far top-right
+            new Vector4f(-1,  1,  1, 1)  // Far top-left
+        };
+        
+        // Transform to world space
+        for (int i = 0; i < 8; i++) {
+            Vector4f worldCorner = new Vector4f();
+            invViewProj.transform(ndcCorners[i], worldCorner);
+            
+            // Perspective divide
+            if (worldCorner.w != 0) {
+                worldCorner.div(worldCorner.w);
+            }
+            
+            corners[i] = new Vector3f(worldCorner.x, worldCorner.y, worldCorner.z);
+        }
+        
+        return corners;
+    }
+    
+    /**
+     * Calculates the light space matrix for a given set of frustum corners.
+     * @param light The directional light
+     * @param frustumCorners The frustum corners in world space
+     * @return The light space matrix
+     */
+    private Matrix4f calculateLightSpaceMatrix(DirectionalLight light, Vector3f[] frustumCorners) {
+        // Calculate frustum center
+        Vector3f center = new Vector3f();
+        for (Vector3f corner : frustumCorners) {
+            center.add(corner);
+        }
+        center.div(frustumCorners.length);
+        
+        // Calculate light view matrix
+        Vector3f lightDir = new Vector3f(light.getDirection()).normalize();
+        Vector3f lightPos = new Vector3f(center).sub(new Vector3f(lightDir).mul(50.0f));
+        Vector3f up = new Vector3f(0, 1, 0);
+        
+        // Ensure up vector is not parallel to light direction
+        if (Math.abs(lightDir.dot(up)) > 0.9f) {
+            up.set(1, 0, 0);
+        }
+        
+        Matrix4f lightView = new Matrix4f().lookAt(lightPos, center, up);
+        
+        // Transform frustum corners to light space
+        float minX = Float.POSITIVE_INFINITY, maxX = Float.NEGATIVE_INFINITY;
+        float minY = Float.POSITIVE_INFINITY, maxY = Float.NEGATIVE_INFINITY;
+        float minZ = Float.POSITIVE_INFINITY, maxZ = Float.NEGATIVE_INFINITY;
+        
+        for (Vector3f corner : frustumCorners) {
+            Vector4f lightSpaceCorner = new Vector4f(corner, 1.0f);
+            lightView.transform(lightSpaceCorner);
+            
+            minX = Math.min(minX, lightSpaceCorner.x);
+            maxX = Math.max(maxX, lightSpaceCorner.x);
+            minY = Math.min(minY, lightSpaceCorner.y);
+            maxY = Math.max(maxY, lightSpaceCorner.y);
+            minZ = Math.min(minZ, lightSpaceCorner.z);
+            maxZ = Math.max(maxZ, lightSpaceCorner.z);
+        }
+        
+        // Add padding to reduce edge artifacts
+        float padding = 10.0f;
+        minX -= padding;
+        maxX += padding;
+        minY -= padding;
+        maxY += padding;
+        minZ -= padding;
+        maxZ += padding;
+        
+        // Create orthographic projection matrix
+        Matrix4f lightProjection = new Matrix4f().ortho(minX, maxX, minY, maxY, minZ, maxZ);
+        
+        return new Matrix4f(lightProjection).mul(lightView);
+    }
+    
+    /**
      * Uploads light data to GPU uniform buffer.
      */
     private void uploadLightDataToGPU() {
@@ -649,10 +834,31 @@ public class LightingSystem {
     public void bindShadowMaps(Shader shader) {
         if (!shadowsEnabled) return;
         
-        // Bind shadow map texture
-        GL13.glActiveTexture(GL13.GL_TEXTURE10); // Use texture unit 10 for shadow maps
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, shadowMapTexture);
-        shader.setUniform("shadowMap", 10);
+        if (cascadedShadowsEnabled) {
+            // Bind cascaded shadow maps
+            for (int i = 0; i < CASCADE_COUNT; i++) {
+                GL13.glActiveTexture(GL13.GL_TEXTURE10 + i);
+                GL11.glBindTexture(GL11.GL_TEXTURE_2D, cascadeShadowMapTextures[i]);
+                shader.setUniform("cascadeShadowMaps[" + i + "]", 10 + i);
+            }
+            
+            // Set cascade distances
+            for (int i = 0; i < CASCADE_COUNT; i++) {
+                shader.setUniform("cascadeDistances[" + i + "]", cascadeDistances[i]);
+            }
+            
+            // Set cascade light space matrices
+            for (int i = 0; i < CASCADE_COUNT; i++) {
+                shader.setUniform("cascadeLightSpaceMatrices[" + i + "]", cascadeLightSpaceMatrices[i]);
+            }
+            
+            shader.setUniform("cascadeCount", CASCADE_COUNT);
+        } else {
+            // Bind single shadow map texture
+            GL13.glActiveTexture(GL13.GL_TEXTURE10);
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, shadowMapTexture);
+            shader.setUniform("shadowMap", 10);
+        }
     }
     
     /**
@@ -822,6 +1028,64 @@ public class LightingSystem {
     }
     
     /**
+     * Checks if cascaded shadow maps are enabled.
+     * @return True if cascaded shadow maps are enabled, false otherwise
+     */
+    public boolean areCascadedShadowsEnabled() {
+        return cascadedShadowsEnabled;
+    }
+    
+    /**
+     * Enables or disables cascaded shadow maps.
+     * @param enabled Whether cascaded shadow maps should be enabled
+     */
+    public void setCascadedShadowsEnabled(boolean enabled) {
+        this.cascadedShadowsEnabled = enabled;
+        logger.info("Cascaded shadow maps {}", enabled ? "enabled" : "disabled");
+    }
+    
+    /**
+     * Gets the cascade distances.
+     * @return Array of cascade distances
+     */
+    public float[] getCascadeDistances() {
+        return cascadeDistances.clone();
+    }
+    
+    /**
+     * Sets the cascade distances.
+     * @param distances Array of cascade distances
+     */
+    public void setCascadeDistances(float[] distances) {
+        if (distances.length == CASCADE_COUNT) {
+            this.cascadeDistances = distances.clone();
+            logger.info("Updated cascade distances: {}", java.util.Arrays.toString(distances));
+        } else {
+            logger.warn("Invalid cascade distances array length. Expected {}, got {}", CASCADE_COUNT, distances.length);
+        }
+    }
+    
+    /**
+     * Gets the cascaded shadow map textures.
+     * @return Array of cascade shadow map texture IDs
+     */
+    public int[] getCascadeShadowMapTextures() {
+        return cascadeShadowMapTextures.clone();
+    }
+    
+    /**
+     * Gets the cascade light space matrices.
+     * @return Array of cascade light space matrices
+     */
+    public Matrix4f[] getCascadeLightSpaceMatrices() {
+        Matrix4f[] matrices = new Matrix4f[CASCADE_COUNT];
+        for (int i = 0; i < CASCADE_COUNT; i++) {
+            matrices[i] = new Matrix4f(cascadeLightSpaceMatrices[i]);
+        }
+        return matrices;
+    }
+    
+    /**
      * Gets the skybox texture ID.
      * @return The skybox texture ID
      */
@@ -958,6 +1222,44 @@ public class LightingSystem {
     }
     
     /**
+     * Gets the shadow map texture ID.
+     * @return The shadow map texture ID
+     */
+    public int getShadowMapTexture() {
+        return shadowMapTexture;
+    }
+    
+    /**
+     * Gets the light space matrices for shadow mapping.
+     * @return Array of light space matrices for cascaded shadow maps
+     */
+    public Matrix4f[] getLightSpaceMatrices() {
+        Matrix4f[] matrices = new Matrix4f[CASCADE_COUNT];
+        
+        if (cascadedShadowsEnabled) {
+            // Return actual cascade matrices
+            for (int i = 0; i < CASCADE_COUNT; i++) {
+                matrices[i] = new Matrix4f(cascadeLightSpaceMatrices[i]);
+            }
+        } else if (!directionalLights.isEmpty()) {
+            // Return the single light space matrix for all cascades
+            DirectionalLight light = directionalLights.get(0);
+            Matrix4f lightSpaceMatrix = light.getLightSpaceMatrix();
+            
+            for (int i = 0; i < CASCADE_COUNT; i++) {
+                matrices[i] = new Matrix4f(lightSpaceMatrix);
+            }
+        } else {
+            // Return identity matrices if no lights
+            for (int i = 0; i < CASCADE_COUNT; i++) {
+                matrices[i] = new Matrix4f();
+            }
+        }
+        
+        return matrices;
+    }
+    
+    /**
      * Cleans up OpenGL resources.
      */
     public void cleanup() {
@@ -969,6 +1271,16 @@ public class LightingSystem {
         
         if (shadowMapTexture != 0) {
             GL11.glDeleteTextures(shadowMapTexture);
+        }
+        
+        // Clean up cascaded shadow map resources
+        for (int i = 0; i < CASCADE_COUNT; i++) {
+            if (cascadeShadowMapFramebuffers[i] != 0) {
+                GL30.glDeleteFramebuffers(cascadeShadowMapFramebuffers[i]);
+            }
+            if (cascadeShadowMapTextures[i] != 0) {
+                GL11.glDeleteTextures(cascadeShadowMapTextures[i]);
+            }
         }
         
         // Clean up IBL resources

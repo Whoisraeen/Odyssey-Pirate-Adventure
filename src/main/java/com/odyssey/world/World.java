@@ -5,6 +5,7 @@ import com.odyssey.graphics.Renderer;
 import com.odyssey.world.generation.WorldGenerator;
 import com.odyssey.world.chunk.ChunkManager;
 import com.odyssey.world.biome.BiomeManager;
+import com.odyssey.world.gamerules.GameRuleManager;
 import org.joml.Vector3f;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +24,7 @@ public class World {
     private WorldGenerator worldGenerator;
     private ChunkManager chunkManager;
     private BiomeManager biomeManager;
+    private GameRuleManager gameRuleManager;
     
     // World properties
     private static final int CHUNK_SIZE = 16;
@@ -39,6 +41,9 @@ public class World {
     
     public void initialize() {
         logger.info("Initializing world with seed: {}", seed);
+        
+        // Initialize game rules
+        gameRuleManager = new GameRuleManager();
         
         // Initialize world generation
         worldGenerator = new WorldGenerator(seed);
@@ -122,6 +127,7 @@ public class World {
     public WorldGenerator getWorldGenerator() { return worldGenerator; }
     public ChunkManager getChunkManager() { return chunkManager; }
     public BiomeManager getBiomeManager() { return biomeManager; }
+    public GameRuleManager getGameRuleManager() { return gameRuleManager; }
     
     public static int getChunkSize() { return CHUNK_SIZE; }
     public static int getWorldHeight() { return WORLD_HEIGHT; }

@@ -1,6 +1,6 @@
 package com.odyssey.world.tools;
 
-import com.odyssey.world.save.WorldSaveFormat;
+import com.odyssey.world.save.format.WorldSaveFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

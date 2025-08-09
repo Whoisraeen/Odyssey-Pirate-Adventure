@@ -1,8 +1,9 @@
 package com.odyssey.world.ocean;
 
 import com.odyssey.core.GameConfig;
+import com.odyssey.graphics.GerstnerOceanRenderer;
 import com.odyssey.graphics.Renderer;
-import com.odyssey.graphics.WaterShader;
+
 import com.odyssey.graphics.ShaderManager;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -18,8 +19,8 @@ public class OceanSystem {
     
     private final GameConfig config;
     
-    // Water rendering
-    private WaterShader waterShader;
+    // Water rendering - unified system
+    private GerstnerOceanRenderer oceanRenderer;  // Consolidated Gerstner wave renderer
     private ShaderManager shaderManager;
     
     // Tidal system
@@ -50,12 +51,15 @@ public class OceanSystem {
     }
     
     public void initialize() {
-        logger.info("Initializing ocean system...");
+        logger.info("Initializing unified ocean system...");
         
-        // Initialize water shader system
-        WaterShader.WaterQuality waterQuality = determineWaterQuality();
-        waterShader = new WaterShader(shaderManager, waterQuality);
-        logger.info("Initialized water shader with quality: " + waterQuality);
+        // Initialize the consolidated ocean renderer
+        oceanRenderer = new GerstnerOceanRenderer(shaderManager);
+        
+        // Set quality based on config
+        GerstnerOceanRenderer.WaterQuality quality = determineWaterQuality();
+        oceanRenderer.setQuality(quality);
+        logger.info("Initialized unified ocean renderer with quality: {}", quality);
         
         // Initialize tidal system
         if (config.isEnableTidalSystem()) {
@@ -94,6 +98,11 @@ public class OceanSystem {
             waveSystem.update(deltaTime, windDirection, windStrength);
         }
         
+        // Update ocean renderer with wind data
+        if (oceanRenderer != null) {
+            oceanRenderer.updateWaves(windDirection, windStrength);
+        }
+        
         // Update current system
         currentSystem.update(deltaTime, windDirection, windStrength);
         
@@ -101,20 +110,14 @@ public class OceanSystem {
         marineEcosystem.update(deltaTime);
     }
     
-    /**
-     * Updates environmental data from weather and biome systems
-     */
-    public void updateEnvironmentalData(float weatherIntensity, Vector3f biomeWaterColor, float underwaterDepth) {
-        if (waterShader != null) {
-            waterShader.setWeatherIntensity(weatherIntensity);
-            waterShader.setBiomeWaterColor(biomeWaterColor);
-            waterShader.setUnderwaterDepth(underwaterDepth);
-        }
-    }
+
     
     public void render(Renderer renderer) {
-        // Render ocean surface with advanced water shader
-        renderOceanSurface(renderer);
+        // Render ocean using the unified renderer
+        if (oceanRenderer != null) {
+            Vector3f sunDirection = renderer.getLightDirection();
+            oceanRenderer.render(renderer.getCamera(), sunDirection, (float)worldTime);
+        }
         
         // Render underwater effects if player is submerged
         // This will be implemented when we have proper underwater rendering
@@ -123,118 +126,19 @@ public class OceanSystem {
         marineEcosystem.render(renderer);
     }
     
-    /**
-     * Renders the ocean surface using advanced water shaders with reflections and refractions.
-     */
-    private void renderOceanSurface(Renderer renderer) {
-        if (waterShader == null) {
-            logger.warn("Water shader not initialized, skipping ocean rendering");
-            return;
-        }
-        
-        // Get camera and lighting information from renderer
-        Matrix4f projectionMatrix = renderer.getCamera().getProjectionMatrix();
-        Matrix4f viewMatrix = renderer.getCamera().getViewMatrix();
-        Matrix4f modelMatrix = new Matrix4f().identity();
-        Vector3f cameraPosition = renderer.getCamera().getPosition();
-        Vector3f lightDirection = renderer.getLightDirection();
-        Vector3f lightColor = renderer.getLightColor();
-        Vector3f ambientColor = renderer.getAmbientColor();
-        
-        // Render reflections if enabled
-        if (waterShader.getQuality().isReflectionsEnabled()) {
-            renderReflections(renderer, cameraPosition);
-        }
-        
-        // Render refractions if enabled
-        if (waterShader.getQuality().isRefractionEnabled()) {
-            renderRefractions(renderer, cameraPosition);
-        }
-        
-        // Restore main framebuffer
-        waterShader.unbindFramebuffer();
-        renderer.restoreViewport();
-        
-        // Render the water surface
-        waterShader.render(
-            projectionMatrix, viewMatrix, modelMatrix,
-            cameraPosition, lightDirection, lightColor, ambientColor,
-            (float)worldTime
-        );
-        
-        // Render water geometry
-        renderWaterGeometry(renderer);
-    }
-    
-    /**
-     * Renders reflections to the reflection framebuffer.
-     */
-    private void renderReflections(Renderer renderer, Vector3f cameraPosition) {
-        waterShader.bindReflectionFramebuffer();
-        
-        // Create reflection camera (flip Y position and invert pitch)
-        Vector3f reflectionCameraPos = new Vector3f(
-            cameraPosition.x,
-            2 * currentWaterLevel - cameraPosition.y,
-            cameraPosition.z
-        );
-        
-        // Set up clipping plane to prevent rendering below water
-        Vector3f clippingPlane = new Vector3f(0, 1, 0); // Normal pointing up
-        float clippingDistance = currentWaterLevel;
-        
-        // Render scene from reflection camera perspective
-        renderer.renderSceneForReflection(reflectionCameraPos, clippingPlane, clippingDistance);
-    }
-    
-    /**
-     * Renders refractions to the refraction framebuffer.
-     */
-    private void renderRefractions(Renderer renderer, Vector3f cameraPosition) {
-        waterShader.bindRefractionFramebuffer();
-        
-        // Set up clipping plane to only render below water
-        Vector3f clippingPlane = new Vector3f(0, -1, 0); // Normal pointing down
-        float clippingDistance = -currentWaterLevel;
-        
-        // Render underwater scene
-        renderer.renderSceneForRefraction(cameraPosition, clippingPlane, clippingDistance);
-    }
-    
-    /**
-     * Renders the actual water geometry (plane or mesh) using the enhanced water shader.
-     */
-    private void renderWaterGeometry(Renderer renderer) {
-        float renderDistance = config.getRenderDistance() * 16; // Convert chunks to blocks
-        
-        // The water shader is already bound and configured by waterShader.render()
-        // We just need to render the geometry without changing shaders
-        
-        // Get the plane mesh from renderer and render it directly
-        // This preserves the enhanced water shader that's already active
-        if (renderer.getPlaneMesh() != null) {
-            // Set up model matrix for the water plane
-            Matrix4f modelMatrix = new Matrix4f().identity()
-                .translate(0, currentWaterLevel, 0)
-                .scale(renderDistance * 2, 1, renderDistance * 2);
-            
-            // Update the model matrix in the already-bound water shader
-            waterShader.updateModelMatrix(modelMatrix);
-            
-            // Render the plane mesh
-            renderer.getPlaneMesh().render();
-        } else {
-            logger.warn("Plane mesh not available for water rendering");
-        }
-    }
+
     
     /**
      * Get the water height at a specific world position
      */
     public float getWaterHeightAt(float x, float z) {
-        float height = currentWaterLevel;
+        // Use unified ocean renderer for accurate wave heights
+        if (oceanRenderer != null) {
+            return oceanRenderer.getWaveHeightAt(x, z, (float)worldTime);
+        }
         
-        // Add wave displacement if wave system is enabled
+        // Fallback to base water level with wave system
+        float height = currentWaterLevel;
         if (waveSystem != null) {
             height += waveSystem.getWaveHeightAt(x, z, worldTime);
         }
@@ -296,46 +200,69 @@ public class OceanSystem {
     }
     
     /**
+     * Update environmental data for the ocean system
+     */
+    public void updateEnvironmentalData(float weatherIntensity, Vector3f biomeWaterColor, float underwaterDepth) {
+        // Update wind strength based on weather intensity
+        this.windStrength = Math.max(0.1f, weatherIntensity * 2.0f);
+        
+        // Update ocean renderer with environmental data if available
+        if (oceanRenderer != null) {
+            // Pass environmental data to the ocean renderer
+            // This could include water color, transparency, etc.
+            // For now, just log the update
+            logger.debug("Updated ocean environmental data - weather: {}, depth: {}", 
+                weatherIntensity, underwaterDepth);
+        }
+        
+        // Update marine ecosystem with environmental changes
+        if (marineEcosystem != null) {
+            // Environmental changes could affect marine life behavior
+            // This is a placeholder for future implementation
+        }
+    }
+    
+    /**
      * Determines the appropriate water quality based on system capabilities and config.
      */
-    private WaterShader.WaterQuality determineWaterQuality() {
+    private GerstnerOceanRenderer.WaterQuality determineWaterQuality() {
         // Check ocean simulation quality from config
         float oceanQuality = config.getOceanSimulationQuality();
         
         if (oceanQuality >= 0.8f) {
-            return WaterShader.WaterQuality.ULTRA;
+            return GerstnerOceanRenderer.WaterQuality.ULTRA;
         } else if (oceanQuality >= 0.6f) {
-            return WaterShader.WaterQuality.HIGH;
+            return GerstnerOceanRenderer.WaterQuality.QUALITY;
         } else if (oceanQuality >= 0.4f) {
-            return WaterShader.WaterQuality.MEDIUM;
+            return GerstnerOceanRenderer.WaterQuality.BALANCED;
         } else {
-            return WaterShader.WaterQuality.LOW;
+            return GerstnerOceanRenderer.WaterQuality.PERFORMANCE;
         }
     }
     
     /**
      * Auto-detects appropriate water quality based on system performance.
      */
-    private WaterShader.WaterQuality autoDetectWaterQuality() {
+    private GerstnerOceanRenderer.WaterQuality autoDetectWaterQuality() {
         // Simple heuristic based on available memory and config settings
         Runtime runtime = Runtime.getRuntime();
         long maxMemory = runtime.maxMemory();
         
         if (maxMemory > 4L * 1024 * 1024 * 1024) { // > 4GB
-            return WaterShader.WaterQuality.ULTRA;
+            return GerstnerOceanRenderer.WaterQuality.ULTRA;
         } else if (maxMemory > 2L * 1024 * 1024 * 1024) { // > 2GB
-            return WaterShader.WaterQuality.HIGH;
+            return GerstnerOceanRenderer.WaterQuality.QUALITY;
         } else if (maxMemory > 1L * 1024 * 1024 * 1024) { // > 1GB
-            return WaterShader.WaterQuality.MEDIUM;
+            return GerstnerOceanRenderer.WaterQuality.BALANCED;
         } else {
-            return WaterShader.WaterQuality.LOW;
+            return GerstnerOceanRenderer.WaterQuality.PERFORMANCE;
         }
     }
     
     public void cleanup() {
-        logger.info("Cleaning up ocean system");
+        logger.info("Cleaning up unified ocean system");
         
-        if (waterShader != null) waterShader.cleanup();
+        if (oceanRenderer != null) oceanRenderer.cleanup();
         if (marineEcosystem != null) marineEcosystem.cleanup();
         if (currentSystem != null) currentSystem.cleanup();
         if (waveSystem != null) waveSystem.cleanup();
@@ -356,7 +283,7 @@ public class OceanSystem {
     
     public double getWorldTime() { return worldTime; }
     
-    public WaterShader getWaterShader() { return waterShader; }
+    public GerstnerOceanRenderer getOceanRenderer() { return oceanRenderer; }
     public TidalSystem getTidalSystem() { return tidalSystem; }
     public WaveSystem getWaveSystem() { return waveSystem; }
     public CurrentSystem getCurrentSystem() { return currentSystem; }

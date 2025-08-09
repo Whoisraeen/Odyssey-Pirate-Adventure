@@ -43,7 +43,7 @@ public class InputManager {
     
     // Input settings
     private boolean mouseCaptured = false;
-    private float mouseSensitivity = 0.1f;
+    private float mouseSensitivity = 0.003f; // Better default for smooth camera movement
     private float gamepadDeadzone = 0.2f;
 
     public static class Gamepad {
@@ -169,8 +169,17 @@ public class InputManager {
         
         // Set up cursor position callback
         glfwSetCursorPosCallback(window.getHandle(), (windowHandle, xpos, ypos) -> {
-            mouseX = xpos;
-            mouseY = ypos;
+            // Only update mouse position if not captured or if this is the first frame
+            if (!mouseCaptured || (lastMouseX == 0 && lastMouseY == 0)) {
+                mouseX = xpos;
+                mouseY = ypos;
+            } else {
+                // When captured, we want to track the delta from center
+                double centerX = window.getWidth() / 2.0;
+                double centerY = window.getHeight() / 2.0;
+                mouseX = xpos;
+                mouseY = ypos;
+            }
         });
         
         // Set up scroll callback
@@ -210,10 +219,12 @@ public class InputManager {
         
         // When mouse is captured, reset cursor to prevent drift
         if (mouseCaptured) {
-            // Reset to window center
-            glfwSetCursorPos(window.getHandle(), 960, 540); // Assuming 1920x1080, could be made dynamic
-            lastMouseX = 960;
-            lastMouseY = 540;
+            // Reset to window center (dynamic based on actual window size)
+            double centerX = window.getWidth() / 2.0;
+            double centerY = window.getHeight() / 2.0;
+            glfwSetCursorPos(window.getHandle(), centerX, centerY);
+            lastMouseX = centerX;
+            lastMouseY = centerY;
         } else {
             lastMouseX = mouseX;
             lastMouseY = mouseY;
@@ -361,7 +372,10 @@ public class InputManager {
     public boolean isMouseCaptured() { return mouseCaptured; }
     
     public float getMouseSensitivity() { return mouseSensitivity; }
-    public void setMouseSensitivity(float sensitivity) { this.mouseSensitivity = sensitivity; }
+    public void setMouseSensitivity(float sensitivity) {
+        this.mouseSensitivity = sensitivity;
+        logger.info("Mouse sensitivity set to: {}", sensitivity);
+    }
     
     // Convenience methods for common game controls
     public boolean isMovingForward() {

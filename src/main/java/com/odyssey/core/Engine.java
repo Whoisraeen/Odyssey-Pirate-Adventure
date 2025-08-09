@@ -8,7 +8,6 @@ import com.odyssey.world.World;
 import com.odyssey.world.ocean.OceanSystem;
 import com.odyssey.world.weather.WeatherSystem;
 import com.odyssey.audio.AudioManager;
-import com.odyssey.game.GameState;
 import com.odyssey.game.GameStateManager;
 import com.odyssey.core.memory.MemoryManager;
 import com.odyssey.core.jobs.JobSystem;
@@ -79,6 +78,9 @@ public class Engine {
             inputManager = new InputManager(window);
             inputManager.initialize();
             
+            // Set mouse sensitivity from config
+            inputManager.setMouseSensitivity(config.getMouseSensitivity());
+            
             // Initialize renderer
             renderer = new Renderer(config);
             renderer.initialize();
@@ -141,16 +143,14 @@ public class Engine {
                     // Update FPS counter
                     updateFPS(deltaTime);
                     
-                    // Poll input events
-                    glfwPollEvents();
-                    
-                    // Update systems
+                    // Update game systems
                     update(deltaTime);
                     
                     // Render frame
                     render();
                     
-                    // Swap buffers
+                    // Poll events and swap buffers
+                    glfwPollEvents();
                     window.swapBuffers();
                     
                     // Exit conditions are now handled by the game state manager
@@ -301,14 +301,17 @@ public class Engine {
         
         // Apply mouse look when captured
         if (inputManager.isMouseCaptured()) {
-            float mouseSensitivity = 0.1f;
-            camera.rotateY((float) (mouseDeltaX * mouseSensitivity));
-            camera.rotateX((float) (mouseDeltaY * mouseSensitivity));
+            // Use the InputManager's sensitivity-adjusted deltas for smooth movement
+            double adjustedDeltaX = inputManager.getMouseDeltaX();
+            double adjustedDeltaY = inputManager.getMouseDeltaY();
+            
+            camera.rotateY((float) adjustedDeltaX);
+            camera.rotateX((float) adjustedDeltaY);
             
             // Debug logging for mouse input (every 30 frames to avoid spam)
-            if (frameCount % 30 == 0 && (Math.abs(mouseDeltaX) > 0.001 || Math.abs(mouseDeltaY) > 0.001)) {
+            if (frameCount % 30 == 0 && (Math.abs(adjustedDeltaX) > 0.001 || Math.abs(adjustedDeltaY) > 0.001)) {
                 logger.debug("Mouse captured: deltaX={}, deltaY={}, sensitivity={}", 
-                    mouseDeltaX, mouseDeltaY, mouseSensitivity);
+                    adjustedDeltaX, adjustedDeltaY, inputManager.getMouseSensitivity());
             }
         } else if (Math.abs(mouseDeltaX) > 0.001 || Math.abs(mouseDeltaY) > 0.001) {
             // Debug: Mouse is moving but not captured
@@ -408,7 +411,7 @@ public class Engine {
         // This will be implemented when we have UI rendering
         // For now, just log some debug info occasionally
         if (frameCount % 60 == 0) { // Every second at 60 FPS
-            logger.debug("FPS: {}, Delta: {:.3f}ms", fps, deltaTime * 1000);
+            logger.debug("FPS: {}, Delta: {}ms", fps, String.format("%.3f", deltaTime * 1000));
         }
     }
     

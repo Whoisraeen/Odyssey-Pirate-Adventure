@@ -1,6 +1,6 @@
 package com.odyssey.world.save.dimensions;
 
-import com.odyssey.world.save.entities.EntityDataManager;
+import com.odyssey.world.save.entity.EntityDataManager;
 import com.odyssey.world.save.poi.PoiDataManager;
 
 import java.nio.file.Path;

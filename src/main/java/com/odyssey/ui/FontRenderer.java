@@ -172,9 +172,9 @@ public class FontRenderer {
         
         int textureId = glGenTextures();
         glBindTexture(GL_TEXTURE_2D, textureId);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, BITMAP_W, BITMAP_H, 0, GL_ALPHA, GL_UNSIGNED_BYTE, bitmap);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, BITMAP_W, BITMAP_H, 0, GL_RED, GL_UNSIGNED_BYTE, bitmap);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         
         MemoryUtil.memFree(bitmap);
         
@@ -239,7 +239,7 @@ public class FontRenderer {
             // Create OpenGL texture
             int textureId = glGenTextures();
             glBindTexture(GL_TEXTURE_2D, textureId);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, BITMAP_W, BITMAP_H, 0, GL_ALPHA, GL_UNSIGNED_BYTE, bitmap);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, BITMAP_W, BITMAP_H, 0, GL_RED, GL_UNSIGNED_BYTE, bitmap);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
             
@@ -262,6 +262,13 @@ public class FontRenderer {
     }
     
     /**
+     * Renders text using the default font with specified size.
+     */
+    public void renderText(String text, float x, float y, float size, Vector4f color) {
+        renderText(text, x, y, size, color, defaultFont);
+    }
+    
+    /**
      * Renders text using the specified font.
      */
     public void renderText(String text, float x, float y, Vector4f color, String fontName) {
@@ -272,6 +279,86 @@ public class FontRenderer {
         renderText(text, x, y, color, font);
     }
     
+    /**
+     * Renders text using the specified font object with size scaling.
+     */
+    public void renderText(String text, float x, float y, float size, Vector4f color, Font font) {
+        if (font == null || text == null || text.isEmpty()) {
+            return;
+        }
+        
+        // Calculate scale factor based on requested size vs font size
+        float scale = size / font.getSize();
+        
+        glUseProgram(shaderProgram);
+        glBindVertexArray(vao);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, font.getTextureId());
+        
+        glUniform1i(textureUniform, 0);
+        glUniform4f(colorUniform, color.x, color.y, color.z, color.w);
+        
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            // Use scaled position tracking
+            FloatBuffer xPos = stack.floats(x / scale);
+            FloatBuffer yPos = stack.floats(y / scale);
+            STBTTAlignedQuad quad = STBTTAlignedQuad.malloc(stack);
+            
+            float[] vertices = new float[6 * 4]; // 6 vertices, 4 components each (x, y, u, v)
+            int vertexIndex = 0;
+            
+            for (int i = 0; i < text.length(); i++) {
+                char c = text.charAt(i);
+                if (c < FIRST_CHAR || c >= FIRST_CHAR + NUM_CHARS) {
+                    continue;
+                }
+                
+                stbtt_GetBakedQuad(font.getCharData(), BITMAP_W, BITMAP_H, c - FIRST_CHAR, xPos, yPos, quad, true);
+                
+                // Apply scaling to quad coordinates
+                float scaledX0 = quad.x0() * scale;
+                float scaledY0 = quad.y0() * scale;
+                float scaledX1 = quad.x1() * scale;
+                float scaledY1 = quad.y1() * scale;
+                
+                // First triangle
+                vertices[vertexIndex++] = scaledX0; vertices[vertexIndex++] = scaledY0; 
+                vertices[vertexIndex++] = quad.s0(); vertices[vertexIndex++] = quad.t0();
+                
+                vertices[vertexIndex++] = scaledX1; vertices[vertexIndex++] = scaledY0; 
+                vertices[vertexIndex++] = quad.s1(); vertices[vertexIndex++] = quad.t0();
+                
+                vertices[vertexIndex++] = scaledX1; vertices[vertexIndex++] = scaledY1; 
+                vertices[vertexIndex++] = quad.s1(); vertices[vertexIndex++] = quad.t1();
+                
+                // Second triangle
+                vertices[vertexIndex++] = scaledX0; vertices[vertexIndex++] = scaledY0; 
+                vertices[vertexIndex++] = quad.s0(); vertices[vertexIndex++] = quad.t0();
+                
+                vertices[vertexIndex++] = scaledX1; vertices[vertexIndex++] = scaledY1; 
+                vertices[vertexIndex++] = quad.s1(); vertices[vertexIndex++] = quad.t1();
+                
+                vertices[vertexIndex++] = scaledX0; vertices[vertexIndex++] = scaledY1; 
+                vertices[vertexIndex++] = quad.s0(); vertices[vertexIndex++] = quad.t1();
+                
+                // Render if buffer is full or at end of string
+                if (vertexIndex >= vertices.length - 24 || i == text.length() - 1) {
+                    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+                    glBufferSubData(GL_ARRAY_BUFFER, 0, vertices);
+                    glDrawArrays(GL_TRIANGLES, 0, vertexIndex / 4);
+                    vertexIndex = 0;
+                }
+            }
+        }
+        
+        glDisable(GL_BLEND);
+        glBindVertexArray(0);
+        glUseProgram(0);
+    }
+
     /**
      * Renders text using the specified font object.
      */

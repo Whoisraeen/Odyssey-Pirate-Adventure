@@ -4,7 +4,7 @@ import com.odyssey.game.ecs.Entity;
 import com.odyssey.game.ecs.System;
 import com.odyssey.game.components.TransformComponent;
 import com.odyssey.game.components.PhysicsComponent;
-import com.odyssey.game.math.Vector2f;
+import org.joml.Vector3f;
 
 import java.util.List;
 
@@ -12,7 +12,7 @@ import java.util.List;
  * System that handles physics simulation including movement, gravity, and drag.
  */
 public class PhysicsSystem extends System {
-    private Vector2f gravity = new Vector2f(0, -9.81f); // Default gravity pointing down
+    private Vector3f gravity = new Vector3f(0, -9.81f, 0); // Default gravity pointing down
     private float timeScale = 1.0f;
     
     public PhysicsSystem() {
@@ -35,15 +35,15 @@ public class PhysicsSystem extends System {
             
             // Apply gravity
             if (physics.affectedByGravity) {
-                physics.applyForce(new Vector2f(gravity).multiply(physics.mass));
+                physics.applyForce(new Vector3f(gravity).mul(physics.mass));
             }
             
             // Apply drag (air/water resistance)
-            if (physics.drag > 0 && !physics.velocity.isZero()) {
-                Vector2f dragForce = new Vector2f(physics.velocity)
-                    .multiply(-1) // Opposite to velocity direction
+            if (physics.drag > 0 && physics.velocity.lengthSquared() > 0) {
+                Vector3f dragForce = new Vector3f(physics.velocity)
+                    .mul(-1) // Opposite to velocity direction
                     .normalize()
-                    .multiply(physics.drag * physics.velocity.lengthSquared()); // Quadratic drag
+                    .mul(physics.drag * physics.velocity.lengthSquared()); // Quadratic drag
                 
                 physics.applyForce(dragForce);
             }
@@ -51,13 +51,15 @@ public class PhysicsSystem extends System {
             // Integrate velocity (velocity += acceleration * deltaTime)
             physics.velocity.add(
                 physics.acceleration.x * scaledDeltaTime,
-                physics.acceleration.y * scaledDeltaTime
+                physics.acceleration.y * scaledDeltaTime,
+                physics.acceleration.z * scaledDeltaTime
             );
             
             // Integrate position (position += velocity * deltaTime)
             transform.position.add(
                 physics.velocity.x * scaledDeltaTime,
-                physics.velocity.y * scaledDeltaTime
+                physics.velocity.y * scaledDeltaTime,
+                physics.velocity.z * scaledDeltaTime
             );
             
             // Clear acceleration for next frame
@@ -68,22 +70,22 @@ public class PhysicsSystem extends System {
     /**
      * Set the gravity vector.
      */
-    public void setGravity(Vector2f gravity) {
+    public void setGravity(Vector3f gravity) {
         this.gravity.set(gravity);
     }
     
     /**
      * Set the gravity vector.
      */
-    public void setGravity(float x, float y) {
-        this.gravity.set(x, y);
+    public void setGravity(float x, float y, float z) {
+        this.gravity.set(x, y, z);
     }
     
     /**
      * Get the current gravity vector.
      */
-    public Vector2f getGravity() {
-        return new Vector2f(gravity);
+    public Vector3f getGravity() {
+        return new Vector3f(gravity);
     }
     
     /**
@@ -104,7 +106,7 @@ public class PhysicsSystem extends System {
     /**
      * Apply an explosion force to all physics entities within a radius.
      */
-    public void applyExplosion(Vector2f center, float force, float radius) {
+    public void applyExplosion(Vector3f center, float force, float radius) {
         List<Entity> physicsEntities = world.getEntitiesWith(TransformComponent.class, PhysicsComponent.class);
         
         for (Entity entity : physicsEntities) {
@@ -118,14 +120,14 @@ public class PhysicsSystem extends System {
             float distance = transform.position.distance(center);
             if (distance <= radius && distance > 0) {
                 // Calculate force direction (away from explosion center)
-                Vector2f direction = new Vector2f(transform.position).subtract(center).normalize();
+                Vector3f direction = new Vector3f(transform.position).sub(center).normalize();
                 
                 // Calculate force magnitude (inverse square law with minimum distance)
                 float effectiveDistance = Math.max(distance, 1.0f);
                 float forceMagnitude = force / (effectiveDistance * effectiveDistance);
                 
                 // Apply the explosion force
-                Vector2f explosionForce = new Vector2f(direction).multiply(forceMagnitude);
+                Vector3f explosionForce = new Vector3f(direction).mul(forceMagnitude);
                 physics.applyForce(explosionForce);
             }
         }
@@ -134,7 +136,7 @@ public class PhysicsSystem extends System {
     /**
      * Apply a constant force field to all physics entities in an area.
      */
-    public void applyForceField(Vector2f center, float radius, Vector2f force) {
+    public void applyForceField(Vector3f center, float radius, Vector3f force) {
         List<Entity> physicsEntities = world.getEntitiesWith(TransformComponent.class, PhysicsComponent.class);
         
         for (Entity entity : physicsEntities) {

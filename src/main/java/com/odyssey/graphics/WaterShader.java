@@ -10,14 +10,15 @@ import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
 
 import java.nio.ByteBuffer;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Advanced water shader system with Gerstner waves, reflections, and refraction.
  * Provides realistic water rendering with multiple wave layers and lighting effects.
  */
 public class WaterShader {
-    private static final Logger logger = Logger.getLogger(WaterShader.class.getName());
+    private static final Logger logger = LoggerFactory.getLogger(WaterShader.class);
     
     /**
      * Water quality settings for performance scaling.
@@ -458,7 +459,7 @@ public class WaterShader {
         GL30.glFramebufferRenderbuffer(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_ATTACHMENT, GL30.GL_RENDERBUFFER, reflectionDepthBuffer);
         
         if (GL30.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER) != GL30.GL_FRAMEBUFFER_COMPLETE) {
-            logger.severe("Reflection framebuffer not complete!");
+            logger.error("Reflection framebuffer not complete!");
         }
         
         GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
@@ -489,7 +490,7 @@ public class WaterShader {
         GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_ATTACHMENT, GL11.GL_TEXTURE_2D, refractionDepthTexture, 0);
         
         if (GL30.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER) != GL30.GL_FRAMEBUFFER_COMPLETE) {
-            logger.severe("Refraction framebuffer not complete!");
+            logger.error("Refraction framebuffer not complete!");
         }
         
         GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
@@ -671,7 +672,7 @@ public class WaterShader {
      */
     public void render(Matrix4f projectionMatrix, Matrix4f viewMatrix, Matrix4f modelMatrix,
                       Vector3f cameraPosition, Vector3f lightDirection, Vector3f lightColor,
-                      Vector3f ambientColor, float time) {
+                      Vector3f ambientColor, float time, Mesh waterMesh) {
         
         waterShader.bind();
         
@@ -745,8 +746,12 @@ public class WaterShader {
         GL11.glEnable(GL11.GL_BLEND);
         GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
         
-        // Render water geometry here
-        // This would typically render a water plane or mesh
+        // Render water geometry
+        if (waterMesh != null) {
+            waterMesh.render();
+        } else {
+            logger.warn("Water mesh is null, skipping geometry rendering");
+        }
         
         GL11.glDisable(GL11.GL_BLEND);
         waterShader.unbind();

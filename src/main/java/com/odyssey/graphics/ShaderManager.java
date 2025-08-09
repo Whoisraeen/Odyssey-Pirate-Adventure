@@ -218,14 +218,11 @@ public class ShaderManager {
         // Basic shader for solid objects
         loadShader("basic", getBasicVertexShader(), getBasicFragmentShader());
         
-        // Ocean shader for water rendering
+        // Ocean shader for water rendering (legacy)
         loadShader("ocean", getOceanVertexShader(), getOceanFragmentShader());
         
-        // UI shader for interface rendering
-        loadShader("ui", getUIVertexShader(), getUIFragmentShader());
-        
-        // Skybox shader
-        loadShader("skybox", getSkyboxVertexShader(), getSkyboxFragmentShader());
+        // Gerstner wave shader for realistic water
+        loadShader("gerstner_waves", getGerstnerWaveVertexShader(), getGerstnerWaveFragmentShader());
         
         logger.info("Built-in shaders loaded successfully");
     }
@@ -393,90 +390,123 @@ public class ShaderManager {
             """;
     }
     
-    private String getUIVertexShader() {
+    private String getGerstnerWaveVertexShader() {
         return """
             #version 330 core
-            
-            layout (location = 0) in vec2 position;
-            layout (location = 1) in vec2 texCoord;
-            layout (location = 2) in vec4 color;
-            
-            uniform mat4 projectionMatrix;
-            
-            out vec2 fragTexCoord;
-            out vec4 fragColor;
-            
+            layout(location=0) in vec3 aPos;    // world-space X,Z on a flat plane, Y = seaLevel
+            layout(location=1) in vec2 aUV;
+
+            uniform mat4 uViewProj;
+            uniform float uTime;
+            uniform float uSeaLevel;
+
+            // up to 4 waves for starters
+            const int N = 4;
+            uniform vec2  uDir[N];      // normalized directions (cos,sin)
+            uniform float uAmp[N];      // amplitude (meters)
+            uniform float uLambda[N];   // wavelength (meters)
+            uniform float uSpeed[N];    // phase speed (m/s)
+            uniform float uSteep[N];    // steepness 0..1 (try 0.5)
+
+            out VS_OUT {
+                vec3 worldPos;
+                vec3 normalApprox; // quick normal from partials
+                vec2 uv;
+            } v;
+
             void main() {
-                fragTexCoord = texCoord;
-                fragColor = color;
-                gl_Position = projectionMatrix * vec4(position, 0.0, 1.0);
-            }
-            """;
-    }
-    
-    private String getUIFragmentShader() {
-        return """
-            #version 330 core
-            
-            in vec2 fragTexCoord;
-            in vec4 fragColor;
-            
-            uniform sampler2D uiTexture;
-            uniform bool useTexture;
-            
-            out vec4 outColor;
-            
-            void main() {
-                if (useTexture) {
-                    outColor = texture(uiTexture, fragTexCoord) * fragColor;
-                } else {
-                    outColor = fragColor;
+                vec3 p = aPos;        // world-space
+                p.y = uSeaLevel;
+
+                // Accumulators for normals using analytic partial derivatives
+                vec3 dPdx = vec3(1, 0, 0);
+                vec3 dPdz = vec3(0, 0, 1);
+
+                for (int i=0; i<N; ++i) {
+                    float k = 2.0 * 3.14159265 / uLambda[i]; // wavenumber
+                    float phase = k * dot(uDir[i], p.xz) - (k * uSpeed[i]) * uTime;
+                    float cosP = cos(phase);
+                    float sinP = sin(phase);
+
+                    float Ai = uAmp[i];
+                    float Qi = uSteep[i];          // steepness (<= 1 / (k * amplitude * N) for stability)
+
+                    // Gerstner displacement
+                    p.x += Qi * Ai * uDir[i].x * cosP;
+                    p.z += Qi * Ai * uDir[i].y * cosP;
+                    p.y += Ai * sinP;
+
+                    // Derivatives (for normal)
+                    // d/dx: phase_x = k * uDir.x
+                    float phx = k * uDir[i].x;
+                    float phz = k * uDir[i].y;
+
+                    // ∂p/∂x
+                    dPdx.x += -Qi * Ai * uDir[i].x * sinP * phx;
+                    dPdx.z += -Qi * Ai * uDir[i].y * sinP * phx;
+                    dPdx.y +=  Ai * cosP * phx;
+
+                    // ∂p/∂z
+                    dPdz.x += -Qi * Ai * uDir[i].x * sinP * phz;
+                    dPdz.z += -Qi * Ai * uDir[i].y * sinP * phz;
+                    dPdz.y +=  Ai * cosP * phz;
                 }
+
+                v.worldPos = p;
+
+                // Normal = normalize(∂p/∂z × ∂p/∂x)
+                v.normalApprox = normalize(cross(dPdz, dPdx));
+                v.uv = aUV;
+
+                gl_Position = uViewProj * vec4(p, 1.0);
             }
             """;
     }
     
-    private String getSkyboxVertexShader() {
+    private String getGerstnerWaveFragmentShader() {
         return """
             #version 330 core
-            
-            layout (location = 0) in vec3 position;
-            
-            uniform mat4 projectionMatrix;
-            uniform mat4 viewMatrix;
-            
-            out vec3 texCoords;
-            
+            in VS_OUT {
+                vec3 worldPos;
+                vec3 normalApprox;
+                vec2 uv;
+            } f;
+
+            uniform vec3 uSunDir;     // normalized, pointing *from* sun to world (e.g. (-0.3,-1,0.2))
+            uniform vec3 uCameraPos;  // world space camera position
+            uniform vec3 uDeepColor;  // e.g. vec3(0.0, 0.15, 0.25)
+            uniform vec3 uShallowColor; // e.g. vec3(0.0, 0.35, 0.45)
+            uniform float uDepthFadeStart; // meters
+            uniform float uDepthFadeEnd;   // meters
+
+            // For now, fake depth as distance from sea level (later: sample scene depth buffer)
+            uniform float uSeaLevel;
+
+            out vec4 FragColor;
+
             void main() {
-                texCoords = position;
-                vec4 pos = projectionMatrix * viewMatrix * vec4(position, 1.0);
-                gl_Position = pos.xyww; // Ensure skybox is always at far plane
+                vec3 N = normalize(f.normalApprox);
+                vec3 L = normalize(-uSunDir);
+                vec3 V = normalize(uCameraPos - f.worldPos);
+
+                // Lambert + cheap fresnel
+                float NoL = max(dot(N, L), 0.0);
+                float NoV = max(dot(N, V), 0.0);
+                float fres = pow(1.0 - NoV, 5.0);
+
+                // Depth fade (placeholder): distance below sea level
+                float depth = max(uSeaLevel - f.worldPos.y, 0.0);
+                float t = clamp((depth - uDepthFadeStart) / (uDepthFadeEnd - uDepthFadeStart), 0.0, 1.0);
+                vec3 waterColor = mix(uShallowColor, uDeepColor, t);
+
+                // Highlight + fresnel edge
+                vec3 diffuse = waterColor * (0.2 + 0.8 * NoL);
+                vec3 spec = vec3(1.0) * pow(max(dot(reflect(-L, N), V), 0.0), 64.0) * 0.1;
+
+                vec3 col = mix(diffuse + spec, vec3(1.0), fres * 0.05);
+                FragColor = vec4(col, 0.75); // translucent; sort & blend properly
             }
             """;
     }
-    
-    private String getSkyboxFragmentShader() {
-        return """
-            #version 330 core
-            
-            in vec3 texCoords;
-            
-            uniform samplerCube skybox;
-            uniform vec3 fogColor;
-            uniform float fogDensity;
-            
-            out vec4 fragColor;
-            
-            void main() {
-                vec4 skyColor = texture(skybox, texCoords);
-                
-                // Apply atmospheric fog
-                float distance = length(texCoords);
-                float fogFactor = exp(-fogDensity * distance);
-                fogFactor = clamp(fogFactor, 0.0, 1.0);
-                
-                fragColor = mix(vec4(fogColor, 1.0), skyColor, fogFactor);
-            }
-            """;
-    }
+
 }

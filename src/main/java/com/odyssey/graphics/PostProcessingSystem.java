@@ -79,6 +79,22 @@ public class PostProcessingSystem {
     // Chromatic aberration parameters
     private float chromaticIntensity = 0.002f;
     
+    // Underwater effects
+    private int underwaterFBO;
+    private int underwaterTexture;
+    private Shader underwaterShader;
+    private Shader underwaterParticleShader;
+    private boolean underwaterEffectsEnabled = true;
+    
+    // Underwater parameters
+    private Vector3f underwaterTint = new Vector3f(0.0f, 0.3f, 0.6f);
+    private Vector3f deepWaterColor = new Vector3f(0.0f, 0.1f, 0.3f);
+    private Vector3f shallowWaterColor = new Vector3f(0.1f, 0.4f, 0.6f);
+    private float underwaterFogDensity = 0.02f;
+    private float causticsIntensity = 0.5f;
+    private float godRayIntensity = 0.3f;
+    private float underwaterDistortion = 0.01f;
+    
     private boolean initialized = false;
     
     /**
@@ -97,7 +113,20 @@ public class PostProcessingSystem {
         createBloomFramebuffers();
         createVolumetricFramebuffer();
         createDOFFramebuffer();
+        createUnderwaterFramebuffer();
         initializeShaders();
+        
+        // Enable underwater effects by default
+        underwaterEffectsEnabled = true;
+        
+        // Set default underwater parameters for a beautiful underwater look
+        underwaterTint.set(0.7f, 0.9f, 1.2f); // Slight blue tint
+        deepWaterColor.set(0.0f, 0.1f, 0.3f); // Deep blue
+        shallowWaterColor.set(0.1f, 0.4f, 0.6f); // Cyan-blue
+        underwaterFogDensity = 0.8f; // Moderate fog
+        causticsIntensity = 0.3f; // Subtle caustics
+        godRayIntensity = 0.4f; // Visible god rays
+        underwaterDistortion = 0.5f; // Gentle distortion
         
         initialized = true;
         logger.info("Post-processing system initialized with resolution {}x{}", width, height);
@@ -223,6 +252,33 @@ public class PostProcessingSystem {
     }
     
     /**
+     * Creates underwater effects framebuffer.
+     */
+    private void createUnderwaterFramebuffer() {
+        underwaterFBO = GL30.glGenFramebuffers();
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, underwaterFBO);
+        
+        underwaterTexture = GL11.glGenTextures();
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, underwaterTexture);
+        GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL30.GL_RGBA16F, screenWidth, screenHeight,
+                         0, GL11.GL_RGBA, GL11.GL_FLOAT, (ByteBuffer) null);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL13.GL_CLAMP_TO_EDGE);
+        GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL13.GL_CLAMP_TO_EDGE);
+        
+        GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0,
+                                   GL11.GL_TEXTURE_2D, underwaterTexture, 0);
+        
+        if (GL30.glCheckFramebufferStatus(GL30.GL_FRAMEBUFFER) != GL30.GL_FRAMEBUFFER_COMPLETE) {
+            throw new RuntimeException("Underwater framebuffer is not complete");
+        }
+        
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+        logger.info("Underwater effects framebuffer created");
+    }
+    
+    /**
      * Initializes all post-processing shaders.
      */
     private void initializeShaders() throws Exception {
@@ -271,6 +327,12 @@ public class PostProcessingSystem {
         finalCompositionShader.createVertexShader(createQuadVertexShader());
         finalCompositionShader.createFragmentShader(createFinalCompositionFragmentShader());
         finalCompositionShader.link();
+        
+        // Underwater effects shader
+        underwaterShader = new Shader();
+        underwaterShader.createVertexShader(createQuadVertexShader());
+        underwaterShader.createFragmentShader(createUnderwaterFragmentShader());
+        underwaterShader.link();
         
         logger.info("Post-processing shaders initialized");
     }
@@ -440,6 +502,55 @@ public class PostProcessingSystem {
     }
     
     /**
+     * Applies underwater effects including volumetric god rays, color grading, and caustics.
+     */
+    public void applyUnderwaterEffects(int colorTexture, int depthTexture, Vector3f cameraPos, 
+                                     Vector3f sunDirection, float underwaterDepth, float time) {
+        if (!underwaterEffectsEnabled || underwaterDepth <= 0.0f) return;
+        
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, underwaterFBO);
+        GL11.glViewport(0, 0, screenWidth, screenHeight);
+        GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
+        
+        underwaterShader.bind();
+        
+        // Bind textures
+        GL13.glActiveTexture(GL13.GL_TEXTURE0);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, colorTexture);
+        underwaterShader.setUniform("u_colorTexture", 0);
+        
+        GL13.glActiveTexture(GL13.GL_TEXTURE1);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, depthTexture);
+        underwaterShader.setUniform("u_depthTexture", 1);
+        
+        // Set underwater parameters
+        underwaterShader.setUniform("u_cameraPos", cameraPos);
+        underwaterShader.setUniform("u_sunDirection", sunDirection);
+        underwaterShader.setUniform("u_underwaterDepth", underwaterDepth);
+        underwaterShader.setUniform("u_time", time);
+        
+        // Color grading parameters
+        underwaterShader.setUniform("u_underwaterTint", underwaterTint);
+        underwaterShader.setUniform("u_deepWaterColor", deepWaterColor);
+        underwaterShader.setUniform("u_shallowWaterColor", shallowWaterColor);
+        
+        // Effect intensities
+        underwaterShader.setUniform("u_fogDensity", underwaterFogDensity);
+        underwaterShader.setUniform("u_causticsIntensity", causticsIntensity);
+        underwaterShader.setUniform("u_godRayIntensity", godRayIntensity);
+        underwaterShader.setUniform("u_distortionStrength", underwaterDistortion);
+        
+        // Screen parameters
+        underwaterShader.setUniform("u_screenSize", new Vector2f(screenWidth, screenHeight));
+        underwaterShader.setUniform("u_texelSize", new Vector2f(1.0f / screenWidth, 1.0f / screenHeight));
+        
+        renderQuad();
+        
+        underwaterShader.unbind();
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+    }
+    
+    /**
      * Performs final composition with tonemapping and gamma correction.
      */
     public void performFinalComposition(int colorTexture, int bloomTexture, int volumetricTexture) {
@@ -512,6 +623,13 @@ public class PostProcessingSystem {
         return dofTexture;
     }
     
+    /**
+     * Gets the underwater effects texture.
+     */
+    public int getUnderwaterTexture() {
+        return underwaterTexture;
+    }
+    
     // Getters and setters for effect parameters
     public void setBloomThreshold(float threshold) { this.bloomThreshold = threshold; }
     public void setBloomIntensity(float intensity) { this.bloomIntensity = intensity; }
@@ -533,6 +651,25 @@ public class PostProcessingSystem {
     public void setBokehRadius(float radius) { this.bokehRadius = radius; }
     
     public void setChromaticIntensity(float intensity) { this.chromaticIntensity = intensity; }
+    
+    // Underwater effects setters and getters
+    public void setUnderwaterEffectsEnabled(boolean enabled) { this.underwaterEffectsEnabled = enabled; }
+    public void setUnderwaterTint(Vector3f tint) { this.underwaterTint.set(tint); }
+    public void setDeepWaterColor(Vector3f color) { this.deepWaterColor.set(color); }
+    public void setShallowWaterColor(Vector3f color) { this.shallowWaterColor.set(color); }
+    public void setUnderwaterFogDensity(float density) { this.underwaterFogDensity = density; }
+    public void setCausticsIntensity(float intensity) { this.causticsIntensity = intensity; }
+    public void setGodRayIntensity(float intensity) { this.godRayIntensity = intensity; }
+    public void setUnderwaterDistortion(float distortion) { this.underwaterDistortion = distortion; }
+    
+    public boolean isUnderwaterEffectsEnabled() { return underwaterEffectsEnabled; }
+    public Vector3f getUnderwaterTint() { return new Vector3f(underwaterTint); }
+    public Vector3f getDeepWaterColor() { return new Vector3f(deepWaterColor); }
+    public Vector3f getShallowWaterColor() { return new Vector3f(shallowWaterColor); }
+    public float getUnderwaterFogDensity() { return underwaterFogDensity; }
+    public float getCausticsIntensity() { return causticsIntensity; }
+    public float getGodRayIntensity() { return godRayIntensity; }
+    public float getUnderwaterDistortion() { return underwaterDistortion; }
     
     /**
      * Creates a basic quad vertex shader.
@@ -783,7 +920,7 @@ public class PostProcessingSystem {
     }
     
     /**
-     * Creates final composition fragment shader.
+     * Creates final composition fragment shader with enhanced color grading.
      */
     private String createFinalCompositionFragmentShader() {
         return """
@@ -802,39 +939,222 @@ public class PostProcessingSystem {
             uniform float u_gamma;
             uniform float u_bloomIntensity;
             
-            // ACES tonemapping
+            // Enhanced ACES tonemapping with better color preservation
             vec3 aces(vec3 color) {
-                float a = 2.51;
-                float b = 0.03;
-                float c = 2.43;
-                float d = 0.59;
-                float e = 0.14;
+                const float a = 2.51;
+                const float b = 0.03;
+                const float c = 2.43;
+                const float d = 0.59;
+                const float e = 0.14;
                 return clamp((color * (a * color + b)) / (color * (c * color + d) + e), 0.0, 1.0);
+            }
+            
+            // Filmic tonemapping for cinematic look
+            vec3 filmic(vec3 color) {
+                color = max(vec3(0.0), color - vec3(0.004));
+                color = (color * (6.2 * color + 0.5)) / (color * (6.2 * color + 1.7) + 0.06);
+                return color;
+            }
+            
+            // Color grading functions
+            vec3 colorGrade(vec3 color) {
+                // Lift, gamma, gain adjustments for cinematic look
+                vec3 lift = vec3(0.02, 0.01, 0.0);    // Slight blue lift in shadows
+                vec3 gamma = vec3(0.95, 1.0, 1.05);   // Warmer mids
+                vec3 gain = vec3(1.1, 1.05, 0.95);    // Warmer highlights
+                
+                // Apply lift-gamma-gain
+                color = pow(color + lift, gamma) * gain;
+                
+                // Saturation boost for more vibrant colors
+                float luminance = dot(color, vec3(0.299, 0.587, 0.114));
+                color = mix(vec3(luminance), color, 1.15);
+                
+                // Subtle color temperature adjustment (warmer)
+                color.r *= 1.02;
+                color.b *= 0.98;
+                
+                return color;
+            }
+            
+            // Vignette effect
+            float vignette(vec2 uv) {
+                vec2 center = uv - 0.5;
+                float dist = length(center);
+                return 1.0 - smoothstep(0.3, 0.8, dist);
+            }
+            
+            // Film grain effect
+            float filmGrain(vec2 uv) {
+                float noise = fract(sin(dot(uv, vec2(12.9898, 78.233))) * 43758.5453);
+                return (noise - 0.5) * 0.02; // Very subtle grain
             }
             
             void main() {
                 vec3 color = texture(u_colorTexture, v_texCoord).rgb;
                 
-                // Add bloom
+                // Add bloom with better blending
                 if (u_bloomEnabled) {
                     vec3 bloom = texture(u_bloomTexture, v_texCoord).rgb;
-                    color += bloom * u_bloomIntensity;
+                    // Screen blend mode for more natural bloom
+                    color = color + bloom * u_bloomIntensity - (color * bloom * u_bloomIntensity);
                 }
                 
                 // Add volumetric lighting
                 if (u_volumetricEnabled) {
                     vec3 volumetric = texture(u_volumetricTexture, v_texCoord).rgb;
-                    color += volumetric;
+                    color += volumetric * 0.8; // Slightly reduce intensity
                 }
                 
-                // Exposure
+                // Exposure adjustment
                 color *= u_exposure;
                 
-                // Tonemapping
-                color = aces(color);
+                // Enhanced tonemapping (mix of ACES and filmic for best results)
+                vec3 acesColor = aces(color);
+                vec3 filmicColor = filmic(color);
+                color = mix(acesColor, filmicColor, 0.3); // 70% ACES, 30% filmic
+                
+                // Color grading for cinematic look
+                color = colorGrade(color);
+                
+                // Apply vignette
+                float vignetteAmount = vignette(v_texCoord);
+                color *= mix(0.7, 1.0, vignetteAmount);
+                
+                // Add subtle film grain
+                color += vec3(filmGrain(v_texCoord));
                 
                 // Gamma correction
                 color = pow(color, vec3(1.0 / u_gamma));
+                
+                // Final contrast boost
+                color = (color - 0.5) * 1.1 + 0.5;
+                
+                // Ensure we don't go out of bounds
+                color = clamp(color, 0.0, 1.0);
+                
+                fragColor = vec4(color, 1.0);
+            }
+            """;
+    }
+    
+    /**
+     * Creates underwater effects fragment shader.
+     */
+    private String createUnderwaterFragmentShader() {
+        return """
+            #version 330 core
+            
+            out vec4 fragColor;
+            
+            in vec2 v_texCoord;
+            
+            uniform sampler2D u_colorTexture;
+            uniform sampler2D u_depthTexture;
+            uniform vec3 u_cameraPos;
+            uniform vec3 u_sunDirection;
+            uniform float u_underwaterDepth;
+            uniform float u_time;
+            
+            // Color grading parameters
+            uniform vec3 u_underwaterTint;
+            uniform vec3 u_deepWaterColor;
+            uniform vec3 u_shallowWaterColor;
+            
+            // Effect intensities
+            uniform float u_fogDensity;
+            uniform float u_causticsIntensity;
+            uniform float u_godRayIntensity;
+            uniform float u_distortionStrength;
+            
+            // Screen parameters
+            uniform vec2 u_screenSize;
+            uniform vec2 u_texelSize;
+            
+            // Noise function for caustics
+            float noise(vec2 p) {
+                return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+            }
+            
+            // Caustics pattern
+            float caustics(vec2 uv, float time) {
+                vec2 p = uv * 8.0;
+                float c = 0.0;
+                
+                // Multiple octaves of caustics
+                for (int i = 0; i < 3; i++) {
+                    vec2 q = p + vec2(cos(time * 0.5 + float(i)), sin(time * 0.3 + float(i))) * 0.5;
+                    c += abs(sin(q.x + sin(q.y + time * 0.2))) * (1.0 / float(i + 1));
+                    p *= 2.0;
+                }
+                
+                return c * 0.5;
+            }
+            
+            // God rays calculation
+            float godRays(vec2 screenPos, vec3 sunDir) {
+                vec2 sunScreen = (sunDir.xy + 1.0) * 0.5; // Convert to screen space
+                vec2 delta = screenPos - sunScreen;
+                float dist = length(delta);
+                
+                // Radial blur towards sun
+                float rays = 0.0;
+                int samples = 16;
+                for (int i = 0; i < samples; i++) {
+                    float t = float(i) / float(samples);
+                    vec2 samplePos = screenPos - delta * t * 0.1;
+                    rays += texture(u_depthTexture, samplePos).r;
+                }
+                rays /= float(samples);
+                
+                return pow(1.0 - dist, 2.0) * rays;
+            }
+            
+            void main() {
+                vec3 color = texture(u_colorTexture, v_texCoord).rgb;
+                float depth = texture(u_depthTexture, v_texCoord).r;
+                
+                // Convert depth to world distance
+                float worldDistance = depth * 1000.0;
+                
+                // Depth-based color attenuation (blue shift)
+                float depthFactor = exp(-u_underwaterDepth * 0.1);
+                color = mix(u_deepWaterColor, color, depthFactor);
+                
+                // Distance fog
+                float fogFactor = exp(-worldDistance * u_fogDensity * 0.01);
+                color = mix(u_deepWaterColor, color, fogFactor);
+                
+                // Apply underwater tint
+                color *= u_underwaterTint;
+                
+                // Add caustics
+                if (u_causticsIntensity > 0.0) {
+                    float causticsPattern = caustics(v_texCoord, u_time);
+                    color += causticsPattern * u_causticsIntensity * vec3(0.3, 0.6, 1.0);
+                }
+                
+                // Add god rays
+                if (u_godRayIntensity > 0.0) {
+                    float rays = godRays(v_texCoord, u_sunDirection);
+                    color += rays * u_godRayIntensity * vec3(0.4, 0.7, 1.0);
+                }
+                
+                // Light scattering
+                vec3 viewDir = normalize(u_cameraPos);
+                float scatter = max(dot(viewDir, u_sunDirection), 0.0);
+                color += scatter * vec3(0.3, 0.6, 1.0) * 0.1;
+                
+                // Underwater distortion (subtle)
+                if (u_distortionStrength > 0.0) {
+                    vec2 distortion = vec2(
+                        sin(v_texCoord.y * 10.0 + u_time) * 0.001,
+                        cos(v_texCoord.x * 8.0 + u_time * 0.7) * 0.001
+                    ) * u_distortionStrength;
+                    
+                    vec2 distortedUV = v_texCoord + distortion;
+                    color = mix(color, texture(u_colorTexture, distortedUV).rgb, 0.3);
+                }
                 
                 fragColor = vec4(color, 1.0);
             }
@@ -860,6 +1180,7 @@ public class PostProcessingSystem {
             createBloomFramebuffers();
             createVolumetricFramebuffer();
             createDOFFramebuffer();
+            createUnderwaterFramebuffer();
             logger.info("Post-processing system resized to {}x{}", width, height);
         } catch (Exception e) {
             logger.error("Failed to resize post-processing system", e);
@@ -888,6 +1209,11 @@ public class PostProcessingSystem {
             GL30.glDeleteFramebuffers(dofFBO);
             GL11.glDeleteTextures(dofTexture);
         }
+        
+        if (underwaterFBO != 0) {
+            GL30.glDeleteFramebuffers(underwaterFBO);
+            GL11.glDeleteTextures(underwaterTexture);
+        }
     }
     
     /**
@@ -909,6 +1235,7 @@ public class PostProcessingSystem {
         if (dofShader != null) dofShader.cleanup();
         if (chromaticAberrationShader != null) chromaticAberrationShader.cleanup();
         if (finalCompositionShader != null) finalCompositionShader.cleanup();
+        if (underwaterShader != null) underwaterShader.cleanup();
         
         initialized = false;
         logger.info("Post-processing system cleaned up");

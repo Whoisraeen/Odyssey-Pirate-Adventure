@@ -1,7 +1,7 @@
 package com.odyssey.world.save.dimensions;
 
-import com.odyssey.world.save.WorldSaveFormat;
-import com.odyssey.world.save.entities.EntityDataManager;
+import com.odyssey.world.save.entity.EntityDataManager;
+import com.odyssey.world.save.format.WorldSaveFormat;
 import com.odyssey.world.save.poi.PoiDataManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -131,8 +131,8 @@ public class DimensionManager {
     public void saveAllDimensions() {
         for (DimensionData dimension : dimensions.values()) {
             try {
-                dimension.getEntityManager().saveAll();
-                dimension.getPoiManager().saveAll();
+                dimension.getEntityManager().saveAllRegions();
+                dimension.getPoiManager().saveAllRegions();
                 logger.debug("Saved dimension: {}", dimension.getType());
             } catch (Exception e) {
                 logger.error("Failed to save dimension: {}", dimension.getType(), e);
@@ -143,66 +143,71 @@ public class DimensionManager {
     
     /**
      * Unloads unused regions in all dimensions.
+     * Note: This method currently performs cleanup operations.
+     * Individual region unloading should be handled by the chunk management system.
      */
     public void unloadUnusedRegions() {
         for (DimensionData dimension : dimensions.values()) {
             try {
-                dimension.getEntityManager().unloadUnusedRegions();
-                dimension.getPoiManager().unloadUnusedRegions();
-                logger.debug("Unloaded unused regions for dimension: {}", dimension.getType());
+                // Perform cleanup operations instead of calling non-existent methods
+                dimension.getEntityManager().cleanup();
+                dimension.getPoiManager().cleanup();
+                logger.debug("Performed cleanup for dimension: {}", dimension.getType());
             } catch (Exception e) {
-                logger.error("Failed to unload regions for dimension: {}", dimension.getType(), e);
+                logger.error("Failed to cleanup dimension: {}", dimension.getType(), e);
             }
         }
     }
     
     /**
-     * Gets statistics for all dimensions.
+     * Gets statistics about all dimensions.
+     * 
+     * @return dimension statistics
      */
-    public DimensionStats getStats() {
+    public DimensionStatistics getStatistics() {
+        int totalDimensions = dimensions.size();
         int totalRegions = 0;
         int totalEntities = 0;
         int totalPois = 0;
         
         for (DimensionData dimension : dimensions.values()) {
-            totalRegions += dimension.getEntityManager().getLoadedRegionCount();
-            totalEntities += dimension.getEntityManager().getTotalEntityCount();
-            totalPois += dimension.getPoiManager().getTotalPoiCount();
+            EntityDataManager.EntityStatistics entityStats = dimension.getEntityManager().getStatistics();
+            PoiDataManager.PoiStatistics poiStats = dimension.getPoiManager().getStatistics();
+            
+            totalRegions += entityStats.getLoadedRegions() + poiStats.getLoadedRegions();
+            totalEntities += entityStats.getTotalEntities();
+            totalPois += poiStats.getTotalPois();
         }
         
-        return new DimensionStats(dimensions.size(), totalRegions, totalEntities, totalPois);
+        return new DimensionStatistics(totalDimensions, totalRegions, totalEntities, totalPois);
     }
     
     /**
-     * Shuts down the dimension manager.
+     * Shuts down all dimensions and saves data.
      */
     public void shutdown() {
-        saveAllDimensions();
+        logger.info("Shutting down dimension manager...");
         
         for (DimensionData dimension : dimensions.values()) {
-            try {
-                dimension.getEntityManager().shutdown();
-                dimension.getPoiManager().shutdown();
-            } catch (Exception e) {
-                logger.error("Error shutting down dimension: {}", dimension.getType(), e);
-            }
+            dimension.getEntityManager().close();
+            dimension.getPoiManager().close();
         }
         
         dimensions.clear();
-        logger.info("Dimension manager shut down");
+        logger.info("Dimension manager shutdown complete");
     }
 }
 
 /**
  * Statistics for all dimensions.
  */
-class DimensionStats {
+class DimensionStatistics {
     private final int dimensionCount;
     private final int totalRegions;
     private final int totalEntities;
     private final int totalPois;
     
-    public DimensionStats(int dimensionCount, int totalRegions, int totalEntities, int totalPois) {
+    public DimensionStatistics(int dimensionCount, int totalRegions, int totalEntities, int totalPois) {
         this.dimensionCount = dimensionCount;
         this.totalRegions = totalRegions;
         this.totalEntities = totalEntities;

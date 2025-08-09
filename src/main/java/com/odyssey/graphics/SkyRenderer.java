@@ -265,7 +265,7 @@ public class SkyRenderer {
                 return opticalDepth;
             }
             
-            // Main atmospheric scattering calculation
+            // Enhanced atmospheric scattering calculation with better sunset/sunrise colors
             vec3 calculateScattering(vec3 rayOrigin, vec3 rayDir, vec3 sunDir) {
                 // Find intersection with atmosphere
                 vec2 atmosphereIntersect = raySphereIntersect(rayOrigin, rayDir, u_atmosphereRadius);
@@ -307,9 +307,14 @@ public class SkyRenderer {
                     float rayleighOpticalDepthCamera = opticalDepth(startPoint, rayDir, length(samplePoint - startPoint), u_rayleighScaleHeight);
                     float mieOpticalDepthCamera = opticalDepth(startPoint, rayDir, length(samplePoint - startPoint), u_mieScaleHeight);
                     
-                    // Calculate transmittance
-                    vec3 rayleighTransmittance = exp(-(u_rayleighCoeff * (rayleighOpticalDepthSun + rayleighOpticalDepthCamera) + 
-                                                     u_mieCoeff * (mieOpticalDepthSun + mieOpticalDepthCamera)));
+                    // Calculate transmittance with enhanced multiple scattering
+                    vec3 totalOpticalDepth = u_rayleighCoeff * (rayleighOpticalDepthSun + rayleighOpticalDepthCamera) + 
+                                           vec3(u_mieCoeff) * (mieOpticalDepthSun + mieOpticalDepthCamera);
+                    vec3 rayleighTransmittance = exp(-totalOpticalDepth);
+                    
+                    // Enhanced multiple scattering approximation for richer colors
+                    vec3 multipleScattering = rayleighTransmittance * rayleighTransmittance * 0.1;
+                    rayleighTransmittance += multipleScattering;
                     
                     // Accumulate scattering
                     rayleighScattering += rayleighDensity * rayleighTransmittance;
@@ -323,7 +328,25 @@ public class SkyRenderer {
                 vec3 rayleighColor = rayleighScattering * u_rayleighCoeff * rayleighPhase(cosTheta);
                 vec3 mieColor = mieScattering * u_mieCoeff * miePhase(cosTheta, u_mieDirectionalG);
                 
-                return (rayleighColor + mieColor) * u_sunIntensity * (rayLength / float(SAMPLE_COUNT));
+                vec3 totalColor = (rayleighColor + mieColor) * u_sunIntensity * (rayLength / float(SAMPLE_COUNT));
+                
+                // Add enhanced sunset/sunrise coloring
+                float sunHeight = sunDir.y;
+                float sunsetFactor = 1.0 - clamp(sunHeight * 2.0, 0.0, 1.0);
+                vec3 sunsetTint = vec3(1.5, 0.8, 0.4) * sunsetFactor * sunsetFactor;
+                totalColor += sunsetTint * u_sunIntensity * 0.3;
+                
+                return totalColor;
+            }
+            
+            // Enhanced tone mapping function
+            vec3 aces(vec3 color) {
+                const float a = 2.51;
+                const float b = 0.03;
+                const float c = 2.43;
+                const float d = 0.59;
+                const float e = 0.14;
+                return clamp((color * (a * color + b)) / (color * (c * color + d) + e), 0.0, 1.0);
             }
             
             void main() {
@@ -335,27 +358,42 @@ public class SkyRenderer {
                 // Calculate atmospheric scattering
                 vec3 scatteredColor = calculateScattering(cameraPos, direction, -u_sunDirection);
                 
-                // Apply exposure and tone mapping
-                scatteredColor = 1.0 - exp(-scatteredColor * 1.0);
-                
-                // Add sun disk
+                // Enhanced sun disk with corona effect
                 float sunDot = max(dot(direction, -u_sunDirection), 0.0);
                 float sunDisk = smoothstep(0.9998, 0.9999, sunDot) * u_sunIntensity;
-                scatteredColor += u_sunColor * sunDisk;
+                float sunCorona = pow(sunDot, 64.0) * u_sunIntensity * 0.1;
+                scatteredColor += u_sunColor * (sunDisk + sunCorona);
                 
-                // Moon contribution (simplified)
+                // Enhanced moon with realistic size and glow
                 float moonDot = max(dot(direction, -u_moonDirection), 0.0);
-                float moonHalo = pow(moonDot, 512.0) * u_moonIntensity;
-                scatteredColor += u_moonColor * moonHalo;
+                float moonDisk = smoothstep(0.9995, 0.9998, moonDot) * u_moonIntensity;
+                float moonHalo = pow(moonDot, 256.0) * u_moonIntensity * 0.3;
+                scatteredColor += u_moonColor * (moonDisk + moonHalo);
                 
-                // Simple stars (only visible at night)
-                float starIntensity = 1.0 - u_sunIntensity;
-                if (starIntensity > 0.1 && direction.y > 0.1) {
-                    float starNoise = fract(sin(dot(direction.xz * 100.0, vec2(12.9898, 78.233))) * 43758.5453);
-                    if (starNoise > 0.998) {
-                        scatteredColor += vec3(1.0) * starIntensity * 0.5;
+                // Enhanced stars with twinkling effect
+                float starIntensity = 1.0 - clamp(u_sunIntensity * 2.0, 0.0, 1.0);
+                if (starIntensity > 0.05 && direction.y > 0.0) {
+                    vec2 starCoord = direction.xz * 200.0;
+                    float starNoise = fract(sin(dot(starCoord, vec2(12.9898, 78.233))) * 43758.5453);
+                    float starTwinkle = 0.5 + 0.5 * sin(u_timeOfDay * 20.0 + starNoise * 100.0);
+                    
+                    if (starNoise > 0.997) {
+                        float starBrightness = (starNoise - 0.997) / 0.003;
+                        scatteredColor += vec3(1.0, 0.9, 0.8) * starIntensity * starBrightness * starTwinkle * 0.8;
                     }
                 }
+                
+                // Apply enhanced tone mapping and color grading
+                scatteredColor = aces(scatteredColor * 1.2);
+                
+                // Subtle color grading for warmer tones
+                scatteredColor.r = pow(scatteredColor.r, 0.95);
+                scatteredColor.g = pow(scatteredColor.g, 1.0);
+                scatteredColor.b = pow(scatteredColor.b, 1.05);
+                
+                // Add subtle atmospheric perspective
+                float atmosphericFade = 1.0 - exp(-max(direction.y, 0.0) * 2.0);
+                scatteredColor = mix(scatteredColor * 0.8, scatteredColor, atmosphericFade);
                 
                 FragColor = vec4(scatteredColor, 1.0);
             }

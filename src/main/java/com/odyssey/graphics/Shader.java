@@ -78,8 +78,19 @@ public class Shader {
         
         glValidateProgram(programId);
         if (glGetProgrami(programId, GL_VALIDATE_STATUS) == 0) {
-            logger.warn("Warning validating Shader code: " + glGetProgramInfoLog(programId, 1024));
+            String validationLog = glGetProgramInfoLog(programId, 1024);
+            logger.warn("Shader validation warning: {}", validationLog);
+            
+            // Check if this is a critical validation error that should fail linking
+            if (validationLog.toLowerCase().contains("error") || 
+                validationLog.toLowerCase().contains("failed") ||
+                validationLog.toLowerCase().contains("invalid")) {
+                throw new Exception("Critical shader validation error: " + validationLog);
+            }
         }
+        
+        // Cache all uniform locations at link time for better performance
+        cacheUniformLocations();
     }
     
     public void bind() {
@@ -95,10 +106,59 @@ public class Shader {
         if (programId != 0) {
             glDeleteProgram(programId);
         }
+        // Delete individual shaders to prevent memory leak
+        if (vertexShaderId != 0) {
+            glDeleteShader(vertexShaderId);
+        }
+        if (fragmentShaderId != 0) {
+            glDeleteShader(fragmentShaderId);
+        }
+    }
+    
+    /**
+     * Caches all uniform locations at link time for better performance.
+     */
+    private void cacheUniformLocations() {
+        int uniformCount = glGetProgrami(programId, GL_ACTIVE_UNIFORMS);
+        
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+            for (int i = 0; i < uniformCount; i++) {
+                String uniformName = glGetActiveUniform(programId, i, stack.mallocInt(1), stack.mallocInt(1));
+                if (uniformName != null && !uniformName.isEmpty()) {
+                    // Remove array notation if present (e.g., "lights[0]" becomes "lights")
+                    if (uniformName.contains("[")) {
+                        uniformName = uniformName.substring(0, uniformName.indexOf('['));
+                    }
+                    
+                    int location = glGetUniformLocation(programId, uniformName);
+                    if (location >= 0) {
+                        uniformLocations.put(uniformName, location);
+                    }
+                }
+            }
+        }
+        
+        logger.debug("Cached {} uniform locations for shader program {}", uniformLocations.size(), programId);
     }
     
     private int getUniformLocation(String uniformName) {
-        return uniformLocations.computeIfAbsent(uniformName, name -> glGetUniformLocation(programId, name));
+        // Check cache first to avoid GPU stalls during rendering
+        Integer cachedLocation = uniformLocations.get(uniformName);
+        if (cachedLocation != null) {
+            return cachedLocation;
+        }
+        
+        // Only perform expensive lookup if not cached
+        int location = glGetUniformLocation(programId, uniformName);
+        if (location < 0) {
+            logger.warn("Could not find uniform: {} in shader program {}", uniformName, programId);
+            // Cache negative results to avoid repeated lookups
+            uniformLocations.put(uniformName, -1);
+            return -1;
+        }
+        
+        uniformLocations.put(uniformName, location);
+        return location;
     }
     
     public void setUniform(String uniformName, Matrix4f value) {

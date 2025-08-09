@@ -1,6 +1,7 @@
 package com.odyssey.graphics;
 
 import org.joml.Matrix4f;
+import org.joml.Vector2f;
 import org.joml.Vector3f;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,6 +42,13 @@ public class Camera {
     private Matrix4f viewMatrix;
     private Matrix4f projectionMatrix;
     
+    // TAA support
+    private Matrix4f previousViewMatrix;
+    private Matrix4f previousProjectionMatrix;
+    private Vector2f jitterOffset;
+    private int frameIndex = 0;
+    private boolean taaEnabled = true;
+    
     // Movement properties
     private float movementSpeed = 10.0f;
     private float mouseSensitivity = 0.1f;
@@ -49,6 +57,12 @@ public class Camera {
     // Smoothed rotation for better camera feel
     private Vector3f targetRotation;
     private Vector3f smoothedRotation;
+    
+    // Underwater state tracking
+    private boolean isUnderwater = false;
+    private float underwaterDepth = 0.0f;
+    private float seaLevel = 64.0f;  // Should match GerstnerOceanRenderer
+    private float previousUnderwaterDepth = 0.0f;
     
     public Camera() {
         this.position = new Vector3f(0, 100, 50); // Position above ocean and cubes, with some distance back
@@ -70,10 +84,21 @@ public class Camera {
         this.viewMatrix = new Matrix4f();
         this.projectionMatrix = new Matrix4f();
         
+        // Initialize TAA matrices
+        this.previousViewMatrix = new Matrix4f();
+        this.previousProjectionMatrix = new Matrix4f();
+        this.jitterOffset = new Vector2f();
+        
         updateProjectionMatrix();
     }
     
     public void update(double deltaTime) {
+        // Store previous matrices for TAA
+        if (taaEnabled) {
+            previousViewMatrix.set(viewMatrix);
+            previousProjectionMatrix.set(projectionMatrix);
+        }
+        
         // Apply velocity to player position (player movement)
         playerPosition.add(
             (float) (velocity.x * deltaTime),
@@ -88,10 +113,19 @@ public class Camera {
         // Update camera position based on camera mode
         updateCameraPosition();
         
+        // Update underwater state
+        updateUnderwaterState();
+        
         // Apply drag to velocity
         velocity.mul(0.9f);
         
+        // Update TAA jitter
+        if (taaEnabled) {
+            updateTAAJitter();
+        }
+        
         updateViewMatrix();
+        updateProjectionMatrix();
     }
     
     private void updateCameraPosition() {
@@ -142,7 +176,53 @@ public class Camera {
             nearPlane,
             farPlane
         );
+        
+        // Apply TAA jitter to projection matrix
+        if (taaEnabled) {
+            applyTAAJitter();
+        }
     }
+    
+    /**
+     * Updates TAA jitter using Halton sequence for stable temporal sampling.
+     */
+    private void updateTAAJitter() {
+        frameIndex++;
+        
+        // Halton sequence for 2D jitter (base 2 and 3)
+        float jitterX = haltonSequence(frameIndex, 2) - 0.5f;
+        float jitterY = haltonSequence(frameIndex, 3) - 0.5f;
+        
+        // Scale jitter by pixel size
+        jitterOffset.set(jitterX / (screenWidth * 0.5f), jitterY / (screenHeight * 0.5f));
+    }
+    
+    /**
+     * Applies TAA jitter to the projection matrix.
+     */
+    private void applyTAAJitter() {
+        // Apply sub-pixel jitter to projection matrix
+        projectionMatrix.m20(projectionMatrix.m20() + jitterOffset.x);
+        projectionMatrix.m21(projectionMatrix.m21() + jitterOffset.y);
+    }
+    
+    /**
+     * Generates Halton sequence value for TAA jitter.
+     */
+    private float haltonSequence(int index, int base) {
+        float result = 0.0f;
+        float f = 1.0f / base;
+        int i = index;
+        while (i > 0) {
+            result += f * (i % base);
+            i /= base;
+            f /= base;
+        }
+        return result;
+    }
+    
+    private int screenWidth = 1920;
+    private int screenHeight = 1080;
     
     public void setAspectRatio(float aspectRatio) {
         this.aspectRatio = aspectRatio;
@@ -320,4 +400,68 @@ public class Camera {
     
     public float getMouseSensitivity() { return mouseSensitivity; }
     public void setMouseSensitivity(float mouseSensitivity) { this.mouseSensitivity = mouseSensitivity; }
+    
+    /**
+     * Updates underwater state based on camera position relative to sea level.
+     */
+    private void updateUnderwaterState() {
+        previousUnderwaterDepth = underwaterDepth;
+        
+        // Check if camera is below sea level
+        if (position.y < seaLevel) {
+            isUnderwater = true;
+            underwaterDepth = seaLevel - position.y;
+        } else {
+            isUnderwater = false;
+            underwaterDepth = 0.0f;
+        }
+        
+        // Log underwater state changes for debugging
+        if (isUnderwater && previousUnderwaterDepth == 0.0f) {
+            logger.info("Camera entered underwater at depth: {}", underwaterDepth);
+        } else if (!isUnderwater && previousUnderwaterDepth > 0.0f) {
+            logger.info("Camera exited underwater");
+        }
+    }
+    
+    /**
+     * Updates underwater state with dynamic wave height from ocean system.
+     * This should be called by the ocean system to provide accurate wave heights.
+     */
+    public void updateUnderwaterState(float waveHeightAtPosition) {
+        previousUnderwaterDepth = underwaterDepth;
+        
+        // Check if camera is below the dynamic water surface
+        if (position.y < waveHeightAtPosition) {
+            isUnderwater = true;
+            underwaterDepth = waveHeightAtPosition - position.y;
+        } else {
+            isUnderwater = false;
+            underwaterDepth = 0.0f;
+        }
+        
+        // Log underwater state changes for debugging
+        if (isUnderwater && previousUnderwaterDepth == 0.0f) {
+            logger.info("Camera entered underwater at depth: {} (wave height: {})", underwaterDepth, waveHeightAtPosition);
+        } else if (!isUnderwater && previousUnderwaterDepth > 0.0f) {
+            logger.info("Camera exited underwater");
+        }
+    }
+    
+    // Underwater state getters
+    public boolean isUnderwater() { return isUnderwater; }
+    public float getUnderwaterDepth() { return underwaterDepth; }
+    public float getSeaLevel() { return seaLevel; }
+    public void setSeaLevel(float seaLevel) { this.seaLevel = seaLevel; }
+    
+    // TAA getters and setters
+    public Matrix4f getPreviousViewMatrix() { return new Matrix4f(previousViewMatrix); }
+    public Matrix4f getPreviousProjectionMatrix() { return new Matrix4f(previousProjectionMatrix); }
+    public Vector2f getJitterOffset() { return new Vector2f(jitterOffset); }
+    public boolean isTAAEnabled() { return taaEnabled; }
+    public void setTAAEnabled(boolean enabled) { this.taaEnabled = enabled; }
+    public void setScreenSize(int width, int height) { 
+        this.screenWidth = width; 
+        this.screenHeight = height; 
+    }
 }

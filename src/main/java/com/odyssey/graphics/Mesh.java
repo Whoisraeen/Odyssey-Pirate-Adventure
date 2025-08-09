@@ -113,27 +113,42 @@ public class Mesh {
     }
     
     public void cleanup() {
+        // Bind VAO first to ensure proper cleanup context
+        glBindVertexArray(vaoId);
+        
+        // Disable vertex attributes
         glDisableVertexAttribArray(0);
         glDisableVertexAttribArray(1);
         glDisableVertexAttribArray(2);
         
-        // Delete buffers
+        // Unbind and delete buffers in proper order
         glBindBuffer(GL_ARRAY_BUFFER, 0);
-        glDeleteBuffers(vboId);
+        if (vboId != 0) {
+            glDeleteBuffers(vboId);
+            vboId = 0;
+        }
         
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-        glDeleteBuffers(eboId);
+        if (eboId != 0) {
+            glDeleteBuffers(eboId);
+            eboId = 0;
+        }
         
-        // Delete VAO
+        // Unbind and delete VAO
         glBindVertexArray(0);
-        glDeleteVertexArrays(vaoId);
+        if (vaoId != 0) {
+            glDeleteVertexArrays(vaoId);
+            vaoId = 0;
+        }
         
-        // Free memory
+        // Free memory buffers
         if (verticesBuffer != null) {
             MemoryUtil.memFree(verticesBuffer);
+            verticesBuffer = null;
         }
         if (indicesBuffer != null) {
             MemoryUtil.memFree(indicesBuffer);
+            indicesBuffer = null;
         }
         
         // Return mesh data to pool if using memory manager
@@ -142,7 +157,13 @@ public class Mesh {
             meshData = null;
         }
         
-        logger.debug("Cleaned up mesh resources");
+        // Check for OpenGL errors after cleanup
+        int error = glGetError();
+        if (error != GL_NO_ERROR) {
+            logger.warn("OpenGL error during mesh cleanup: {}", error);
+        }
+        
+        logger.debug("Cleaned up mesh resources (VAO: {}, VBO: {}, EBO: {})", vaoId, vboId, eboId);
     }
     
     public int getVertexCount() {
@@ -226,6 +247,82 @@ public class Mesh {
         int[] indices = {
             0, 1, 2, 2, 3, 0
         };
+        
+        return new Mesh(vertices, indices);
+    }
+    
+    /**
+     * Creates an ocean grid mesh for Gerstner wave displacement.
+     * @param width Width in world units
+     * @param depth Depth in world units  
+     * @param subdivisions Number of subdivisions per side (higher = more detailed waves)
+     * @param centerX World X coordinate of grid center
+     * @param centerZ World Z coordinate of grid center
+     * @param seaLevel Y coordinate for sea level
+     * @return Ocean grid mesh
+     */
+    public static Mesh createOceanGrid(float width, float depth, int subdivisions, 
+                                       float centerX, float centerZ, float seaLevel) {
+        int verticesPerSide = subdivisions + 1;
+        int totalVertices = verticesPerSide * verticesPerSide;
+        
+        // 8 floats per vertex: 3 pos + 3 normal + 2 UV
+        float[] vertices = new float[totalVertices * 8];
+        
+        float halfWidth = width * 0.5f;
+        float halfDepth = depth * 0.5f;
+        float stepX = width / subdivisions;
+        float stepZ = depth / subdivisions;
+        
+        int vertexIndex = 0;
+        for (int z = 0; z <= subdivisions; z++) {
+            for (int x = 0; x <= subdivisions; x++) {
+                // World-space position (critical for continuous waves across chunks)
+                float worldX = centerX - halfWidth + x * stepX;
+                float worldZ = centerZ - halfDepth + z * stepZ;
+                
+                // Position (world-space XZ, sea level Y)
+                vertices[vertexIndex++] = worldX;
+                vertices[vertexIndex++] = seaLevel;  // Will be displaced in vertex shader
+                vertices[vertexIndex++] = worldZ;
+                
+                // Normal (up, will be recalculated in shader)
+                vertices[vertexIndex++] = 0.0f;
+                vertices[vertexIndex++] = 1.0f;
+                vertices[vertexIndex++] = 0.0f;
+                
+                // UV coordinates
+                vertices[vertexIndex++] = (float)x / subdivisions;
+                vertices[vertexIndex++] = (float)z / subdivisions;
+            }
+        }
+        
+        // Generate indices for triangles
+        int totalTriangles = subdivisions * subdivisions * 2;
+        int[] indices = new int[totalTriangles * 3];
+        
+        int indexPos = 0;
+        for (int z = 0; z < subdivisions; z++) {
+            for (int x = 0; x < subdivisions; x++) {
+                int topLeft = z * verticesPerSide + x;
+                int topRight = topLeft + 1;
+                int bottomLeft = (z + 1) * verticesPerSide + x;
+                int bottomRight = bottomLeft + 1;
+                
+                // First triangle (top-left, bottom-left, top-right)
+                indices[indexPos++] = topLeft;
+                indices[indexPos++] = bottomLeft;
+                indices[indexPos++] = topRight;
+                
+                // Second triangle (top-right, bottom-left, bottom-right)
+                indices[indexPos++] = topRight;
+                indices[indexPos++] = bottomLeft;
+                indices[indexPos++] = bottomRight;
+            }
+        }
+        
+        logger.debug("Created ocean grid: {}x{} subdivisions, {} vertices, {} triangles", 
+                    subdivisions, subdivisions, totalVertices, totalTriangles);
         
         return new Mesh(vertices, indices);
     }

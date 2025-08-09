@@ -7,7 +7,7 @@ import com.odyssey.game.components.PhysicsComponent;
 import com.odyssey.game.components.BuoyancyComponent;
 import com.odyssey.game.systems.PhysicsSystem;
 import com.odyssey.game.systems.BuoyancySystem;
-import com.odyssey.game.math.Vector2f;
+import org.joml.Vector3f;
 
 /**
  * Test class for the buoyancy physics system.
@@ -61,7 +61,7 @@ public class BuoyancyTest {
     
     private static Entity createShip(World world, String name, float yPosition, float volume, float density) {
         Entity ship = world.createEntity()
-            .add(new TransformComponent(0, yPosition))
+            .add(new TransformComponent(0, yPosition, 0))
             .add(new PhysicsComponent(density * volume)) // mass = density * volume
             .add(new BuoyancyComponent(volume, density));
         
@@ -155,14 +155,14 @@ public class BuoyancyTest {
         System.out.println("\nTesting drag effects for " + name + ":");
         
         // Give the ship initial velocity
-        physics.velocity.set(10.0f, 0.0f); // 10 m/s horizontal
+        physics.velocity.set(10.0f, 0.0f, 0.0f); // 10 m/s horizontal
         System.out.println("  Initial velocity: " + physics.velocity);
         
         // Simulate and observe velocity decay
         for (int i = 0; i < 8; i++) {
             world.update(0.1f);
             
-            Vector2f velocity = physics.velocity;
+            Vector3f velocity = physics.velocity;
             float speed = velocity.length();
             float dragForce = buoyancy.calculateDragForce(speed);
             
@@ -172,7 +172,7 @@ public class BuoyancyTest {
             }
         }
         
-        Vector2f finalVelocity = physics.velocity;
+        Vector3f finalVelocity = physics.velocity;
         System.out.println("  Final velocity: " + finalVelocity);
         System.out.println("  Speed reduction: " + (10.0f - finalVelocity.length()) + " m/s");
     }

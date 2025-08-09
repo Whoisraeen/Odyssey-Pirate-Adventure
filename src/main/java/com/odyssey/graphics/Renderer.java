@@ -2,13 +2,7 @@ package com.odyssey.graphics;
 
 import com.odyssey.core.GameConfig;
 import com.odyssey.core.jobs.JobSystem;
-import com.odyssey.graphics.LightingSystem;
-import com.odyssey.graphics.MaterialManager;
-import com.odyssey.graphics.Mesh;
-import com.odyssey.graphics.Shader;
-import com.odyssey.graphics.ShaderManager;
-import com.odyssey.graphics.StreamingTextureManager;
-import com.odyssey.graphics.TextureAtlasManager;
+// Keep imports minimal
 import com.odyssey.world.ocean.OceanSystem;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -16,8 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import static org.lwjgl.opengl.GL11.*;
-import static org.lwjgl.opengl.GL15.*;
-import static org.lwjgl.opengl.GL20.*;
+// rely on higher-level API calls; no direct GL15/GL20 references needed
 import static org.lwjgl.opengl.GL30.*;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.opengl.GL11;
@@ -46,6 +39,7 @@ public class Renderer {
     private PostProcessingSystem postProcessingSystem;
     private PBRShader pbrShader;
     private SkyRenderer skyRenderer;
+    private VolumetricCloudRenderer volumetricCloudRenderer;
     private TimeOfDaySystem currentTimeOfDaySystem;
     
     // Rendering mode
@@ -120,6 +114,9 @@ public class Renderer {
         // Initialize sky renderer
         initializeSkyRenderer();
         
+        // Initialize volumetric cloud renderer
+        initializeVolumetricCloudRenderer();
+        
         logger.info("Renderer initialized successfully");
     }
     
@@ -139,6 +136,9 @@ public class Renderer {
         // Enable blending for transparency
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+        // Enable sRGB framebuffer for correct gamma when presenting to default FBO
+        org.lwjgl.opengl.GL11.glEnable(org.lwjgl.opengl.GL30.GL_FRAMEBUFFER_SRGB);
         
         // Set clear color (ocean blue)
         glClearColor(0.1f, 0.3f, 0.8f, 1.0f);
@@ -261,6 +261,21 @@ public class Renderer {
         }
     }
     
+    /**
+     * Initializes the volumetric cloud renderer.
+     */
+    private void initializeVolumetricCloudRenderer() {
+        try {
+            volumetricCloudRenderer = new VolumetricCloudRenderer();
+            // Use default resolution, will be updated in handleResize
+            volumetricCloudRenderer.initialize(1920, 1080);
+            logger.info("Volumetric cloud renderer initialized successfully");
+        } catch (Exception e) {
+            logger.error("Failed to initialize volumetric cloud renderer", e);
+            volumetricCloudRenderer = null; // Fall back to no cloud rendering
+        }
+    }
+    
     public void beginFrame(double deltaTime) {
         beginFrame(deltaTime, 0.1f, 0.3f, 0.8f, 1.0f); // Default ocean blue
     }
@@ -288,6 +303,8 @@ public class Renderer {
         
         if (width > 0 && height > 0) {
             camera.setAspectRatio((float) width / height);
+            camera.setScreenWidth(width);
+            camera.setScreenHeight(height);
             glViewport(0, 0, width, height);
         }
         
@@ -333,6 +350,16 @@ public class Renderer {
         // Resize post-processing system framebuffers
         if (postProcessingSystem != null) {
             postProcessingSystem.resize(width, height);
+        }
+        
+        // Reinitialize volumetric cloud renderer with new resolution
+        if (volumetricCloudRenderer != null) {
+            try {
+                volumetricCloudRenderer.cleanup();
+                volumetricCloudRenderer.initialize(width, height);
+            } catch (Exception e) {
+                logger.error("Failed to resize volumetric cloud renderer", e);
+            }
         }
         
         logger.debug("Renderer handled resize to {}x{}", width, height);
@@ -391,11 +418,33 @@ public class Renderer {
         
         deferredRenderer.endGeometryPass();
         
+        // SSAO pass - generate ambient occlusion
+        deferredRenderer.performSSAOPass(camera.getProjectionMatrix(), camera.getViewMatrix());
+        
         // Lighting pass
         deferredRenderer.performLightingPass(lightingSystem, camera.getPosition());
         
-        // Present final result (includes built-in post-processing)
-        deferredRenderer.presentFinalResult();
+        // TAA pass - apply temporal anti-aliasing after lighting
+        if (deferredRenderer.isTAAEnabled()) {
+            deferredRenderer.performTAAPass(camera, deferredRenderer.getColorTexture());
+        }
+        
+        // Present final result with underwater effects support
+        if (postProcessingSystem != null) {
+            // Get sun direction from lighting system
+            Vector3f sunDirection = new Vector3f(0.0f, -1.0f, 0.5f).normalize(); // Default sun direction
+            if (lightingSystem != null && !lightingSystem.getDirectionalLights().isEmpty()) {
+                sunDirection = lightingSystem.getDirectionalLights().get(0).getDirection();
+            }
+            
+            // Get current time for animated effects
+            float time = System.currentTimeMillis() / 1000.0f;
+            
+            deferredRenderer.presentFinalResult(postProcessingSystem, camera, sunDirection, time);
+        } else {
+            // Fallback to standard post-processing
+            deferredRenderer.presentFinalResult();
+        }
         
         // Render sky as overlay on final framebuffer (after deferred pipeline)
         // This ensures sky renders to the screen, not the G-Buffer
@@ -407,6 +456,20 @@ public class Renderer {
             // Render sky with proper depth testing
             skyRenderer.render(camera.getViewMatrix(), camera.getProjectionMatrix(), currentTimeOfDaySystem);
         }
+        
+        // Render volumetric clouds after sky
+        if (volumetricCloudRenderer != null) {
+            // Get depth texture from deferred renderer's G-Buffer
+            int depthTexture = (deferredRenderer != null) ? deferredRenderer.getDepthTexture() : 0;
+            float deltaTime = 0.016f; // Approximate 60 FPS for now
+            volumetricCloudRenderer.render(
+                camera.getViewMatrix(),
+                camera.getProjectionMatrix(),
+                camera.getPosition(),
+                depthTexture,
+                deltaTime
+            );
+        }
     }
     
     /**
@@ -416,6 +479,20 @@ public class Renderer {
         // Render sky first (background)
         if (skyRenderer != null) {
             skyRenderer.render(camera.getViewMatrix(), camera.getProjectionMatrix(), currentTimeOfDaySystem);
+        }
+        
+        // Render volumetric clouds after sky
+        if (volumetricCloudRenderer != null) {
+            // No depth texture available in forward rendering
+            int depthTexture = 0;
+            float deltaTime = 0.016f; // Approximate 60 FPS for now
+            volumetricCloudRenderer.render(
+                camera.getViewMatrix(),
+                camera.getProjectionMatrix(),
+                camera.getPosition(),
+                depthTexture,
+                deltaTime
+            );
         }
         
         // Render ocean plane
@@ -556,7 +633,8 @@ public class Renderer {
         // This could be implemented with a debug UI system later
         if (config.isDebugMode()) {
             Vector3f pos = camera.getPosition();
-            logger.debug("Camera position: ({:.2f}, {:.2f}, {:.2f})", pos.x, pos.y, pos.z);
+            logger.debug("Camera position: ({}, {}, {})", 
+                String.format("%.2f", pos.x), String.format("%.2f", pos.y), String.format("%.2f", pos.z));
         }
     }
     
@@ -578,6 +656,10 @@ public class Renderer {
         
         if (skyRenderer != null) {
             skyRenderer.cleanup();
+        }
+        
+        if (volumetricCloudRenderer != null) {
+            volumetricCloudRenderer.cleanup();
         }
         
         // Cleanup existing systems
@@ -664,6 +746,10 @@ public class Renderer {
     
     public SkyRenderer getSkyRenderer() {
         return skyRenderer;
+    }
+    
+    public VolumetricCloudRenderer getVolumetricCloudRenderer() {
+        return volumetricCloudRenderer;
     }
     
     public boolean isUsingDeferredRendering() {
@@ -779,26 +865,18 @@ public class Renderer {
         
         basicShader.bind();
         
-        // Set uniforms with darker underwater lighting
-        basicShader.setUniform("projectionMatrix", camera.getProjectionMatrix());
-        basicShader.setUniform("viewMatrix", camera.getViewMatrix());
-        basicShader.setUniform("lightDirection", lightDirection);
-        
-        // Darker underwater lighting
-        Vector3f underwaterLightColor = new Vector3f(lightColor).mul(0.3f);
-        Vector3f underwaterAmbientColor = new Vector3f(0.1f, 0.2f, 0.4f);
-        
-        basicShader.setUniform("lightColor", underwaterLightColor);
-        basicShader.setUniform("ambientColor", underwaterAmbientColor);
+        // Set uniforms with correct names for basic shader
+        basicShader.setUniform("u_projectionMatrix", camera.getProjectionMatrix());
+        basicShader.setUniform("u_viewMatrix", camera.getViewMatrix());
         
         // Render some underwater objects (simplified for now)
         for (int x = -1; x <= 1; x++) {
             for (int z = -1; z <= 1; z++) {
                 modelMatrix.identity().translate(x * 30, 50, z * 30).scale(2);
-                basicShader.setUniform("modelMatrix", modelMatrix);
+                basicShader.setUniform("u_modelMatrix", modelMatrix);
                 
                 // Blue-green underwater tint
-                basicShader.setUniform("objectColor", new Vector3f(0.2f, 0.4f, 0.6f));
+                basicShader.setUniform("u_color", new Vector3f(0.2f, 0.4f, 0.6f));
                 
                 cubeMesh.render();
             }

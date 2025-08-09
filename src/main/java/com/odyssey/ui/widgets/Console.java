@@ -4,7 +4,11 @@ import com.odyssey.commands.CommandManager;
 import com.odyssey.commands.CommandResult;
 import com.odyssey.commands.ConsoleSender;
 import com.odyssey.ui.UINode;
+import com.odyssey.ui.UIRenderer;
+import com.odyssey.ui.UIInputEvent;
+import com.odyssey.ui.TextNode;
 import org.joml.Vector4f;
+import org.joml.Vector2f;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -218,9 +222,14 @@ public class Console extends UINode {
      * Updates the scroll view with current messages.
      */
     private void updateScrollView() {
-        // TODO: Implement message rendering in scroll view
-        // This would involve creating text elements for each message
-        // with appropriate colors based on message type
+        // Clear existing content
+        scrollView.clearContent();
+        
+        // Create a container for all messages
+        ConsoleContentContainer messageContainer = new ConsoleContentContainer(messages);
+        messageContainer.setSize(760, messages.size() * 20); // 20px per line
+        
+        scrollView.setContent(messageContainer);
     }
     
     /**
@@ -312,5 +321,43 @@ public class Console extends UINode {
     @Override
     protected void onLayout() {
         // Console uses fixed layout, no special layout logic needed
+    }
+    
+    /**
+     * Content container for console messages that handles text rendering.
+     */
+    private static class ConsoleContentContainer extends UINode {
+        private final List<ConsoleMessage> messages;
+        
+        public ConsoleContentContainer(List<ConsoleMessage> messages) {
+            this.messages = new ArrayList<>(messages);
+        }
+        
+        @Override
+        protected void onRender(UIRenderer renderer) {
+            Vector2f pos = getComputedPosition();
+            
+            // Render each message
+            for (int i = 0; i < messages.size(); i++) {
+                ConsoleMessage msg = messages.get(i);
+                float y = pos.y + (i * 20);
+                renderer.drawText(msg.getMessage(), pos.x + 5, y, 14.0f, msg.getType().getColor());
+            }
+        }
+        
+        @Override
+        protected void onUpdate(double deltaTime) {
+            // No update logic needed
+        }
+        
+        @Override
+        protected boolean onInput(UIInputEvent event) {
+            return false; // Don't handle input
+        }
+        
+        @Override
+        protected void onLayout() {
+            // No layout logic needed
+        }
     }
 }

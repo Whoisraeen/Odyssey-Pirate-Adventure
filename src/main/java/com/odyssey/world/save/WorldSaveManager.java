@@ -3,10 +3,10 @@ package com.odyssey.world.save;
 import com.odyssey.core.GameConfig;
 import com.odyssey.world.save.region.RegionFileManager;
 import com.odyssey.world.save.player.PlayerDataManager;
-import com.odyssey.world.save.level.LevelMetadata;
+import com.odyssey.world.save.metadata.LevelMetadata;
 import com.odyssey.world.save.journal.WriteAheadJournal;
-import com.odyssey.world.save.backup.SnapshotManager;
-import com.odyssey.world.save.compression.CompressionManager;
+import com.odyssey.world.save.backup.BackupManager;
+import com.odyssey.world.save.compression.CompressionType;
 import com.odyssey.world.save.format.WorldSaveFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,8 +61,8 @@ public class WorldSaveManager {
     private final PlayerDataManager playerDataManager;
     private final LevelMetadata levelMetadata;
     private final WriteAheadJournal journal;
-    private final SnapshotManager snapshotManager;
-    private final CompressionManager compressionManager;
+    private final BackupManager backupManager;
+    private final CompressionType compressionType;
     
     // Session management
     private final SessionLock sessionLock;
@@ -94,8 +94,8 @@ public class WorldSaveManager {
         this.playerDataManager = new PlayerDataManager(worldDirectory.resolve("playerdata"));
         this.levelMetadata = new LevelMetadata(worldDirectory.resolve("level.meta"));
         this.journal = new WriteAheadJournal(worldDirectory.resolve("journal.wal"));
-        this.snapshotManager = new SnapshotManager(worldDirectory.resolve("snapshots"), config);
-        this.compressionManager = new CompressionManager(config);
+        this.backupManager = new BackupManager(worldDirectory.resolve("snapshots"), config);
+        this.compressionType = CompressionType.ZSTD;
         
         // Initialize executor service
         this.saveExecutor = Executors.newFixedThreadPool(4, r -> {
@@ -211,12 +211,12 @@ public class WorldSaveManager {
     }
     
     /**
-     * Gets the snapshot manager.
+     * Gets the backup manager.
      * 
-     * @return the snapshot manager
+     * @return the backup manager
      */
-    public SnapshotManager getSnapshotManager() {
-        return snapshotManager;
+    public BackupManager getBackupManager() {
+        return backupManager;
     }
     
     /**
@@ -259,7 +259,7 @@ public class WorldSaveManager {
      * @return a CompletableFuture that completes when the snapshot is created
      */
     public CompletableFuture<Path> createSnapshot() {
-        return snapshotManager.createSnapshot();
+        return backupManager.createSnapshot();
     }
     
     /**
@@ -276,7 +276,7 @@ public class WorldSaveManager {
             regionManager.close();
             playerDataManager.close();
             journal.close();
-            snapshotManager.close();
+            backupManager.close();
             
             // Release session lock
             releaseSessionLock();

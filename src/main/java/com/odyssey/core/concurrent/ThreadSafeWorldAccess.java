@@ -156,7 +156,9 @@ public class ThreadSafeWorldAccess {
      * @return the current player position
      */
     public Vector3f getPlayerPosition() {
-        return new Vector3f(playerPosition.get().x, playerPosition.get().y, playerPosition.get().z);
+        // Read the atomic reference once to avoid inconsistent coordinates if updated concurrently
+        Vector3f current = playerPosition.get();
+        return new Vector3f(current.x, current.y, current.z);
     }
     
     /**

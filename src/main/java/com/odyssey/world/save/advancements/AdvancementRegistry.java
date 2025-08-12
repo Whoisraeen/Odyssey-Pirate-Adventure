@@ -219,7 +219,7 @@ public class AdvancementRegistry {
         // but not yet started. In a more sophisticated implementation, we could
         // track when dependencies were completed and compare timestamps.
         
-        if (playerAdvancements.isStarted(advancementId) || playerAdvancements.isCompleted(advancementId)) {
+        if (playerAdvancements.hasStarted(advancementId) || playerAdvancements.isCompleted(advancementId)) {
             return false; // Already started or completed
         }
         
@@ -255,7 +255,7 @@ public class AdvancementRegistry {
         
         // Add basic rewards (can be expanded later)
         List<AdvancementReward> rewards = new ArrayList<>();
-        rewards.add(new AdvancementReward(RewardType.EXPERIENCE, 100));
+        rewards.add(new AdvancementReward(AdvancementReward.Type.EXPERIENCE, 100));
         advancement.setRewards(rewards);
         
         return advancement;

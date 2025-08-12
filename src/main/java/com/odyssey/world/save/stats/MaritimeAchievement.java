@@ -41,6 +41,7 @@ public enum MaritimeAchievement {
     // Shipbuilding Achievements
     MASTER_BUILDER("Master Shipwright", "Build 10 different ship designs", "building"),
     SPEED_DEMON("Speed Demon", "Achieve the fastest ship speed record", "building"),
+    FASTEST_SHIP("Fastest Ship", "Build the fastest ship in the world", "building"),
     FLEET_COMMANDER("Fleet Commander", "Own 5 ships simultaneously", "building"),
     UPGRADE_MASTER("Upgrade Master", "Perform 100 ship upgrades", "building"),
     

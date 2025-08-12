@@ -320,4 +320,69 @@ public class TemperatureSystem {
         if (temp < 40) return "Hot";
         return "Scorching";
     }
+    
+    /**
+     * Updates ice formation/melting at specific coordinates.
+     * 
+     * @param x the block x coordinate
+     * @param y the block y coordinate
+     * @param z the block z coordinate
+     */
+    public void updateIce(int x, int y, int z) {
+        float temperature = getTemperature(x, y, z);
+        String blockType = world.getBlock(x, y, z);
+        
+        if (temperature <= 0.0f) {
+            // Freeze water to ice
+            if ("water".equals(blockType)) {
+                logger.debug("Freezing water to ice at ({}, {}, {}) - temp: {}°C", x, y, z, temperature);
+                // TODO: Set block to ice
+            }
+        } else if (temperature > 0.0f) {
+            // Melt ice to water
+            if ("ice".equals(blockType)) {
+                logger.debug("Melting ice to water at ({}, {}, {}) - temp: {}°C", x, y, z, temperature);
+                // TODO: Set block to water
+            }
+        }
+    }
+    
+    /**
+     * Updates snow formation/melting at specific coordinates.
+     * 
+     * @param x the block x coordinate
+     * @param y the block y coordinate
+     * @param z the block z coordinate
+     */
+    public void updateSnow(int x, int y, int z) {
+        float temperature = getTemperature(x, y, z);
+        String blockType = world.getBlock(x, y, z);
+        
+        if (temperature <= -2.0f) {
+            // Form snow on suitable surfaces
+            if ("air".equals(blockType) && isSuitableForSnow(x, y - 1, z)) {
+                logger.debug("Forming snow at ({}, {}, {}) - temp: {}°C", x, y, z, temperature);
+                // TODO: Set block to snow
+            }
+        } else if (temperature > 2.0f) {
+            // Melt snow
+            if ("snow".equals(blockType)) {
+                logger.debug("Melting snow at ({}, {}, {}) - temp: {}°C", x, y, z, temperature);
+                // TODO: Set block to air
+            }
+        }
+    }
+    
+    /**
+     * Checks if a surface is suitable for snow formation.
+     * 
+     * @param x the x coordinate
+     * @param y the y coordinate
+     * @param z the z coordinate
+     * @return true if snow can form on this surface
+     */
+    private boolean isSuitableForSnow(int x, int y, int z) {
+        String blockType = world.getBlock(x, y, z);
+        return blockType != null && !"air".equals(blockType) && !"water".equals(blockType);
+    }
 }

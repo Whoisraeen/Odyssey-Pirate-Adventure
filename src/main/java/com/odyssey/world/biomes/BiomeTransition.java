@@ -208,12 +208,12 @@ public class BiomeTransition {
         if (humidityDiff > 0.9f) return false;
         
         // Check category compatibility
-        BiomeCategory fromCategory = fromBiome.getCategory();
-        BiomeCategory toCategory = toBiome.getCategory();
+        BiomeType.Category fromCategory = fromBiome.getCategory();
+        BiomeType.Category toCategory = toBiome.getCategory();
         
         // Some categories are incompatible
-        if ((fromCategory == BiomeCategory.ARCTIC && toCategory == BiomeCategory.TROPICAL) ||
-            (fromCategory == BiomeCategory.TROPICAL && toCategory == BiomeCategory.ARCTIC)) {
+        if ((fromCategory == BiomeType.Category.SPECIAL && toCategory == BiomeType.Category.OCEAN) ||
+            (fromCategory == BiomeType.Category.OCEAN && toCategory == BiomeType.Category.SPECIAL)) {
             return false;
         }
         

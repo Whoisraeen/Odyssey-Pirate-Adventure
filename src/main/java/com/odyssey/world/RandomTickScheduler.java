@@ -101,8 +101,8 @@ public class RandomTickScheduler {
                 
                 // Get the block at this position
                 com.odyssey.world.generation.WorldGenerator.BlockType blockType = chunk.getBlock(x, y, z);
-                if (blockType != null && isRandomTickable(blockType)) {
-                    processRandomTick(worldX, y, worldZ, blockType);
+                if (blockType != null && isRandomTickable(blockType.name())) {
+                    processRandomTick(worldX, y, worldZ, blockType.name());
                 }
             }
         }

@@ -14,7 +14,7 @@
   - `[X]` for tasks that are in progress
   - After completing a task, compile and execute the game to make sure there are no code issues.
   - Remember its a Maven project not gradle
-
+use mvn -fae -e -DskipTests clean compile to look for errors after adding any code
 ---
 
 ## **Core Development Standards**

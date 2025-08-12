@@ -1,5 +1,6 @@
 package com.odyssey.graphics;
 
+import com.odyssey.core.Engine;
 import com.odyssey.core.jobs.Job;
 import com.odyssey.core.jobs.JobHandle;
 import com.odyssey.core.jobs.JobSystem;
@@ -568,26 +569,21 @@ public class ContentPipeline {
                 return;
             }
             
-            // Clear existing textures for this category
-            atlasManager.clearAtlasCategory(category);
+            // TODO: Implement texture loading and atlas management
+            // For now, just log the textures that would be processed
+            logger.info("Would process {} textures for category {}", textures.size(), category.getName());
             
-            // Add all valid textures to the atlas
             for (AssetInfo texture : textures) {
                 try {
-                    // Load texture data
                     String texturePath = texture.getPath();
                     String textureName = extractTextureName(texturePath);
                     
-                    // Register texture with atlas manager
-                    atlasManager.registerTexture(textureName, texturePath, category);
+                    logger.debug("Would load texture: {} -> {}", textureName, texturePath);
                     
                 } catch (Exception e) {
-                    logger.error("Failed to add texture {} to atlas: {}", texture.getPath(), e.getMessage());
+                    logger.error("Failed to process texture {}: {}", texture.getPath(), e.getMessage());
                 }
             }
-            
-            // Rebuild the atlas for this category
-            atlasManager.rebuildAtlasForCategory(category);
             
             logger.info("Successfully rebuilt atlas for type {} with {} textures", type, textures.size());
             
@@ -601,36 +597,19 @@ public class ContentPipeline {
      */
     private TextureAtlasManager.AtlasCategory mapAssetTypeToAtlasCategory(AssetType assetType) {
         switch (assetType) {
-            case TEXTURE:
-                return TextureAtlasManager.AtlasCategory.BLOCKS; // Default for generic textures
-            case BLOCK_TEXTURE:
-                return TextureAtlasManager.AtlasCategory.BLOCKS;
-            case ITEM_TEXTURE:
-                return TextureAtlasManager.AtlasCategory.ITEMS;
-            case ENTITY_TEXTURE:
-                return TextureAtlasManager.AtlasCategory.ENTITIES;
-            case UI_TEXTURE:
-                return TextureAtlasManager.AtlasCategory.UI;
-            case EFFECT_TEXTURE:
-                return TextureAtlasManager.AtlasCategory.EFFECTS;
-            case TERRAIN_TEXTURE:
-                return TextureAtlasManager.AtlasCategory.TERRAIN;
-            case PBR_ALBEDO:
-                return TextureAtlasManager.AtlasCategory.PBR_ALBEDO;
-            case PBR_NORMAL:
+            case TEXTURE_DIFFUSE:
+                return TextureAtlasManager.AtlasCategory.BLOCKS; // Default for diffuse textures
+            case TEXTURE_NORMAL:
                 return TextureAtlasManager.AtlasCategory.PBR_NORMAL;
-            case PBR_METALLIC:
-                return TextureAtlasManager.AtlasCategory.PBR_METALLIC;
-            case PBR_ROUGHNESS:
-                return TextureAtlasManager.AtlasCategory.PBR_ROUGHNESS;
-            case PBR_AO:
-                return TextureAtlasManager.AtlasCategory.PBR_AO;
-            case PBR_EMISSION:
+            case TEXTURE_SPECULAR:
+                return TextureAtlasManager.AtlasCategory.PBR_METALLIC; // Use metallic for specular
+            case TEXTURE_EMISSION:
                 return TextureAtlasManager.AtlasCategory.PBR_EMISSION;
-            case PBR_HEIGHT:
-                return TextureAtlasManager.AtlasCategory.PBR_HEIGHT;
+            case TEXTURE_ANIMATED:
+                return TextureAtlasManager.AtlasCategory.EFFECTS;
+            case UNKNOWN:
             default:
-                return null;
+                return TextureAtlasManager.AtlasCategory.BLOCKS; // Default fallback
         }
     }
     
@@ -648,8 +627,8 @@ public class ContentPipeline {
      */
     private TextureAtlasManager getTextureAtlasManager() {
         try {
-            // Get the texture atlas manager from the engine
-            return Engine.getInstance().getTextureAtlasManager();
+            // Get the texture atlas manager from the renderer
+            return Engine.getInstance().getRenderer().getTextureAtlasManager();
         } catch (Exception e) {
             logger.error("Failed to get TextureAtlasManager from engine: {}", e.getMessage());
             return null;

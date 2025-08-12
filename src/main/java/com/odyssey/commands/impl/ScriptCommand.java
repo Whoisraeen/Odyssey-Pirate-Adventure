@@ -41,8 +41,8 @@ public class ScriptCommand implements Command {
     }
     
     @Override
-    public String[] getAliases() {
-        return new String[]{"lua", "scripts"};
+    public List<String> getAliases() {
+        return List.of("lua", "scripts");
     }
     
     @Override
@@ -169,7 +169,7 @@ public class ScriptCommand implements Command {
     }
     
     @Override
-    public boolean validateArgs(String[] args) {
+    public boolean validateArgs(CommandSender sender, String[] args) {
         if (args.length == 0) return false;
         
         String action = args[0].toLowerCase();

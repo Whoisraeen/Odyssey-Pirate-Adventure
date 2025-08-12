@@ -11,6 +11,22 @@ public class AdvancementReward {
     private String itemId;
     private String title;
 
+    public AdvancementReward(Type type, int value) {
+        this.type = type;
+        this.value = value;
+    }
+
+    public AdvancementReward(Type type, String itemId) {
+        this.type = type;
+        this.itemId = itemId;
+    }
+
+    public AdvancementReward(Type type, String itemId, int value) {
+        this.type = type;
+        this.itemId = itemId;
+        this.value = value;
+    }
+
     public Type getType() {
         return type;
     }
@@ -25,5 +41,9 @@ public class AdvancementReward {
 
     public String getTitle() {
         return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
     }
 }

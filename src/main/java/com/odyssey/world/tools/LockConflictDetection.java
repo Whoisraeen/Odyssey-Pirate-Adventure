@@ -305,11 +305,11 @@ public class LockConflictDetection {
             return new LockOptions(false, false, true);
         }
         
-        public static LockOptions readOnly() {
+        public static LockOptions readOnlyOptions() {
             return new LockOptions(true, false, true);
         }
         
-        public static LockOptions forceAcquire() {
+        public static LockOptions forceAcquireOptions() {
             return new LockOptions(false, true, true);
         }
     }

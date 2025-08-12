@@ -34,17 +34,20 @@ public class WorldExportImport {
                 }
                 
                 // Ensure output has correct extension
+                final Path finalOutputPath;
                 if (!outputPath.toString().endsWith(ARCHIVE_EXTENSION)) {
-                    outputPath = outputPath.resolveSibling(outputPath.getFileName() + ARCHIVE_EXTENSION);
+                    finalOutputPath = outputPath.resolveSibling(outputPath.getFileName() + ARCHIVE_EXTENSION);
+                } else {
+                    finalOutputPath = outputPath;
                 }
                 
-                logger.info("Exporting world from {} to {}", worldPath, outputPath);
+                logger.info("Exporting world from {} to {}", worldPath, finalOutputPath);
                 
                 ExportProgress progress = new ExportProgress();
                 long totalSize = calculateWorldSize(worldPath, progress);
                 progress.setTotalBytes(totalSize);
                 
-                try (FileOutputStream fos = new FileOutputStream(outputPath.toFile());
+                try (FileOutputStream fos = new FileOutputStream(finalOutputPath.toFile());
                      ZipOutputStream zos = new ZipOutputStream(fos)) {
                     
                     // Set compression level
@@ -59,7 +62,7 @@ public class WorldExportImport {
                     zos.finish();
                 }
                 
-                long finalSize = Files.size(outputPath);
+                long finalSize = Files.size(finalOutputPath);
                 double compressionRatio = (double) finalSize / totalSize;
                 
                 logger.info("Export completed. Original: {} bytes, Compressed: {} bytes, Ratio: {:.2f}%", 

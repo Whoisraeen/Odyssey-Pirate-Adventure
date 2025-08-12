@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.nio.file.*;
+import java.nio.file.attribute.FileTime;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
@@ -140,14 +141,13 @@ public class CloudSyncHooks {
     public CompletableFuture<SnapshotResult> createSnapshot(Path worldPath, String snapshotName) {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                if (snapshotName == null || snapshotName.isEmpty()) {
-                    snapshotName = generateSnapshotName(worldPath);
-                }
+                final String finalSnapshotName = (snapshotName == null || snapshotName.isEmpty()) 
+                    ? generateSnapshotName(worldPath) : snapshotName;
                 
-                Path snapshotPath = localSyncPath.resolve("snapshots").resolve(snapshotName + ".zip");
+                Path snapshotPath = localSyncPath.resolve("snapshots").resolve(finalSnapshotName + ".zip");
                 Files.createDirectories(snapshotPath.getParent());
                 
-                logger.info("Creating snapshot: {} from world: {}", snapshotName, worldPath);
+                logger.info("Creating snapshot: {} from world: {}", finalSnapshotName, worldPath);
                 
                 SnapshotProgress progress = new SnapshotProgress();
                 long totalSize = calculateWorldSize(worldPath, progress);
@@ -159,7 +159,7 @@ public class CloudSyncHooks {
                     zos.setLevel(6); // Balanced compression
                     
                     // Add snapshot metadata
-                    addSnapshotMetadata(zos, worldPath, snapshotName);
+                    addSnapshotMetadata(zos, worldPath, finalSnapshotName);
                     
                     // Add world files
                     addWorldFilesToSnapshot(zos, worldPath, worldPath, progress);
@@ -171,7 +171,7 @@ public class CloudSyncHooks {
                 double compressionRatio = (double) snapshotSize / totalSize;
                 
                 logger.info("Snapshot created: {} ({}% of original size)", 
-                           snapshotName, String.format("%.1f", compressionRatio * 100));
+                           finalSnapshotName, String.format("%.1f", compressionRatio * 100));
                 
                 return new SnapshotResult(true, "Snapshot created successfully", 
                                         snapshotPath, snapshotSize, compressionRatio);

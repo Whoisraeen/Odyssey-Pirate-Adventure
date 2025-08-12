@@ -102,8 +102,8 @@ public class CollisionSystem extends System {
         }
         
         // Get world positions
-        Vector2f posA = new Vector2f(transformA.position).add(colliderA.offset);
-        Vector2f posB = new Vector2f(transformB.position).add(colliderB.offset);
+        Vector2f posA = new Vector2f(transformA.position.x, transformA.position.y).add(colliderA.offset);
+        Vector2f posB = new Vector2f(transformB.position.x, transformB.position.y).add(colliderB.offset);
         
         // Broad phase: AABB check
         if (!aabbOverlap(colliderA, posA, colliderB, posB)) {
@@ -284,18 +284,24 @@ public class CollisionSystem extends System {
             
             if (physicsA != null && !physicsA.isStatic) {
                 float ratioA = physicsB != null && !physicsB.isStatic ? physicsB.mass / totalMass : 1.0f;
-                transformA.position.subtract(new Vector2f(separation).multiply(ratioA));
+                Vector2f separationA = new Vector2f(separation).multiply(ratioA);
+                // Apply position corrections (only modify X and Y, keep Z unchanged)
+                transformA.position.sub(separationA.x, separationA.y, 0.0f);
             }
             
             if (physicsB != null && !physicsB.isStatic) {
                 float ratioB = physicsA != null && !physicsA.isStatic ? physicsA.mass / totalMass : 1.0f;
-                transformB.position.add(new Vector2f(separation).multiply(ratioB));
+                Vector2f separationB = new Vector2f(separation).multiply(ratioB);
+                // Apply position corrections (only modify X and Y, keep Z unchanged)
+                transformB.position.add(separationB.x, separationB.y, 0.0f);
             }
         }
         
         // Apply collision response (velocity changes)
         if (physicsA != null && physicsB != null && totalMass > 0) {
-            Vector2f relativeVelocity = new Vector2f(physicsB.velocity).subtract(physicsA.velocity);
+            // Extract 2D velocity components for collision calculation
+            Vector2f relativeVelocity = new Vector2f(physicsB.velocity.x - physicsA.velocity.x, 
+                                                    physicsB.velocity.y - physicsA.velocity.y);
             float velocityAlongNormal = relativeVelocity.dot(collision.normal);
             
             if (velocityAlongNormal > 0) {
@@ -308,11 +314,14 @@ public class CollisionSystem extends System {
             
             Vector2f impulse = new Vector2f(collision.normal).multiply(impulseScalar);
             
+            // Apply impulse to 3D velocity (only modify X and Y components)
             if (!physicsA.isStatic) {
-                physicsA.velocity.subtract(new Vector2f(impulse).multiply(1 / physicsA.mass));
+                Vector2f impulseA = new Vector2f(impulse).multiply(1 / physicsA.mass);
+                physicsA.velocity.sub(impulseA.x, impulseA.y, 0.0f);
             }
             if (!physicsB.isStatic) {
-                physicsB.velocity.add(new Vector2f(impulse).multiply(1 / physicsB.mass));
+                Vector2f impulseB = new Vector2f(impulse).multiply(1 / physicsB.mass);
+                physicsB.velocity.add(impulseB.x, impulseB.y, 0.0f);
             }
         }
     }

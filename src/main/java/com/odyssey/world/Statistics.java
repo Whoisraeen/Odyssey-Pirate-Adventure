@@ -51,4 +51,13 @@ public class Statistics {
     public long getDayCount() {
         return dayCount;
     }
+    
+    /**
+     * Resets daily statistics counters.
+     * Called at the beginning of each new day.
+     */
+    public void resetDailyStats() {
+        logger.debug("Daily statistics reset");
+        // TODO: Reset daily counters when they are implemented
+    }
 }

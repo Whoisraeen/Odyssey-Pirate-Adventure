@@ -218,6 +218,9 @@ public class ShaderManager {
         // Basic shader for solid objects
         loadShader("basic", getBasicVertexShader(), getBasicFragmentShader());
         
+        // UI shader for user interface rendering
+        loadShader("ui", getUIVertexShader(), getUIFragmentShader());
+        
         // Ocean shader for water rendering (legacy)
         loadShader("ocean", getOceanVertexShader(), getOceanFragmentShader());
         
@@ -505,6 +508,37 @@ public class ShaderManager {
 
                 vec3 col = mix(diffuse + spec, vec3(1.0), fres * 0.05);
                 FragColor = vec4(col, 0.75); // translucent; sort & blend properly
+            }
+            """;
+    }
+    
+    private String getUIVertexShader() {
+        return """
+            #version 330 core
+            
+            layout (location = 0) in vec2 position;
+            layout (location = 1) in vec3 color;
+            
+            uniform mat4 u_projectionMatrix;
+            
+            out vec3 fragColor;
+            
+            void main() {
+                fragColor = color;
+                gl_Position = u_projectionMatrix * vec4(position, 0.0, 1.0);
+            }
+            """;
+    }
+    
+    private String getUIFragmentShader() {
+        return """
+            #version 330 core
+            
+            in vec3 fragColor;
+            out vec4 FragColor;
+            
+            void main() {
+                FragColor = vec4(fragColor, 1.0);
             }
             """;
     }

@@ -87,7 +87,7 @@ public class BuoyancySystem extends System {
      * @param deltaTime Time step
      */
     private void applyDragForces(PhysicsComponent physics, BuoyancyComponent buoyancy, float deltaTime) {
-        Vector2f velocity = physics.velocity;
+        Vector3f velocity = physics.velocity;
         float speed = velocity.length();
         
         if (speed < MIN_VELOCITY_THRESHOLD) {
@@ -99,13 +99,13 @@ public class BuoyancySystem extends System {
         
         if (dragForce > 0.0f) {
             // Apply drag in opposite direction of movement
-            Vector2f dragDirection = velocity.copy().normalize().multiply(-1.0f);
+            Vector3f dragDirection = new Vector3f(velocity).normalize().mul(-1.0f);
             float dragAcceleration = dragForce / physics.mass;
             
             Vector3f dragForceVector = new Vector3f(
                 dragDirection.x * dragAcceleration * deltaTime,
                 dragDirection.y * dragAcceleration * deltaTime,
-                0.0f
+                dragDirection.z * dragAcceleration * deltaTime
             );
             physics.applyForce(dragForceVector);
         }
@@ -127,7 +127,7 @@ public class BuoyancySystem extends System {
         float dampingFactor = 1.0f - (waterDamping * buoyancy.getSubmersionLevel() * deltaTime);
         dampingFactor = Math.max(0.0f, Math.min(1.0f, dampingFactor));
         
-        physics.velocity.multiply(dampingFactor);
+        physics.velocity.mul(dampingFactor);
     }
     
     /**

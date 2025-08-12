@@ -35,6 +35,7 @@ public class TreasureGenerator {
     private static final float ISLAND_PREFERENCE = 0.7f; // Preference for placing treasures on islands
     
     public TreasureGenerator(long worldSeed) {
+        this.worldSeed = worldSeed;
         this.random = new Random(worldSeed);
         this.generatedMaps = new ArrayList<>();
         this.treasureLocations = new ArrayList<>();

@@ -3,6 +3,7 @@ package com.odyssey;
 import com.odyssey.core.Engine;
 import com.odyssey.core.GameConfig;
 import com.odyssey.core.CrashReporter;
+import com.odyssey.core.CrashReporter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,12 +28,12 @@ public class OdysseyGame {
         logger.info("Navigate the Boundless Azure - Build Your Fleet, Command Your Destiny, Shape the Seven Seas");
         
         GameConfig config = null;
-        CrashReporter crashReporter = null;
+        com.odyssey.core.CrashReporter crashReporter = null;
         
         try {
             // Parse command line arguments
             config = parseArguments(args);
-            crashReporter = new CrashReporter(config);
+            crashReporter = new com.odyssey.core.CrashReporter(config);
             
             // Initialize and start the game engine
             Engine engine = new Engine(config);
@@ -47,7 +48,7 @@ public class OdysseyGame {
                 crashReporter.reportCrash("Application startup/main execution", e);
             } else {
                 // Fallback crash reporting without config
-                CrashReporter fallbackReporter = new CrashReporter(config);
+                com.odyssey.core.CrashReporter fallbackReporter = new com.odyssey.core.CrashReporter(config);
                 fallbackReporter.reportCrash("Application startup (pre-config)", e);
             }
             

@@ -86,11 +86,20 @@ public class WeatherSystem {
     }
     
     /**
-     * Gets the wind strength.
+     * Gets the current wind strength.
      * 
      * @return wind strength (0.0 to 1.0)
      */
     public float getWindStrength() {
         return windStrength;
+    }
+    
+    /**
+     * Called when a new day begins.
+     * Updates weather patterns for the new day.
+     */
+    public void onNewDay() {
+        logger.debug("New day weather update");
+        // TODO: Implement daily weather pattern changes
     }
 }

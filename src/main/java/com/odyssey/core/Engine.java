@@ -9,6 +9,7 @@ import com.odyssey.graphics.Renderer;
 import com.odyssey.graphics.Window;
 import com.odyssey.graphics.TimeOfDaySystem;
 import com.odyssey.input.InputManager;
+import com.odyssey.ui.FontRenderer;
 import com.odyssey.world.World;
 import com.odyssey.world.ocean.OceanSystem;
 import com.odyssey.world.save.SaveManager;
@@ -44,6 +45,7 @@ public class Engine {
     private CrashReporter crashReporter;
     private MemoryManager memoryManager;
     private JobSystem jobSystem;
+    private FontRenderer fontRenderer;
     
     // World systems
     private World world;
@@ -115,6 +117,10 @@ public class Engine {
             // Initialize audio
             audioManager = new AudioManager(config);
             audioManager.initialize();
+
+            // Initialize font renderer
+            fontRenderer = new FontRenderer();
+            fontRenderer.initialize();
             
             // Initialize memory manager
             memoryManager.initialize();
@@ -215,9 +221,8 @@ public class Engine {
                         logger.info("Render completed, about to poll events...");
                     }
                     
-                    // Poll events and swap buffers
+                    // Poll events (buffer swapping is handled by renderer.endFrame())
                     glfwPollEvents();
-                    window.swapBuffers();
                     
                     if (frameCount < 5) {
                         logger.info("Frame {} completed successfully", frameCount);
@@ -438,7 +443,7 @@ public class Engine {
         if (window.isResized()) {
             logger.info("Handling window resize...");
             renderer.handleResize(window.getWidth(), window.getHeight());
-            gameStateManager.getUIRenderer().resize(window.getWidth(), window.getHeight());
+            
             window.setResized(false);
             logger.info("Window resize handled.");
         }
@@ -586,6 +591,8 @@ public class Engine {
     public CrashReporter getCrashReporter() { return crashReporter; }
     public MemoryManager getMemoryManager() { return memoryManager; }
     public JobSystem getJobSystem() { return jobSystem; }
+
+    public FontRenderer getFontRenderer() { return fontRenderer; }
     
     public double getDeltaTime() { return deltaTime; }
     public int getFPS() { return fps; }

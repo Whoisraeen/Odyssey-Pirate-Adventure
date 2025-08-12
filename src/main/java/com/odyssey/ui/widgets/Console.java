@@ -69,10 +69,10 @@ public class Console extends UINode {
         setVisible(visible);
         
         if (visible) {
-            inputField.focus();
+            inputField.requestFocus();
             scrollToBottom();
         } else {
-            inputField.blur();
+            inputField.releaseFocus();
         }
     }
     
@@ -82,7 +82,7 @@ public class Console extends UINode {
     public void show() {
         visible = true;
         setVisible(true);
-        inputField.focus();
+        inputField.requestFocus();
         scrollToBottom();
     }
     
@@ -92,7 +92,7 @@ public class Console extends UINode {
     public void hide() {
         visible = false;
         setVisible(false);
-        inputField.blur();
+        inputField.releaseFocus();
     }
     
     /**
@@ -223,7 +223,9 @@ public class Console extends UINode {
      */
     private void updateScrollView() {
         // Clear existing content
-        scrollView.clearContent();
+        if (scrollView.getContent() != null) {
+            scrollView.getContent().removeAllChildren();
+        }
         
         // Create a container for all messages
         ConsoleContentContainer messageContainer = new ConsoleContentContainer(messages);

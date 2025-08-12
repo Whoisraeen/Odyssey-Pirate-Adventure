@@ -28,6 +28,12 @@ public class Items {
             .category(Item.ItemCategory.BUILDING_BLOCKS)
             .tags("stone", "building")));
     
+    public static final Item STICK = register("odyssey:stick", new Item("odyssey:stick",
+        new Item.Properties()
+            .category(Item.ItemCategory.MATERIALS)
+            .burnTime(100)
+            .tags("stick", "wood", "crafting")));
+    
     public static final Item IRON_INGOT = register("odyssey:iron_ingot", new Item("odyssey:iron_ingot",
         new Item.Properties()
             .category(Item.ItemCategory.MATERIALS)
@@ -38,6 +44,16 @@ public class Items {
             .category(Item.ItemCategory.MATERIALS)
             .rarity(Item.ItemRarity.UNCOMMON)
             .tags("ingot", "metal", "gold", "precious")));
+    
+    public static final Item COPPER_INGOT = register("odyssey:copper_ingot", new Item("odyssey:copper_ingot",
+        new Item.Properties()
+            .category(Item.ItemCategory.MATERIALS)
+            .tags("ingot", "metal", "copper")));
+    
+    public static final Item REDSTONE = register("odyssey:redstone", new Item("odyssey:redstone",
+        new Item.Properties()
+            .category(Item.ItemCategory.REDSTONE)
+            .tags("redstone", "dust", "power")));
     
     public static final Item DIAMOND = register("odyssey:diamond", new Item("odyssey:diamond",
         new Item.Properties()

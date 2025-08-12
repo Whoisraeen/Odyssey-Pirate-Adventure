@@ -75,7 +75,7 @@ public class RadialUI extends UINode {
     
     public RadialUI() {
         super();
-        setSize(new Vector2f(200, 200));
+        setSize(200, 200);
     }
     
     /**
@@ -134,7 +134,7 @@ public class RadialUI extends UINode {
      */
     public void setCenter(Vector2f center) {
         this.center.set(center);
-        setPosition(new Vector2f(center.x - size.x / 2, center.y - size.y / 2));
+        setPosition(center.x - size.x / 2, center.y - size.y / 2);
     }
     
     /**
@@ -208,7 +208,7 @@ public class RadialUI extends UINode {
     }
     
     @Override
-    protected void onUpdate(float deltaTime) {
+    protected void onUpdate(double deltaTime) {
         if (animatingIn || animatingOut) {
             animationTime += deltaTime;
             
@@ -299,9 +299,9 @@ public class RadialUI extends UINode {
     }
     
     @Override
-    protected void onInput(UIInputEvent event) {
+    protected boolean onInput(UIInputEvent event) {
         if (!isVisible) {
-            return;
+            return false;
         }
         
         if (event.getType() == UIInputEvent.InputType.MOUSE_MOVE) {
@@ -319,7 +319,10 @@ public class RadialUI extends UINode {
         } else if (event.getType() == UIInputEvent.InputType.MOUSE_PRESS && 
                    event.getButton() == 0) { // Left click
             executeSelected();
+            return true;
         }
+        
+        return false;
     }
     
     @Override

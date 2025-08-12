@@ -1,393 +1,167 @@
+
 package com.odyssey.ui;
 
-import com.odyssey.graphics.Renderer;
+import com.odyssey.graphics.Shader;
+import com.odyssey.graphics.ShaderManager;
+import com.odyssey.graphics.Window;
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
-import org.lwjgl.system.MemoryStack;
+import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL15;
+import org.lwjgl.opengl.GL20;
+import org.lwjgl.opengl.GL30;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.nio.FloatBuffer;
-
-import static org.lwjgl.system.MemoryUtil.*;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.lwjgl.opengl.GL11.*;
-import static org.lwjgl.opengl.GL15.*;
-import static org.lwjgl.opengl.GL20.*;
-import static org.lwjgl.opengl.GL30.*;
-
-/**
- * Simple UI rendering system for menus and overlays.
- * Provides basic text and rectangle rendering capabilities.
- */
 public class UIRenderer {
     private static final Logger logger = LoggerFactory.getLogger(UIRenderer.class);
-    
-    private int shaderProgram;
-    private int vao, vbo;
-    private int projectionLocation;
-    private Matrix4f projectionMatrix;
-    private int windowWidth, windowHeight;
-    
-    // Font rendering - disabled to avoid compilation issues
-    // private FontRenderer fontRenderer;
-    
-    // UI elements to render
-    private final List<UIElement> elements = new ArrayList<>();
-    
-    // Reusable buffers for performance
-    private FloatBuffer projectionMatrixBuffer;
-    private float[] vertexBuffer;
-    
-    public void initialize(int windowWidth, int windowHeight) {
-        this.windowWidth = windowWidth;
-        this.windowHeight = windowHeight;
-        
-        logger.info("Initializing UI renderer with window size: {}x{}", windowWidth, windowHeight);
-        
-        // Initialize projection matrix buffer
-        projectionMatrixBuffer = memAllocFloat(16);
-        
-        createShaders();
-        createBuffers();
-        updateProjection();
-        
-        // Font renderer disabled for now - using fallback text rendering
-        logger.info("Using fallback rectangle-based text rendering");
-        
-        logger.info("UI renderer initialized successfully");
-    }
-    
-    private void createShaders() {
-        // Simple vertex shader for UI
-        String vertexShaderSource = """
-            #version 330 core
-            layout (location = 0) in vec2 aPos;
-            layout (location = 1) in vec4 aColor;
-            
-            uniform mat4 projection;
-            
-            out vec4 vertexColor;
-            
-            void main() {
-                gl_Position = projection * vec4(aPos, 0.0, 1.0);
-                vertexColor = aColor;
-            }
-            """;
-        
-        // Simple fragment shader for UI
-        String fragmentShaderSource = """
-            #version 330 core
-            in vec4 vertexColor;
-            out vec4 FragColor;
-            
-            void main() {
-                FragColor = vertexColor;
-            }
-            """;
-        
-        int vertexShader = compileShader(GL_VERTEX_SHADER, vertexShaderSource);
-        int fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentShaderSource);
-        
-        shaderProgram = glCreateProgram();
-        if (shaderProgram == 0) {
-            throw new RuntimeException("Failed to create UI shader program");
-        }
-        
-        glAttachShader(shaderProgram, vertexShader);
-        glAttachShader(shaderProgram, fragmentShader);
-        glLinkProgram(shaderProgram);
-        
-        // Check for linking errors
-        if (glGetProgrami(shaderProgram, GL_LINK_STATUS) == GL_FALSE) {
-            String log = glGetProgramInfoLog(shaderProgram);
-            logger.error("UI Shader program linking failed: {}", log);
-            throw new RuntimeException("Failed to link UI shader program: " + log);
-        }
-        
-        logger.info("UI shaders compiled and linked successfully");
-        
-        glDeleteShader(vertexShader);
-        glDeleteShader(fragmentShader);
-        
-        // Get uniform locations
-        projectionLocation = glGetUniformLocation(shaderProgram, "projection");
-        if (projectionLocation == -1) {
-            logger.warn("Could not find 'projection' uniform in UI shader");
-        } else {
-            logger.info("Found 'projection' uniform at location: {}", projectionLocation);
-        }
-    }
-    
-    private int compileShader(int type, String source) {
-        int shader = glCreateShader(type);
-        glShaderSource(shader, source);
-        glCompileShader(shader);
-        
-        if (glGetShaderi(shader, GL_COMPILE_STATUS) == GL_FALSE) {
-            String log = glGetShaderInfoLog(shader);
-            logger.error("Shader compilation failed: {}", log);
-            throw new RuntimeException("Failed to compile shader");
-        }
-        
-        return shader;
-    }
-    
-    private void createBuffers() {
-        vao = glGenVertexArrays();
-        vbo = glGenBuffers();
-        
-        glBindVertexArray(vao);
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        
+
+    private final Window window;
+    private final Shader uiShader;
+    private final FontRenderer fontRenderer;
+
+    private final int vao;
+    private final int vbo;
+
+    private final List<Float> vertexData = new ArrayList<>();
+    private static final int MAX_VERTICES = 10000; // Max vertices for UI elements per frame
+
+    public UIRenderer(Window window, ShaderManager shaderManager, FontRenderer fontRenderer) {
+        this.window = window;
+        this.uiShader = shaderManager.getShader("ui");
+        this.fontRenderer = fontRenderer;
+
+        vao = GL30.glGenVertexArrays();
+        GL30.glBindVertexArray(vao);
+
+        vbo = GL15.glGenBuffers();
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
+        GL15.glBufferData(GL15.GL_ARRAY_BUFFER, MAX_VERTICES * 5 * Float.BYTES, GL15.GL_DYNAMIC_DRAW);
+
         // Position attribute
-        glVertexAttribPointer(0, 2, GL_FLOAT, false, 6 * Float.BYTES, 0);
-        glEnableVertexAttribArray(0);
-        
+        GL20.glVertexAttribPointer(0, 2, GL11.GL_FLOAT, false, 5 * Float.BYTES, 0);
+        GL20.glEnableVertexAttribArray(0);
+
         // Color attribute
-        glVertexAttribPointer(1, 4, GL_FLOAT, false, 6 * Float.BYTES, 2 * Float.BYTES);
-        glEnableVertexAttribArray(1);
-        
-        glBindVertexArray(0);
+        GL20.glVertexAttribPointer(1, 3, GL11.GL_FLOAT, false, 5 * Float.BYTES, 2 * Float.BYTES);
+        GL20.glEnableVertexAttribArray(1);
+
+        GL30.glBindVertexArray(0);
     }
-    
-    private void updateProjection() {
-        projectionMatrix = new Matrix4f().ortho(0, windowWidth, windowHeight, 0, -1, 1);
-        logger.info("Updated UI projection matrix for window size: {}x{}", windowWidth, windowHeight);
-        logger.info("Projection matrix: left=0, right={}, bottom={}, top=0", windowWidth, windowHeight);
-    }
-    
-    public void resize(int width, int height) {
-        this.windowWidth = width;
-        this.windowHeight = height;
-        updateProjection();
-        
-        // Font renderer disabled
-        // Update font renderer projection would go here
-    }
-    
+
     public void beginFrame() {
-        elements.clear();
+        vertexData.clear();
     }
-    
+
     public void endFrame() {
-        logger.info("UI endFrame called with {} elements", elements.size());
-        
-        if (elements.isEmpty()) {
-            logger.warn("No UI elements to render! Menu should have added elements.");
+        if (vertexData.isEmpty()) {
             return;
         }
 
-        logger.info("UI endFrame rendering {} elements", elements.size());
-
-        // Save current OpenGL state
-        boolean depthTestEnabled = glIsEnabled(GL_DEPTH_TEST);
-        boolean blendEnabled = glIsEnabled(GL_BLEND);
-        int[] blendSrc = new int[1];
-        int[] blendDst = new int[1];
-        if (blendEnabled) {
-            glGetIntegerv(GL_BLEND_SRC_ALPHA, blendSrc);
-            glGetIntegerv(GL_BLEND_DST_ALPHA, blendDst);
+        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
+        float[] data = new float[vertexData.size()];
+        for (int i = 0; i < vertexData.size(); i++) {
+            data[i] = vertexData.get(i);
         }
+        GL15.glBufferSubData(GL15.GL_ARRAY_BUFFER, 0, data);
 
-        // Ensure we're rendering to the default framebuffer for UI
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        
-        // Set viewport to full window for UI rendering
-        glViewport(0, 0, windowWidth, windowHeight);
-        
-        // Set up UI rendering state
-        glDisable(GL_DEPTH_TEST);
-        glEnable(GL_BLEND);
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        uiShader.bind();
+        Matrix4f projection = new Matrix4f().ortho(0.0f, window.getWidth(), window.getHeight(), 0.0f, -1.0f, 1.0f);
+        uiShader.setUniform("u_projectionMatrix", projection);
 
-        // Separate rectangles and text elements
-        List<RectangleElement> rectangles = new ArrayList<>();
-        List<TextElement> textElements = new ArrayList<>();
-        
-        for (UIElement element : elements) {
-            if (element instanceof RectangleElement) {
-                rectangles.add((RectangleElement) element);
-            } else if (element instanceof TextElement) {
-                textElements.add((TextElement) element);
-            }
-        }
+        GL30.glBindVertexArray(vao);
+        GL20.glEnableVertexAttribArray(0);
+        GL20.glEnableVertexAttribArray(1);
 
-        // Render rectangles first
-        if (!rectangles.isEmpty()) {
-            logger.info("Rendering {} rectangles", rectangles.size());
-            
-            // Ensure vertex buffer is large enough
-            int requiredSize = rectangles.size() * 36; // 6 vertices per quad, 6 floats per vertex
-            if (vertexBuffer == null || vertexBuffer.length < requiredSize) {
-                vertexBuffer = new float[requiredSize];
-            }
-            
-            int index = 0;
-            for (RectangleElement element : rectangles) {
-                float[] quad = element.getVertices();
-                System.arraycopy(quad, 0, vertexBuffer, index, quad.length);
-                index += quad.length;
-            }
+        GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, vertexData.size() / 5);
 
-            // Upload and render rectangles
-            logger.debug("Using shader program: {}", shaderProgram);
-            glUseProgram(shaderProgram);
-            
-            if (projectionLocation != -1) {
-                glUniformMatrix4fv(projectionLocation, false, projectionMatrix.get(projectionMatrixBuffer));
-                logger.debug("Set projection matrix uniform");
-            } else {
-                logger.warn("Projection location is -1, cannot set uniform!");
-            }
+        GL20.glDisableVertexAttribArray(0);
+        GL20.glDisableVertexAttribArray(1);
+        GL30.glBindVertexArray(0);
 
-            glBindVertexArray(vao);
-            glBindBuffer(GL_ARRAY_BUFFER, vbo);
-            glBufferData(GL_ARRAY_BUFFER, vertexBuffer, GL_DYNAMIC_DRAW);
-
-            glDrawArrays(GL_TRIANGLES, 0, rectangles.size() * 6);
-            
-            // Check for OpenGL errors during rectangle rendering
-            int error = glGetError();
-            if (error != GL_NO_ERROR) {
-                logger.error("OpenGL error during rectangle rendering: {}", error);
-            } else {
-                logger.debug("Rectangle rendering completed successfully");
-            }
-
-            glBindVertexArray(0);
-            glUseProgram(0);
-        }
-
-        // Text elements are now rendered as rectangles in drawText() method
-        // No additional rendering needed here
+        uiShader.unbind();
 
         // Check for OpenGL errors
-        int error = glGetError();
-        if (error != GL_NO_ERROR) {
-            logger.error("OpenGL error during UI rendering: {}", error);
+        int error = GL11.glGetError();
+        if (error != GL11.GL_NO_ERROR) {
+            logger.error("OpenGL error during UI rendering: " + error);
         }
+    }
 
-        // Restore OpenGL state
-        if (depthTestEnabled) {
-            glEnable(GL_DEPTH_TEST);
-        } else {
-            glDisable(GL_DEPTH_TEST);
-        }
-        
-        if (blendEnabled) {
-            glEnable(GL_BLEND);
-            if (blendSrc[0] != 0 && blendDst[0] != 0) {
-                glBlendFunc(blendSrc[0], blendDst[0]);
-            }
-        } else {
-            glDisable(GL_BLEND);
-        }
+    public void addRectangle(float x, float y, float width, float height, Vector4f color) {
+        // Top-left
+        vertexData.add(x);
+        vertexData.add(y);
+        vertexData.add(color.x);
+        vertexData.add(color.y);
+        vertexData.add(color.z);
+
+        // Bottom-left
+        vertexData.add(x);
+        vertexData.add(y + height);
+        vertexData.add(color.x);
+        vertexData.add(color.y);
+        vertexData.add(color.z);
+
+        // Bottom-right
+        vertexData.add(x + width);
+        vertexData.add(y + height);
+        vertexData.add(color.x);
+        vertexData.add(color.y);
+        vertexData.add(color.z);
+
+        // Top-left
+        vertexData.add(x);
+        vertexData.add(y);
+        vertexData.add(color.x);
+        vertexData.add(color.y);
+        vertexData.add(color.z);
+
+        // Bottom-right
+        vertexData.add(x + width);
+        vertexData.add(y + height);
+        vertexData.add(color.x);
+        vertexData.add(color.y);
+        vertexData.add(color.z);
+
+        // Top-right
+        vertexData.add(x + width);
+        vertexData.add(y);
+        vertexData.add(color.x);
+        vertexData.add(color.y);
+        vertexData.add(color.z);
     }
-    
+
+    public void addText(String text, float x, float y, Vector4f color) {
+        fontRenderer.renderText(text, x, y, color);
+    }
+
+    // Convenience methods for UI components
     public void drawRectangle(float x, float y, float width, float height, Vector4f color) {
-        elements.add(new RectangleElement(x, y, width, height, color));
-        logger.debug("Added rectangle: x={}, y={}, w={}, h={}, color=({},{},{},{})", 
-            x, y, width, height, color.x, color.y, color.z, color.w);
+        addRectangle(x, y, width, height, color);
     }
-    
-    public void drawText(String text, float x, float y, float size, Vector4f color) {
-        // Fallback to colored rectangles representing text
-        logger.debug("Drawing text placeholder: '{}' at ({}, {}) size={}", text, x, y, size);
-        
-        float textWidth = text.length() * size * 0.6f;
-        float textHeight = size;
-        
-        // Draw a background rectangle for better visibility
-        elements.add(new RectangleElement(x - 4, y - 4, textWidth + 8, textHeight + 8, 
-            new Vector4f(0.0f, 0.0f, 0.0f, 0.7f)));
-        
-        // Draw the text rectangle with the specified color
-        elements.add(new RectangleElement(x, y, textWidth, textHeight, color));
+
+    public void drawText(String text, float x, float y, Vector4f color) {
+        fontRenderer.renderText(text, x, y, color);
     }
-    
-    /**
-     * Calculates the width of text in pixels for layout purposes.
-     */
-    public float getTextWidth(String text, float size) {
-        // Fallback calculation
-        return text.length() * size * 0.6f;
+
+    public void drawText(String text, float x, float y, float fontSize, Vector4f color) {
+        fontRenderer.renderText(text, x, y, fontSize, color);
     }
-    
-    /**
-     * Gets the line height for the given font size.
-     */
-    public float getLineHeight(float size) {
-        // Fallback calculation
-        return size * 1.2f;
+
+    public float getTextWidth(String text, float fontSize) {
+        return fontRenderer.getTextWidth(text, fontSize);
     }
-    
+
+    public float getLineHeight(float fontSize) {
+        return fontRenderer.getLineHeight(fontSize);
+    }
+
     public void cleanup() {
-        // Font renderer cleanup would go here if enabled
-        
-        if (projectionMatrixBuffer != null) {
-            memFree(projectionMatrixBuffer);
-        }
-        
-        if (vao != 0) glDeleteVertexArrays(vao);
-        if (vbo != 0) glDeleteBuffers(vbo);
-        if (shaderProgram != 0) glDeleteProgram(shaderProgram);
-        
-        logger.info("UI renderer cleaned up");
-    }
-    
-    // UI Element classes
-    private static abstract class UIElement {
-        public abstract float[] getVertices();
-    }
-    
-    private static class RectangleElement extends UIElement {
-        private final float x, y, width, height;
-        private final Vector4f color;
-        
-        public RectangleElement(float x, float y, float width, float height, Vector4f color) {
-            this.x = x;
-            this.y = y;
-            this.width = width;
-            this.height = height;
-            this.color = color;
-        }
-        
-        @Override
-        public float[] getVertices() {
-            return new float[] {
-                // Triangle 1
-                x, y, color.x, color.y, color.z, color.w,
-                x + width, y, color.x, color.y, color.z, color.w,
-                x, y + height, color.x, color.y, color.z, color.w,
-                
-                // Triangle 2
-                x + width, y, color.x, color.y, color.z, color.w,
-                x + width, y + height, color.x, color.y, color.z, color.w,
-                x, y + height, color.x, color.y, color.z, color.w
-            };
-        }
-    }
-    
-    private static class TextElement extends UIElement {
-        public final String text;
-        public final float x, y, size;
-        public final Vector4f color;
-        
-        public TextElement(String text, float x, float y, float size, Vector4f color) {
-            this.text = text;
-            this.x = x;
-            this.y = y;
-            this.size = size;
-            this.color = color;
-        }
-        
-        @Override
-        public float[] getVertices() {
-            // Text elements don't use vertices directly
-            return new float[0];
-        }
+        GL30.glDeleteVertexArrays(vao);
+        GL15.glDeleteBuffers(vbo);
     }
 }

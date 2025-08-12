@@ -91,7 +91,6 @@ public class ScriptAPI {
             @Override
             public LuaValue call(LuaValue arg) {
                 return LuaValue.valueOf(Engine.getInstance().getWorld().getSeed());
-                return LuaValue.valueOf(12345L);
             }
         });
         

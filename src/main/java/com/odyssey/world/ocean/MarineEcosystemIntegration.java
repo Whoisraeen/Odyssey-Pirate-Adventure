@@ -324,6 +324,7 @@ public class MarineEcosystemIntegration {
     private float getSpeciesMaxAge(MarineEcosystem.SpeciesType species) {
         return switch (species) {
             case PLANKTON -> 0.1f;
+            case FISH -> 3.0f;
             case SMALL_FISH -> 2.0f;
             case MEDIUM_FISH -> 5.0f;
             case LARGE_FISH -> 10.0f;

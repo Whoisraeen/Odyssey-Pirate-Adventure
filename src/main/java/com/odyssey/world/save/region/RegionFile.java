@@ -514,11 +514,16 @@ public class RegionFile {
                 
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 byte[] buffer = new byte[1024];
-                while (!inflater.finished()) {
-                    int count = inflater.inflate(buffer);
-                    baos.write(buffer, 0, count);
+                try {
+                    while (!inflater.finished()) {
+                        int count = inflater.inflate(buffer);
+                        baos.write(buffer, 0, count);
+                    }
+                } catch (java.util.zip.DataFormatException e) {
+                    throw new IOException("Failed to decompress chunk data", e);
+                } finally {
+                    inflater.end();
                 }
-                inflater.end();
                 return baos.toByteArray();
             default:
                 throw new IOException("Unsupported compression type: " + type);

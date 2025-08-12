@@ -39,7 +39,7 @@ public class GameStateManager {
     
     public GameStateManager(Engine engine) {
         this.engine = engine;
-        this.uiRenderer = new UIRenderer();
+        this.uiRenderer = new UIRenderer(engine.getWindow(), engine.getRenderer().getShaderManager(), engine.getFontRenderer());
         this.inputLayer = new InputAbstractionLayer(engine.getInputManager(), "keybindings.cfg");
         this.menuSystem = MainMenuSystem.getInstance();
         this.eventBus = EventBus.getInstance();
@@ -52,8 +52,6 @@ public class GameStateManager {
         logger.info("Initializing game state manager");
         
         // Initialize UI renderer
-        var window = engine.getWindow();
-        uiRenderer.initialize(window.getWidth(), window.getHeight());
         inputLayer.initialize();
         
         // Start with main menu to test TextNode implementation
@@ -295,7 +293,9 @@ public class GameStateManager {
         
         // Apply game settings
         if (saveData.getGameSettings() != null && engine.getConfig() != null) {
-            engine.getConfig().applyGameSettings(saveData.getGameSettings());
+            @SuppressWarnings("unchecked")
+            Map<String, Object> gameSettings = (Map<String, Object>) saveData.getGameSettings();
+            engine.getConfig().applyGameSettings(gameSettings);
         }
         
         logger.debug("Successfully applied save data");
@@ -384,27 +384,25 @@ public class GameStateManager {
             var window = stateManager.getEngine().getWindow();
             var menuSystem = stateManager.getMenuSystem();
             
-            // DEBUG: Bright red test rectangle to verify rendering
-            uiRenderer.drawRectangle(100, 100, 200, 100, 
-                new Vector4f(1.0f, 0.0f, 0.0f, 1.0f));
+            // Main menu rendering
             
             // Draw background (dark semi-transparent)
-            uiRenderer.drawRectangle(0, 0, window.getWidth(), window.getHeight(), 
+            uiRenderer.addRectangle(0, 0, window.getWidth(), window.getHeight(), 
                 new Vector4f(0.0f, 0.1f, 0.2f, 0.8f));
             
             // Draw title
-            uiRenderer.drawText("THE ODYSSEY", window.getWidth() / 2f - 200, 100, 48, 
+            uiRenderer.addText("THE ODYSSEY", window.getWidth() / 2f - 200, 100, 
                 new Vector4f(1.0f, 1.0f, 1.0f, 1.0f));
             
             // Draw subtitle using rectangle-based text
-            uiRenderer.drawText("Pirate Adventure Awaits", window.getWidth() / 2f - 150, 150, 24, 
+            uiRenderer.addText("Pirate Adventure Awaits", window.getWidth() / 2f - 150, 150, 
                 new Vector4f(0.8f, 0.9f, 1.0f, 1.0f));
             
             // Draw animated test text with color animation
             float r = (float) (0.5f + 0.5f * Math.sin(animationTime * 2.0));
             float g = (float) (0.5f + 0.5f * Math.sin(animationTime * 2.0 + Math.PI / 3));
             float b = (float) (0.5f + 0.5f * Math.sin(animationTime * 2.0 + 2 * Math.PI / 3));
-            uiRenderer.drawText("Animated Text Test", window.getWidth() / 2f - 100, 200, 20, 
+            uiRenderer.addText("Animated Text Test", window.getWidth() / 2f - 100, 200, 
                 new Vector4f(r, g, b, 1.0f));
             
             // Render the current menu
@@ -412,11 +410,11 @@ public class GameStateManager {
                 var currentMenu = menuSystem.getCurrentMenu();
                 if (currentMenu != null) {
                     // Draw menu background
-                    uiRenderer.drawRectangle(window.getWidth() / 2f - 200, 250, 400, 300,
+                    uiRenderer.addRectangle(window.getWidth() / 2f - 200, 250, 400, 300,
                         new Vector4f(0.1f, 0.1f, 0.1f, 0.9f));
                     
                     // Draw menu title
-                    uiRenderer.drawText(currentMenu.getTitle(), window.getWidth() / 2f - 100, 270, 24,
+                    uiRenderer.addText(currentMenu.getTitle(), window.getWidth() / 2f - 100, 270,
                         new Vector4f(1.0f, 0.8f, 0.2f, 1.0f));
                     
                     // Draw menu items
@@ -427,7 +425,7 @@ public class GameStateManager {
                                 new Vector4f(0.9f, 0.9f, 0.9f, 1.0f) : 
                                 new Vector4f(0.5f, 0.5f, 0.5f, 1.0f);
                             
-                            uiRenderer.drawText(item.getTitle(), window.getWidth() / 2f - 180, yOffset, 18, color);
+                            uiRenderer.addText(item.getTitle(), window.getWidth() / 2f - 180, yOffset, color);
                             yOffset += 30;
                         }
                     }
@@ -435,8 +433,8 @@ public class GameStateManager {
             }
             
             // Draw controls hint
-            uiRenderer.drawText("Use WASD/Arrow Keys or Gamepad to navigate, Enter/A to select", 
-                50, window.getHeight() - 50, 16, new Vector4f(0.7f, 0.7f, 0.7f, 1.0f));
+            uiRenderer.addText("Use WASD/Arrow Keys or Gamepad to navigate, Enter/A to select", 
+                50, window.getHeight() - 50, new Vector4f(0.7f, 0.7f, 0.7f, 1.0f));
         }
         
         private void renderMenu(UIRenderer uiRenderer, MainMenuSystem.Menu menu) {
@@ -454,7 +452,7 @@ public class GameStateManager {
                     new Vector4f(0.9f, 0.9f, 0.9f, 1.0f) : // Light gray for enabled
                     new Vector4f(0.5f, 0.5f, 0.5f, 1.0f);   // Dark gray for disabled
                 
-                uiRenderer.drawText(item.getTitle(), window.getWidth() / 2f - 100, startY + i * 60, 32, color);
+                uiRenderer.addText(item.getTitle(), window.getWidth() / 2f - 100, startY + i * 60, color);
             }
         }
         
@@ -500,9 +498,9 @@ public class GameStateManager {
                 float centerY = window.getHeight() / 2f;
                 
                 // Simple crosshair
-                uiRenderer.drawRectangle(centerX - 10, centerY - 1, 20, 2, 
+                uiRenderer.addRectangle(centerX - 10, centerY - 1, 20, 2, 
                     new Vector4f(1.0f, 1.0f, 1.0f, 0.8f));
-                uiRenderer.drawRectangle(centerX - 1, centerY - 10, 2, 20, 
+                uiRenderer.addRectangle(centerX - 1, centerY - 10, 2, 20, 
                     new Vector4f(1.0f, 1.0f, 1.0f, 0.8f));
             }
         }
@@ -565,7 +563,7 @@ public class GameStateManager {
             var menuSystem = stateManager.getMenuSystem();
             
             // Draw semi-transparent overlay
-            uiRenderer.drawRectangle(0, 0, window.getWidth(), window.getHeight(), 
+            uiRenderer.addRectangle(0, 0, window.getWidth(), window.getHeight(), 
                 new Vector4f(0.0f, 0.0f, 0.0f, 0.5f));
             
             // Draw pause menu background
@@ -574,11 +572,11 @@ public class GameStateManager {
             float menuX = (window.getWidth() - menuWidth) / 2f;
             float menuY = (window.getHeight() - menuHeight) / 2f;
             
-            uiRenderer.drawRectangle(menuX, menuY, menuWidth, menuHeight, 
+            uiRenderer.addRectangle(menuX, menuY, menuWidth, menuHeight, 
                 new Vector4f(0.2f, 0.3f, 0.5f, 0.9f));
             
             // Draw title
-            uiRenderer.drawText("PAUSED", menuX + 150, menuY + 30, 36, 
+            uiRenderer.addText("PAUSED", menuX + 150, menuY + 30, 
                 new Vector4f(1.0f, 1.0f, 1.0f, 1.0f));
             
             // Render menu system if a menu is open
@@ -587,7 +585,7 @@ public class GameStateManager {
             }
             
             // Draw controls hint
-            uiRenderer.drawText("ESC/Menu Button to Resume", menuX + 50, menuY + menuHeight - 40, 16, 
+            uiRenderer.addText("ESC/Menu Button to Resume", menuX + 50, menuY + menuHeight - 40, 
                 new Vector4f(0.7f, 0.7f, 0.7f, 1.0f));
         }
         
@@ -605,7 +603,7 @@ public class GameStateManager {
                     new Vector4f(0.9f, 0.9f, 0.9f, 1.0f) : // Light gray for enabled
                     new Vector4f(0.5f, 0.5f, 0.5f, 1.0f);   // Dark gray for disabled
                 
-                uiRenderer.drawText(item.getTitle(), menuX + 50, startY + i * 50, 24, color);
+                uiRenderer.addText(item.getTitle(), menuX + 50, startY + i * 50, color);
             }
         }
         

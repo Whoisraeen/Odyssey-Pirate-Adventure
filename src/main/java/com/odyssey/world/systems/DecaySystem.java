@@ -174,6 +174,36 @@ public class DecaySystem {
     }
     
     /**
+     * Updates leaf decay at specific coordinates.
+     * 
+     * @param x the block x coordinate
+     * @param y the block y coordinate
+     * @param z the block z coordinate
+     */
+    public void updateLeaves(int x, int y, int z) {
+        // TODO: Implement leaf decay logic
+        // - Check if leaves are connected to wood
+        // - Apply decay if isolated
+        // - Handle different leaf types
+        
+        String blockType = world.getBlock(x, y, z);
+        if (blockType != null && isLeafBlock(blockType)) {
+            logger.debug("Processing leaf decay for {} at ({}, {}, {})", blockType, x, y, z);
+            // Placeholder for leaf decay implementation
+        }
+    }
+    
+    /**
+     * Checks if a block is a leaf block.
+     * 
+     * @param blockType the block type to check
+     * @return true if the block is a leaf block
+     */
+    private boolean isLeafBlock(String blockType) {
+        return blockType.contains("leaves") || blockType.contains("leaf");
+    }
+
+    /**
      * Checks if decay should be processed for the current conditions.
      * 
      * @return true if decay processing should occur

@@ -465,7 +465,8 @@ public class BiomeSystem {
      */
     public ClimateData getClimateAt(int x, int z) {
         // Generate climate data based on biome at location
-        BiomeType biome = getBiomeAt(x, z);
+        BiomeInstance biomeInstance = getBiomeAt(x, z);
+        BiomeType biome = biomeInstance.getType();
         ClimateData climate = new ClimateData();
         
         // Base values from biome

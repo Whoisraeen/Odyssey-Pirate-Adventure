@@ -90,7 +90,7 @@ public class ScriptAPI {
         gameAPI.set("getWorldSeed", new OneArgFunction() {
             @Override
             public LuaValue call(LuaValue arg) {
-                // TODO: Get actual world seed
+                return LuaValue.valueOf(Engine.getInstance().getWorld().getSeed());
                 return LuaValue.valueOf(12345L);
             }
         });

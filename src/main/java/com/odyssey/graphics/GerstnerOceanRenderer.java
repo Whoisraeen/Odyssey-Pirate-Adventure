@@ -333,7 +333,39 @@ public class GerstnerOceanRenderer {
         Vector3f cameraPos = camera.getPosition();
         Vector3f reflectionPos = new Vector3f(cameraPos.x, 2 * seaLevel - cameraPos.y, cameraPos.z);
         
-        // TODO: Set up reflection camera and render scene
+// Create reflection camera matrix
+Matrix4f reflectionView = new Matrix4f(camera.getViewMatrix());
+reflectionView.m11(-reflectionView.m11()); // Invert Y component
+reflectionView.m12(-reflectionView.m12());
+reflectionView.m13(-reflectionView.m13());
+reflectionView.m21(-reflectionView.m21());
+reflectionView.m22(-reflectionView.m22());
+reflectionView.m23(-reflectionView.m23());
+
+// Store original camera state
+Matrix4f originalView = new Matrix4f(camera.getViewMatrix());
+Vector3f originalPos = new Vector3f(camera.getPosition());
+
+// Set reflection camera
+camera.setViewMatrix(reflectionView);
+camera.setPosition(reflectionPos);
+
+// Enable clip plane for water surface
+glEnable(GL_CLIP_PLANE0);
+double[] clipPlane = {0.0, 1.0, 0.0, -seaLevel};
+glClipPlane(GL_CLIP_PLANE0, clipPlane);
+
+// Render reflected scene
+if (sceneRenderer != null) {
+    sceneRenderer.run();
+}
+
+// Restore original camera state
+// camera.setViewMatrix(originalView);
+// camera.setPosition(originalPos);
+
+// Disable clip plane
+glDisable(GL_CLIP_PLANE0);
         // This would require camera manipulation which depends on your Camera implementation
         if (sceneRenderer != null) {
             sceneRenderer.run();

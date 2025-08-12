@@ -6,6 +6,7 @@ import com.odyssey.game.components.PhysicsComponent;
 import com.odyssey.game.ecs.Entity;
 import com.odyssey.game.ecs.System;
 import com.odyssey.world.ocean.MarineEcosystem;
+import org.joml.Vector2f;
 import org.joml.Vector3f;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -111,15 +112,12 @@ public class MarineAISystem extends System {
         }
     }
     
-    @Override
-    public void update(double deltaTime) {
-        float dt = (float) deltaTime;
-        
+    public void update(float deltaTime) {
         // Update timers
-        perceptionTimer += dt;
-        behaviorDecisionTimer += dt;
-        groupUpdateTimer += dt;
-        cacheUpdateTimer += dt;
+        perceptionTimer += deltaTime;
+        behaviorDecisionTimer += deltaTime;
+        groupUpdateTimer += deltaTime;
+        cacheUpdateTimer += deltaTime;
         
         // Get all marine AI entities
         List<Entity> marineEntities = world.getEntitiesWith(
@@ -140,12 +138,12 @@ public class MarineAISystem extends System {
         
         // Update individual creature AI
         for (Entity entity : marineEntities) {
-            updateCreatureAI(entity, dt);
+            updateCreatureAI(entity, deltaTime);
         }
         
         // Update group behaviors periodically
         if (groupUpdateTimer >= GROUP_UPDATE_INTERVAL) {
-            updateGroupBehaviors(dt);
+            updateGroupBehaviors(deltaTime);
             groupUpdateTimer = 0.0f;
         }
         
@@ -449,13 +447,13 @@ public class MarineAISystem extends System {
         if (distance > 0.1f) {
             direction.normalize();
             
-            // Apply speed and agility - convert to 2D for physics
             Vector2f desiredVelocity2f = new Vector2f(direction.x, direction.z).mul(aiComp.maxSpeed);
-            Vector2f steering2f = new Vector2f(desiredVelocity2f).sub(physics.velocity);
+            Vector2f currentVelocity2f = new Vector2f(physics.velocity.x, physics.velocity.z);
+            Vector2f steering2f = new Vector2f(desiredVelocity2f).sub(currentVelocity2f);
             steering2f.mul(aiComp.agility * deltaTime);
             
             // Apply steering force
-            physics.velocity.add(steering2f);
+            physics.velocity.add(new Vector3f(steering2f.x, 0, steering2f.y));
             
             // Limit velocity to max speed
             if (physics.velocity.length() > aiComp.maxSpeed) {

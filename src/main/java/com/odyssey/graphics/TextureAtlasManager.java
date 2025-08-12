@@ -1,5 +1,6 @@
 package com.odyssey.graphics;
 
+import java.io.File;
 import java.nio.ByteBuffer;
 import java.nio.IntBuffer;
 import java.nio.file.Files;
@@ -379,17 +380,23 @@ public class TextureAtlasManager {
         
         List<TextureAtlas> categoryAtlases = atlases.get(category);
         
-        // Try to add to existing atlases
-        for (TextureAtlas atlas : categoryAtlases) {
-            TextureAtlas.AtlasRegion region = atlas.addTexture(name, textureData, width, height);
-            if (region != null) {
-                AtlasTextureReference reference = new AtlasTextureReference(atlas, region, category);
-                textureReferences.put(name, reference);
-                return reference;
+        // Try to add to existing atlases (if any exist)
+        if (!categoryAtlases.isEmpty()) {
+            for (TextureAtlas atlas : categoryAtlases) {
+                TextureAtlas.AtlasRegion region = atlas.addTexture(name, textureData, width, height);
+                if (region != null) {
+                    AtlasTextureReference reference = new AtlasTextureReference(atlas, region, category);
+                    textureReferences.put(name, reference);
+                    return reference;
+                }
             }
+            logger.debug("Texture '" + name + "' (" + width + "x" + height + ") doesn't fit in existing " + 
+                        category.getName() + " atlases, creating new atlas");
+        } else {
+            logger.debug("No existing atlases for category '" + category.getName() + "', creating first atlas");
         }
         
-        // Create new atlas if none can fit the texture
+        // Create new atlas if none can fit the texture or no atlases exist
         TextureAtlas newAtlas = new TextureAtlas(category.getDefaultSize(), category.getPackingAlgorithm());
         categoryAtlases.add(newAtlas);
         
@@ -714,11 +721,11 @@ public class TextureAtlasManager {
             createPlaceholderTexture("grass_side", AtlasCategory.BLOCKS);
         }
         
-            // TODO: Load other block textures (stone, dirt, water, etc.)
-            // For now, create placeholders for other block types
-            createPlaceholderTexture("stone", AtlasCategory.BLOCKS);
-            createPlaceholderTexture("dirt", AtlasCategory.BLOCKS);
-            createPlaceholderTexture("water", AtlasCategory.BLOCKS);
+            // Load all block textures from resources/textures/blocks/
+            loadAllBlockTexturesFromDirectory();
+            
+            // Load water animation textures
+            loadWaterAnimationTextures();
             
             logger.info("Completed loading block textures");
         } catch (Exception e) {
@@ -789,6 +796,160 @@ public class TextureAtlasManager {
         addTexture(name, textureData, size, size, category);
     }
     
+    /**
+     * Loads all block textures from the resources/textures/blocks/ directory.
+     */
+    private void loadAllBlockTexturesFromDirectory() {
+        String blocksPath = "src/main/resources/textures/blocks/";
+        File blocksDir = new File(blocksPath);
+        
+        if (!blocksDir.exists() || !blocksDir.isDirectory()) {
+            logger.warn("Blocks texture directory not found: {}", blocksPath);
+            createFallbackBlockTextures();
+            return;
+        }
+        
+        File[] textureFiles = blocksDir.listFiles((dir, name) -> 
+            name.toLowerCase().endsWith(".png") || name.toLowerCase().endsWith(".jpg"));
+        
+        if (textureFiles == null || textureFiles.length == 0) {
+            logger.warn("No texture files found in blocks directory");
+            createFallbackBlockTextures();
+            return;
+        }
+        
+        int loadedCount = 0;
+        for (File textureFile : textureFiles) {
+            String fileName = textureFile.getName();
+            String textureName = fileName.substring(0, fileName.lastIndexOf('.'));
+            
+            try {
+                AtlasTextureReference ref = loadAndAddTextureToAtlas(textureName, textureFile.getAbsolutePath(), AtlasCategory.BLOCKS);
+                if (ref != null) {
+                    loadedCount++;
+                    logger.debug("Loaded block texture: {}", textureName);
+                } else {
+                    logger.warn("Failed to load block texture: {}", textureName);
+                    createPlaceholderTexture(textureName, AtlasCategory.BLOCKS);
+                }
+            } catch (Exception e) {
+                logger.error("Error loading block texture {}: {}", textureName, e.getMessage());
+                createPlaceholderTexture(textureName, AtlasCategory.BLOCKS);
+            }
+        }
+        
+        logger.info("Loaded {} block textures from directory", loadedCount);
+        
+        // Ensure we have essential block textures
+        ensureEssentialBlockTextures();
+    }
+    
+    /**
+     * Loads water animation textures from the resources/textures/water/ directory.
+     */
+    private void loadWaterAnimationTextures() {
+        String waterPath = "src/main/resources/textures/water/";
+        File waterDir = new File(waterPath);
+        
+        if (!waterDir.exists() || !waterDir.isDirectory()) {
+            logger.warn("Water texture directory not found: {}", waterPath);
+            createPlaceholderTexture("water", AtlasCategory.BLOCKS);
+            return;
+        }
+        
+        // Load water flow frames
+        for (int i = 0; i < 4; i++) {
+            String frameFileName = "water_flow_frame_" + i + ".svg";
+            File frameFile = new File(waterDir, frameFileName);
+            
+            if (frameFile.exists()) {
+                // Convert SVG to PNG for atlas use (simplified approach)
+                String textureName = "water_flow_frame_" + i;
+                try {
+                    // For now, create a placeholder since SVG conversion is complex
+                    createAnimatedWaterPlaceholder(textureName, AtlasCategory.BLOCKS, i);
+                    logger.debug("Created placeholder for water flow frame: {}", textureName);
+                } catch (Exception e) {
+                    logger.error("Error processing water flow frame {}: {}", i, e.getMessage());
+                }
+            }
+        }
+        
+        // Load water still frames
+        for (int i = 0; i < 4; i++) {
+            String frameFileName = "water_still_frame_" + i + ".svg";
+            File frameFile = new File(waterDir, frameFileName);
+            
+            if (frameFile.exists()) {
+                String textureName = "water_still_frame_" + i;
+                try {
+                    createAnimatedWaterPlaceholder(textureName, AtlasCategory.BLOCKS, i);
+                    logger.debug("Created placeholder for water still frame: {}", textureName);
+                } catch (Exception e) {
+                    logger.error("Error processing water still frame {}: {}", i, e.getMessage());
+                }
+            }
+        }
+        
+        logger.info("Processed water animation textures");
+    }
+    
+    /**
+     * Creates fallback block textures when directory loading fails.
+     */
+    private void createFallbackBlockTextures() {
+        createPlaceholderTexture("stone", AtlasCategory.BLOCKS);
+        createPlaceholderTexture("dirt", AtlasCategory.BLOCKS);
+        createPlaceholderTexture("water", AtlasCategory.BLOCKS);
+        createPlaceholderTexture("wood", AtlasCategory.BLOCKS);
+        createPlaceholderTexture("cobblestone", AtlasCategory.BLOCKS);
+        logger.info("Created fallback block textures");
+    }
+    
+    /**
+     * Ensures essential block textures exist, creating placeholders if missing.
+     */
+    private void ensureEssentialBlockTextures() {
+        String[] essentialTextures = {"stone", "dirt", "water", "wood", "cobblestone"};
+        
+        for (String textureName : essentialTextures) {
+            if (!hasTexture(textureName)) {
+                createPlaceholderTexture(textureName, AtlasCategory.BLOCKS);
+                logger.debug("Created missing essential texture: {}", textureName);
+            }
+        }
+    }
+    
+    /**
+     * Creates an animated water placeholder texture with frame-specific coloring.
+     */
+    private void createAnimatedWaterPlaceholder(String name, AtlasCategory category, int frame) {
+        int size = 16;
+        ByteBuffer textureData = ByteBuffer.allocateDirect(size * size * 4);
+        
+        // Create water-like texture with frame variation
+        float frameOffset = frame * 0.25f;
+        
+        for (int y = 0; y < size; y++) {
+            for (int x = 0; x < size; x++) {
+                // Create a wave-like pattern
+                float wave = (float) Math.sin((x + y + frameOffset * 8) * 0.5) * 0.3f + 0.7f;
+                
+                int blue = (int) (100 + wave * 100);
+                int green = (int) (50 + wave * 50);
+                int red = (int) (20 + wave * 20);
+                
+                textureData.put((byte) red);   // R
+                textureData.put((byte) green); // G
+                textureData.put((byte) blue);  // B
+                textureData.put((byte) 200);   // A (semi-transparent)
+            }
+        }
+        
+        textureData.flip();
+        addTexture(name, textureData, size, size, category);
+    }
+
     /**
      * Creates a placeholder texture with a distinctive pattern.
      * @param name The name for the placeholder texture

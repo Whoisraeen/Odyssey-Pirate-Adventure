@@ -387,6 +387,11 @@ public class Camera {
     }
     
     public Matrix4f getViewMatrix() { return new Matrix4f(viewMatrix); }
+    
+    public void setViewMatrix(Matrix4f viewMatrix) {
+        this.viewMatrix.set(viewMatrix);
+    }
+    
     public Matrix4f getProjectionMatrix() { return new Matrix4f(projectionMatrix); }
     
     public float getFieldOfView() { return fieldOfView; }

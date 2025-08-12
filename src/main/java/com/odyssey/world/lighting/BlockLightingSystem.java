@@ -135,7 +135,7 @@ public class BlockLightingSystem {
             return;
         }
         
-        chunk.setBlockLight(position.x & 15, position.y, position.z & 15, lightLevel);
+        chunk.setBlockLight(position.x & 15, position.y, position.z & 15, (byte) lightLevel);
         
         // Propagate to neighboring blocks
         for (Vector3i direction : LIGHT_DIRECTIONS) {
@@ -189,7 +189,7 @@ public class BlockLightingSystem {
             return;
         }
         
-        chunk.setSkyLight(position.x & 15, position.y, position.z & 15, lightLevel);
+        chunk.setSkyLight(position.x & 15, position.y, position.z & 15, (byte) lightLevel);
         
         // Propagate to neighboring blocks
         for (Vector3i direction : LIGHT_DIRECTIONS) {
@@ -274,11 +274,11 @@ public class BlockLightingSystem {
         int localZ = position.z & 15;
         
         // Remove block light
-        chunk.setBlockLight(localX, position.y, localZ, 0);
+        chunk.setBlockLight(localX, position.y, localZ, (byte) 0);
         
         // Remove sky light if not at surface
         if (!isExposedToSky(position)) {
-            chunk.setSkyLight(localX, position.y, localZ, 0);
+            chunk.setSkyLight(localX, position.y, localZ, (byte) 0);
         }
         
         // Schedule updates for neighboring blocks

@@ -43,7 +43,7 @@ public class MarineEcosystem {
     private boolean useECSSystem = false;
     
     public enum SpeciesType {
-        PLANKTON, SMALL_FISH, MEDIUM_FISH, LARGE_FISH, 
+        PLANKTON, FISH, SMALL_FISH, MEDIUM_FISH, LARGE_FISH, 
         SHARK, WHALE, DOLPHIN, OCTOPUS, SQUID,
         CRAB, LOBSTER, SEA_TURTLE, JELLYFISH,
         CORAL, SEAWEED, SEA_ANEMONE
@@ -81,6 +81,7 @@ public class MarineEcosystem {
         private static float getSpeciesBaseSize(SpeciesType species) {
             return switch (species) {
                 case PLANKTON -> 0.001f;
+                case FISH -> 0.5f;
                 case SMALL_FISH -> 0.2f;
                 case MEDIUM_FISH -> 0.8f;
                 case LARGE_FISH -> 2.0f;
@@ -254,6 +255,7 @@ public class MarineEcosystem {
     private int getInitialPopulationSize(SpeciesType species) {
         return switch (species) {
             case PLANKTON -> 10000;
+            case FISH -> 1000;
             case SMALL_FISH -> 2000;
             case MEDIUM_FISH -> 500;
             case LARGE_FISH -> 100;
@@ -671,6 +673,7 @@ public class MarineEcosystem {
     private float getSpeciesMaxAge(SpeciesType species) {
         return switch (species) {
             case PLANKTON -> 30.0f; // 30 seconds (very short-lived)
+            case FISH -> 450.0f; // 7.5 minutes
             case SMALL_FISH -> 300.0f; // 5 minutes
             case MEDIUM_FISH -> 600.0f; // 10 minutes
             case LARGE_FISH -> 1200.0f; // 20 minutes

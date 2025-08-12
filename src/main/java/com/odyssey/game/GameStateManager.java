@@ -1,11 +1,17 @@
 package com.odyssey.game;
 
 import com.odyssey.core.Engine;
+import com.odyssey.world.save.SaveManager;
 import com.odyssey.graphics.Renderer;
 import com.odyssey.input.InputAbstractionLayer;
 import com.odyssey.input.InputAction;
 import com.odyssey.ui.UIRenderer;
-import com.odyssey.ui.TextNode;
+// import com.odyssey.ui.TextNode; // Disabled to fix compilation
+import com.odyssey.ui.MainMenuSystem;
+import com.odyssey.events.EventBus;
+import com.odyssey.events.EventBus.Subscribe;
+import com.odyssey.events.MenuEvent;
+import com.odyssey.world.save.SaveData;
 import org.joml.Vector4f;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +30,8 @@ public class GameStateManager {
     private final Engine engine;
     private final UIRenderer uiRenderer;
     private final InputAbstractionLayer inputLayer;
+    private final MainMenuSystem menuSystem;
+    private final EventBus eventBus;
     
     public enum StateType {
         MENU, LOADING, PLAYING, PAUSED, INVENTORY, MAP, SETTINGS
@@ -33,6 +41,11 @@ public class GameStateManager {
         this.engine = engine;
         this.uiRenderer = new UIRenderer();
         this.inputLayer = new InputAbstractionLayer(engine.getInputManager(), "keybindings.cfg");
+        this.menuSystem = MainMenuSystem.getInstance();
+        this.eventBus = EventBus.getInstance();
+        
+        // Register event listeners for menu system integration
+        registerMenuEventListeners();
     }
     
     public void initialize() {
@@ -123,12 +136,169 @@ public class GameStateManager {
     public UIRenderer getUIRenderer() { return uiRenderer; }
     public InputAbstractionLayer getInputLayer() { return inputLayer; }
     
+    public MainMenuSystem getMenuSystem() {
+        return menuSystem;
+    }
+    
+    /**
+     * Registers event listeners for menu system integration
+     */
+    private void registerMenuEventListeners() {
+        eventBus.register(this);
+    }
+    
+    @Subscribe
+    public void handleGameStarted(MenuEvent.GameStarted event) {
+        logger.info("Starting game with type: {}", event.getStartType());
+        changeState(new PlayingState(this));
+    }
+    
+    @Subscribe
+    public void handleGameSaved(MenuEvent.GameSaved event) {
+        logger.info("Game saved to slot: {}", event.getSaveSlot());
+        
+        try {
+            // Get the save manager from the engine
+            SaveManager saveManager = engine.getSaveManager();
+            if (saveManager == null) {
+                logger.error("SaveManager not available for saving game");
+                return;
+            }
+            
+            // Create save data from current game state
+            SaveData saveData = createSaveData();
+            
+            // Save the game to the specified slot
+            saveManager.saveGame(event.getSaveSlot(), saveData);
+            
+            logger.info("Game successfully saved to slot: {}", event.getSaveSlot());
+            
+        } catch (Exception e) {
+            logger.error("Failed to save game to slot {}: {}", event.getSaveSlot(), e.getMessage(), e);
+        }
+    }
+    
+    @Subscribe
+    public void handleGameLoaded(MenuEvent.GameLoaded event) {
+        logger.info("Game loaded from slot: {}", event.getSaveSlot());
+        
+        try {
+            // Get the save manager from the engine
+            SaveManager saveManager = engine.getSaveManager();
+            if (saveManager == null) {
+                logger.error("SaveManager not available for loading game");
+                return;
+            }
+            
+            // Load the game from the specified slot
+            SaveData saveData = saveManager.loadGame(event.getSaveSlot());
+            if (saveData == null) {
+                logger.error("Failed to load save data from slot: {}", event.getSaveSlot());
+                return;
+            }
+            
+            // Apply the loaded save data to the game state
+            applySaveData(saveData);
+            
+            // Change to playing state
+            changeState(new PlayingState(this));
+            
+            logger.info("Game successfully loaded from slot: {}", event.getSaveSlot());
+            
+        } catch (Exception e) {
+            logger.error("Failed to load game from slot {}: {}", event.getSaveSlot(), e.getMessage(), e);
+        }
+    }
+    
     public GameState getCurrentState() {
         return currentState;
     }
     
     public boolean hasStates() {
         return currentState != null;
+    }
+    
+    /**
+     * Creates save data from the current game state.
+     */
+    private SaveData createSaveData() {
+        SaveData saveData = new SaveData();
+        
+        // Save basic game information
+        saveData.setTimestamp(System.currentTimeMillis());
+        saveData.setGameVersion(engine.getVersion());
+        
+        // Save player data
+        if (engine.getPlayerManager() != null) {
+            saveData.setPlayerData(engine.getPlayerManager().getPlayerData());
+        }
+        
+        // Save world data
+        if (engine.getWorldManager() != null) {
+            saveData.setWorldData(engine.getWorldManager().getWorldData());
+        }
+        
+        // Save ship data
+        if (engine.getShipManager() != null) {
+            saveData.setShipData(engine.getShipManager().getShipData());
+        }
+        
+        // Save inventory data
+        if (engine.getInventoryManager() != null) {
+            saveData.setInventoryData(engine.getInventoryManager().getInventoryData());
+        }
+        
+        // Save quest data
+        if (engine.getQuestManager() != null) {
+            saveData.setQuestData(engine.getQuestManager().getQuestData());
+        }
+        
+        // Save game settings
+        if (engine.getGameConfig() != null) {
+            saveData.setGameSettings(engine.getGameConfig().getGameSettings());
+        }
+        
+        logger.debug("Created save data with timestamp: {}", saveData.getTimestamp());
+        return saveData;
+    }
+    
+    /**
+     * Applies loaded save data to the current game state.
+     */
+    private void applySaveData(SaveData saveData) {
+        logger.debug("Applying save data with timestamp: {}", saveData.getTimestamp());
+        
+        // Apply player data
+        if (saveData.getPlayerData() != null && engine.getPlayerManager() != null) {
+            engine.getPlayerManager().setPlayerData(saveData.getPlayerData());
+        }
+        
+        // Apply world data
+        if (saveData.getWorldData() != null && engine.getWorldManager() != null) {
+            engine.getWorldManager().setWorldData(saveData.getWorldData());
+        }
+        
+        // Apply ship data
+        if (saveData.getShipData() != null && engine.getShipManager() != null) {
+            engine.getShipManager().setShipData(saveData.getShipData());
+        }
+        
+        // Apply inventory data
+        if (saveData.getInventoryData() != null && engine.getInventoryManager() != null) {
+            engine.getInventoryManager().setInventoryData(saveData.getInventoryData());
+        }
+        
+        // Apply quest data
+        if (saveData.getQuestData() != null && engine.getQuestManager() != null) {
+            engine.getQuestManager().setQuestData(saveData.getQuestData());
+        }
+        
+        // Apply game settings
+        if (saveData.getGameSettings() != null && engine.getConfig() != null) {
+            engine.getConfig().applyGameSettings(saveData.getGameSettings());
+        }
+        
+        logger.debug("Successfully applied save data");
     }
     
     // Game state implementations
@@ -147,14 +317,12 @@ public class GameStateManager {
     
     public static class MainMenuState extends GameState {
         private static final Logger logger = LoggerFactory.getLogger(MainMenuState.class);
-        private int selectedOption = 0;
-        private final String[] menuOptions = {"Start Game", "Settings", "Exit"};
-        
-        // TextNode testing
-        private TextNode titleTextNode;
-        private TextNode subtitleTextNode;
-        private TextNode testTextNode;
+        // TextNodes disabled to fix compilation
+        // private TextNode subtitleTextNode;
+        // private TextNode testTextNode;
         private double animationTime = 0.0;
+        private double startupTime = 0.0;
+        private static final double STARTUP_DELAY = 1.0; // 1 second delay before allowing exit
         
         public MainMenuState(GameStateManager stateManager) {
             super(stateManager);
@@ -166,130 +334,128 @@ public class GameStateManager {
             // Release mouse capture for menu navigation
             stateManager.getEngine().getInputManager().setMouseCaptured(false);
             
-            // Initialize TextNode instances for testing
-            var window = stateManager.getEngine().getWindow();
+            // TextNodes disabled for compilation - using rectangle-based UI instead
             
-            titleTextNode = new TextNode("THE ODYSSEY", window.getWidth() / 2f - 200, 100, 48, 
-                new Vector4f(1.0f, 1.0f, 1.0f, 1.0f));
-            
-            subtitleTextNode = new TextNode("Navigate the Boundless Azure", window.getWidth() / 2f - 150, 160, 24, 
-                new Vector4f(0.8f, 0.9f, 1.0f, 1.0f));
-            
-            testTextNode = new TextNode("TextNode Test - Animated Color", 50, 50, 20, 
-                new Vector4f(1.0f, 0.5f, 0.0f, 1.0f));
-            
-            logger.info("TextNode instances created for main menu");
+            // Open the main menu
+            stateManager.getMenuSystem().openMenu("main");
         }
         
         @Override
         public void update(double deltaTime) {
             var inputLayer = stateManager.getInputLayer();
+            var menuSystem = stateManager.getMenuSystem();
             
-            // TODO: [Z] MENU RE-ENABLED - Full navigation and animation logic restored
-            // Menu input handling has been restored with full functionality
-            
-            // Update animation time for TextNode testing
+            // Update timing
             animationTime += deltaTime;
+            startupTime += deltaTime;
             
-            // Animate the test TextNode color
-            if (testTextNode != null) {
-                float r = (float) (0.5f + 0.5f * Math.sin(animationTime * 2.0));
-                float g = (float) (0.5f + 0.5f * Math.sin(animationTime * 2.0 + Math.PI / 3));
-                float b = (float) (0.5f + 0.5f * Math.sin(animationTime * 2.0 + 2 * Math.PI / 3));
-                testTextNode.setColor(r, g, b, 1.0f);
-            }
+            // TextNode animation disabled
             
-            // Navigate menu with keyboard/gamepad
-            if (inputLayer.wasActionJustPressed(InputAction.MOVE_UP) || 
-                inputLayer.wasActionJustPressed(InputAction.LOOK_VERTICAL) && inputLayer.getActionValue(InputAction.LOOK_VERTICAL) < -0.5f) {
-                selectedOption = Math.max(0, selectedOption - 1);
-            }
-            if (inputLayer.wasActionJustPressed(InputAction.MOVE_DOWN) || 
-                inputLayer.wasActionJustPressed(InputAction.LOOK_VERTICAL) && inputLayer.getActionValue(InputAction.LOOK_VERTICAL) > 0.5f) {
-                selectedOption = Math.min(menuOptions.length - 1, selectedOption + 1);
-            }
+            // Update menu system
+            menuSystem.update();
             
-            // Select option
+            // Handle input for menu navigation
+            if (inputLayer.wasActionJustPressed(InputAction.MOVE_UP)) {
+                menuSystem.handleInput("up");
+            }
+            if (inputLayer.wasActionJustPressed(InputAction.MOVE_DOWN)) {
+                menuSystem.handleInput("down");
+            }
             if (inputLayer.wasActionJustPressed(InputAction.CONFIRM) || inputLayer.wasActionJustPressed(InputAction.JUMP)) {
-                handleMenuSelection();
+                menuSystem.handleInput("select");
             }
             
             // Handle ESC key and controller menu button - exit game from main menu
+            // Only allow exit after startup delay to prevent accidental immediate exits
             if (inputLayer.wasActionJustPressed(InputAction.OPEN_MENU) || inputLayer.wasActionJustPressed(InputAction.CANCEL)) {
-                stateManager.getEngine().stop();
-            }
-        }
-        
-        private void handleMenuSelection() {
-            switch (selectedOption) {
-                case 0: // Start Game
-                    stateManager.changeState(new PlayingState(stateManager));
-                    break;
-                case 1: // Settings
-                    // TODO: Implement settings menu
-                    logger.info("Settings menu not yet implemented");
-                    break;
-                case 2: // Exit
+                if (startupTime <= STARTUP_DELAY) {
+                    logger.debug("Exit input detected during startup delay ({:.2f}s < {:.2f}s) - ignoring", 
+                        startupTime, STARTUP_DELAY);
+                } else {
+                    logger.info("Exit requested from main menu - shutting down game");
                     stateManager.getEngine().stop();
-                    break;
+                }
             }
         }
         
         @Override
         public void render(Renderer renderer) {
-            // TODO: [Z] MENU RE-ENABLED - Main menu UI rendering restored
-            // Menu has been re-enabled with full functionality including:
-            // - Background rectangle rendering
-            // - Title and subtitle text rendering using TextNode
-            // - Menu options with selection highlighting
-            // - Control hints and navigation instructions
-            // - Test rectangles for UI debugging (can be removed when stable)
-            
-            logger.info("MainMenuState.render() called - MENU ENABLED");
             var uiRenderer = stateManager.getUIRenderer();
             var window = stateManager.getEngine().getWindow();
+            var menuSystem = stateManager.getMenuSystem();
             
-            logger.info("Rendering main menu for window size: {}x{}", window.getWidth(), window.getHeight());
+            // DEBUG: Bright red test rectangle to verify rendering
+            uiRenderer.drawRectangle(100, 100, 200, 100, 
+                new Vector4f(1.0f, 0.0f, 0.0f, 1.0f));
             
             // Draw background (dark semi-transparent)
             uiRenderer.drawRectangle(0, 0, window.getWidth(), window.getHeight(), 
                 new Vector4f(0.0f, 0.1f, 0.2f, 0.8f));
             
-            // Add some bright test rectangles to ensure UI is visible
-            uiRenderer.drawRectangle(100, 100, 200, 50, new Vector4f(1.0f, 0.0f, 0.0f, 1.0f)); // Red test
-            uiRenderer.drawRectangle(100, 200, 200, 50, new Vector4f(0.0f, 1.0f, 0.0f, 1.0f)); // Green test
-            uiRenderer.drawRectangle(100, 300, 200, 50, new Vector4f(0.0f, 0.0f, 1.0f, 1.0f)); // Blue test
-            
-            // Draw title using both direct UIRenderer and TextNode for comparison
+            // Draw title
             uiRenderer.drawText("THE ODYSSEY", window.getWidth() / 2f - 200, 100, 48, 
                 new Vector4f(1.0f, 1.0f, 1.0f, 1.0f));
             
-            // Draw subtitle using TextNode
-            if (subtitleTextNode != null) {
-                subtitleTextNode.render(uiRenderer);
-            }
+            // Draw subtitle using rectangle-based text
+            uiRenderer.drawText("Pirate Adventure Awaits", window.getWidth() / 2f - 150, 150, 24, 
+                new Vector4f(0.8f, 0.9f, 1.0f, 1.0f));
             
-            // Draw animated test TextNode
-            if (testTextNode != null) {
-                testTextNode.render(uiRenderer);
-            }
+            // Draw animated test text with color animation
+            float r = (float) (0.5f + 0.5f * Math.sin(animationTime * 2.0));
+            float g = (float) (0.5f + 0.5f * Math.sin(animationTime * 2.0 + Math.PI / 3));
+            float b = (float) (0.5f + 0.5f * Math.sin(animationTime * 2.0 + 2 * Math.PI / 3));
+            uiRenderer.drawText("Animated Text Test", window.getWidth() / 2f - 100, 200, 20, 
+                new Vector4f(r, g, b, 1.0f));
             
-            // Draw menu options
-            float startY = 300;
-            for (int i = 0; i < menuOptions.length; i++) {
-                Vector4f color = (i == selectedOption) ? 
-                    new Vector4f(1.0f, 1.0f, 0.0f, 1.0f) : // Yellow for selected
-                    new Vector4f(0.9f, 0.9f, 0.9f, 1.0f);   // Light gray for others
-                
-                logger.debug("Drawing menu option {}: '{}' at y={}", i, menuOptions[i], startY + i * 60);
-                uiRenderer.drawText(menuOptions[i], window.getWidth() / 2f - 100, startY + i * 60, 32, color);
+            // Render the current menu
+            if (menuSystem.isMenuOpen()) {
+                var currentMenu = menuSystem.getCurrentMenu();
+                if (currentMenu != null) {
+                    // Draw menu background
+                    uiRenderer.drawRectangle(window.getWidth() / 2f - 200, 250, 400, 300,
+                        new Vector4f(0.1f, 0.1f, 0.1f, 0.9f));
+                    
+                    // Draw menu title
+                    uiRenderer.drawText(currentMenu.getTitle(), window.getWidth() / 2f - 100, 270, 24,
+                        new Vector4f(1.0f, 0.8f, 0.2f, 1.0f));
+                    
+                    // Draw menu items
+                    float yOffset = 320;
+                    for (var item : currentMenu.getItems()) {
+                        if (item.isVisible()) {
+                            Vector4f color = item.isEnabled() ? 
+                                new Vector4f(0.9f, 0.9f, 0.9f, 1.0f) : 
+                                new Vector4f(0.5f, 0.5f, 0.5f, 1.0f);
+                            
+                            uiRenderer.drawText(item.getTitle(), window.getWidth() / 2f - 180, yOffset, 18, color);
+                            yOffset += 30;
+                        }
+                    }
+                }
             }
             
             // Draw controls hint
             uiRenderer.drawText("Use WASD/Arrow Keys or Gamepad to navigate, Enter/A to select", 
                 50, window.getHeight() - 50, 16, new Vector4f(0.7f, 0.7f, 0.7f, 1.0f));
+        }
+        
+        private void renderMenu(UIRenderer uiRenderer, MainMenuSystem.Menu menu) {
+            if (menu == null) return;
             
-            logger.debug("MainMenuState.render() completed - menu enabled, showing full interface");
+            var window = stateManager.getEngine().getWindow();
+            float startY = 300;
+            
+            var items = menu.getItems();
+            for (int i = 0; i < items.size(); i++) {
+                var item = items.get(i);
+                if (!item.isVisible()) continue;
+                
+                Vector4f color = item.isEnabled() ? 
+                    new Vector4f(0.9f, 0.9f, 0.9f, 1.0f) : // Light gray for enabled
+                    new Vector4f(0.5f, 0.5f, 0.5f, 1.0f);   // Dark gray for disabled
+                
+                uiRenderer.drawText(item.getTitle(), window.getWidth() / 2f - 100, startY + i * 60, 32, color);
+            }
         }
         
         @Override
@@ -349,8 +515,6 @@ public class GameStateManager {
     
     public static class PauseState extends GameState {
         private static final Logger logger = LoggerFactory.getLogger(PauseState.class);
-        private int selectedOption = 0;
-        private final String[] menuOptions = {"Resume", "Settings", "Main Menu", "Exit Game"};
         
         public PauseState(GameStateManager stateManager) {
             super(stateManager);
@@ -361,50 +525,36 @@ public class GameStateManager {
             logger.debug("Initialized pause state");
             // Release mouse capture for menu navigation
             stateManager.getEngine().getInputManager().setMouseCaptured(false);
+            
+            // Open the in-game pause menu
+            stateManager.getMenuSystem().openMenu("ingame");
         }
         
         @Override
         public void update(double deltaTime) {
             var inputLayer = stateManager.getInputLayer();
+            var menuSystem = stateManager.getMenuSystem();
             
-            // Navigate menu
-            if (inputLayer.wasActionJustPressed(InputAction.MOVE_UP) || 
-                inputLayer.wasActionJustPressed(InputAction.LOOK_VERTICAL) && inputLayer.getActionValue(InputAction.LOOK_VERTICAL) < -0.5f) {
-                selectedOption = Math.max(0, selectedOption - 1);
+            // Update menu system
+            menuSystem.update();
+            
+            // Handle input for menu navigation
+            if (inputLayer.wasActionJustPressed(InputAction.MOVE_UP)) {
+                menuSystem.handleInput("up");
             }
-            if (inputLayer.wasActionJustPressed(InputAction.MOVE_DOWN) || 
-                inputLayer.wasActionJustPressed(InputAction.LOOK_VERTICAL) && inputLayer.getActionValue(InputAction.LOOK_VERTICAL) > 0.5f) {
-                selectedOption = Math.min(menuOptions.length - 1, selectedOption + 1);
+            if (inputLayer.wasActionJustPressed(InputAction.MOVE_DOWN)) {
+                menuSystem.handleInput("down");
+            }
+            if (inputLayer.wasActionJustPressed(InputAction.CONFIRM) || inputLayer.wasActionJustPressed(InputAction.JUMP)) {
+                menuSystem.handleInput("select");
             }
             
-            // Select option or resume with menu button
-            if (inputLayer.wasActionJustPressed(InputAction.CONFIRM) || 
-                inputLayer.wasActionJustPressed(InputAction.JUMP)) {
-                handleMenuSelection();
-            } else if (inputLayer.wasActionJustPressed(InputAction.OPEN_MENU) ||
-                       inputLayer.wasActionJustPressed(InputAction.CANCEL)) {
-                // Handle ESC key and controller menu button - resume game
+            // Handle ESC key and controller menu button - resume game
+            if (inputLayer.wasActionJustPressed(InputAction.OPEN_MENU) ||
+                inputLayer.wasActionJustPressed(InputAction.CANCEL)) {
                 logger.info("ESC/Menu button pressed in PAUSE MENU - resuming game");
                 stateManager.getEngine().getInputManager().setMouseCaptured(true);
                 stateManager.popState();
-            }
-        }
-        
-        private void handleMenuSelection() {
-            switch (selectedOption) {
-                case 0: // Resume
-                    stateManager.popState();
-                    break;
-                case 1: // Settings
-                    // TODO: Implement settings menu
-                    logger.info("Settings menu not yet implemented");
-                    break;
-                case 2: // Main Menu
-                    stateManager.changeState(new MainMenuState(stateManager));
-                    break;
-                case 3: // Exit Game
-                    stateManager.getEngine().stop();
-                    break;
             }
         }
         
@@ -412,6 +562,7 @@ public class GameStateManager {
         public void render(Renderer renderer) {
             var uiRenderer = stateManager.getUIRenderer();
             var window = stateManager.getEngine().getWindow();
+            var menuSystem = stateManager.getMenuSystem();
             
             // Draw semi-transparent overlay
             uiRenderer.drawRectangle(0, 0, window.getWidth(), window.getHeight(), 
@@ -430,19 +581,32 @@ public class GameStateManager {
             uiRenderer.drawText("PAUSED", menuX + 150, menuY + 30, 36, 
                 new Vector4f(1.0f, 1.0f, 1.0f, 1.0f));
             
-            // Draw menu options
-            float startY = menuY + 100;
-            for (int i = 0; i < menuOptions.length; i++) {
-                Vector4f color = (i == selectedOption) ? 
-                    new Vector4f(1.0f, 1.0f, 0.0f, 1.0f) : // Yellow for selected
-                    new Vector4f(0.9f, 0.9f, 0.9f, 1.0f);   // Light gray for others
-                
-                uiRenderer.drawText(menuOptions[i], menuX + 50, startY + i * 50, 24, color);
+            // Render menu system if a menu is open
+            if (menuSystem.isMenuOpen()) {
+                renderPauseMenu(uiRenderer, menuSystem.getCurrentMenu(), menuX, menuY);
             }
             
             // Draw controls hint
             uiRenderer.drawText("ESC/Menu Button to Resume", menuX + 50, menuY + menuHeight - 40, 16, 
                 new Vector4f(0.7f, 0.7f, 0.7f, 1.0f));
+        }
+        
+        private void renderPauseMenu(UIRenderer uiRenderer, MainMenuSystem.Menu menu, float menuX, float menuY) {
+            if (menu == null) return;
+            
+            float startY = menuY + 100;
+            var items = menu.getItems();
+            
+            for (int i = 0; i < items.size(); i++) {
+                var item = items.get(i);
+                if (!item.isVisible()) continue;
+                
+                Vector4f color = item.isEnabled() ? 
+                    new Vector4f(0.9f, 0.9f, 0.9f, 1.0f) : // Light gray for enabled
+                    new Vector4f(0.5f, 0.5f, 0.5f, 1.0f);   // Dark gray for disabled
+                
+                uiRenderer.drawText(item.getTitle(), menuX + 50, startY + i * 50, 24, color);
+            }
         }
         
         @Override

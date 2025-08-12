@@ -346,12 +346,12 @@ public class CorruptionScanner {
         try (DataInputStream dis = new DataInputStream(Files.newInputStream(regionFile))) {
             // Validate region header
             int magic = dis.readInt();
-            if (magic != WorldSaveFormat.REGION_MAGIC) {
+            if (magic != WorldSaveFormat.REGION_MAGIC_NUMBER) {
                 issues.add(new CorruptionIssue(
                     CorruptionSeverity.HIGH,
                     "Invalid region file magic",
                     regionFile.toString(),
-                    "Expected: " + WorldSaveFormat.REGION_MAGIC + ", Found: " + magic
+                    "Expected: " + WorldSaveFormat.REGION_MAGIC_NUMBER + ", Found: " + magic
                 ));
             }
             

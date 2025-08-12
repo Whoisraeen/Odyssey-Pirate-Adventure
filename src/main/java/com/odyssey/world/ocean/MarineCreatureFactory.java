@@ -75,7 +75,7 @@ public class MarineCreatureFactory {
         
         // Add collider component for collision detection
         Vector3f bounds = getSpeciesBounds(species);
-        ColliderComponent collider = ColliderComponent.createBox(bounds);
+        ColliderComponent collider = ColliderComponent.createRectangle(bounds.x, bounds.z);
         collider.collisionLayer = "marine_creature";
         creature.add(collider);
         
@@ -182,6 +182,7 @@ public class MarineCreatureFactory {
             case DOLPHIN -> new Vector3f(2.0f, 2.0f, 2.0f);
             case SEA_TURTLE -> new Vector3f(1.5f, 1.5f, 1.5f);
             case OCTOPUS -> new Vector3f(1.2f, 1.2f, 1.2f);
+            case FISH -> new Vector3f(0.4f, 0.4f, 0.4f);
             case SMALL_FISH -> new Vector3f(0.3f, 0.3f, 0.3f);
             case MEDIUM_FISH -> new Vector3f(0.5f, 0.5f, 0.5f);
             case LARGE_FISH -> new Vector3f(0.8f, 0.8f, 0.8f);
@@ -200,6 +201,7 @@ public class MarineCreatureFactory {
             case DOLPHIN -> 200.0f;
             case SEA_TURTLE -> 100.0f;
             case OCTOPUS -> 10.0f;
+            case FISH -> 1.5f;
             case SMALL_FISH -> 0.5f;
             case MEDIUM_FISH -> 2.0f;
             case LARGE_FISH -> 5.0f;
@@ -218,7 +220,7 @@ public class MarineCreatureFactory {
             case DOLPHIN -> 0.2f;
             case SEA_TURTLE -> 0.6f;
             case OCTOPUS -> 0.4f;
-            case SMALL_FISH, MEDIUM_FISH, LARGE_FISH -> 0.3f;
+            case FISH, SMALL_FISH, MEDIUM_FISH, LARGE_FISH -> 0.3f;
             case JELLYFISH -> 0.9f;
             default -> 0.5f;
         };
@@ -234,7 +236,7 @@ public class MarineCreatureFactory {
             case DOLPHIN -> 0.98f;
             case SEA_TURTLE -> 1.05f;
             case OCTOPUS -> 1.0f;
-            case SMALL_FISH, MEDIUM_FISH, LARGE_FISH -> 1.01f;
+            case FISH, SMALL_FISH, MEDIUM_FISH, LARGE_FISH -> 1.01f;
             case JELLYFISH -> 0.99f;
             default -> 1.0f;
         };
@@ -250,6 +252,7 @@ public class MarineCreatureFactory {
             case DOLPHIN -> 1.5f;
             case SEA_TURTLE -> 1.0f;
             case OCTOPUS -> 0.8f;
+            case FISH -> 0.25f;
             case SMALL_FISH -> 0.2f;
             case MEDIUM_FISH -> 0.3f;
             case LARGE_FISH -> 0.5f;
@@ -268,6 +271,7 @@ public class MarineCreatureFactory {
             case DOLPHIN -> 150.0f;
             case SEA_TURTLE -> 100.0f;
             case OCTOPUS -> 50.0f;
+            case FISH -> 15.0f;
             case SMALL_FISH -> 10.0f;
             case MEDIUM_FISH -> 20.0f;
             case LARGE_FISH -> 40.0f;
@@ -286,6 +290,7 @@ public class MarineCreatureFactory {
             case DOLPHIN -> 1.2f;
             case SEA_TURTLE -> 0.8f;
             case OCTOPUS -> 1.0f;
+            case FISH -> 0.4f;
             case SMALL_FISH -> 0.3f;
             case MEDIUM_FISH -> 0.5f;
             case LARGE_FISH -> 0.8f;
@@ -304,7 +309,7 @@ public class MarineCreatureFactory {
             case DOLPHIN -> 0.95f;
             case SEA_TURTLE -> 1.1f;
             case OCTOPUS -> 1.0f;
-            case SMALL_FISH, MEDIUM_FISH, LARGE_FISH -> 1.02f;
+            case FISH, SMALL_FISH, MEDIUM_FISH, LARGE_FISH -> 1.02f;
             case JELLYFISH -> 0.98f;
             default -> 1.0f;
         };
@@ -320,6 +325,7 @@ public class MarineCreatureFactory {
             case DOLPHIN -> 5.0f;
             case SEA_TURTLE -> 3.0f;
             case OCTOPUS -> 2.0f;
+            case FISH -> 0.35f;
             case SMALL_FISH -> 0.2f;
             case MEDIUM_FISH -> 0.5f;
             case LARGE_FISH -> 1.0f;
@@ -338,6 +344,7 @@ public class MarineCreatureFactory {
             case DOLPHIN -> new Vector3f(3.0f, 1.0f, 0.8f);
             case SEA_TURTLE -> new Vector3f(1.5f, 0.8f, 1.2f);
             case OCTOPUS -> new Vector3f(1.0f, 1.0f, 1.0f);
+            case FISH -> new Vector3f(0.25f, 0.15f, 0.08f);
             case SMALL_FISH -> new Vector3f(0.2f, 0.1f, 0.05f);
             case MEDIUM_FISH -> new Vector3f(0.3f, 0.2f, 0.1f);
             case LARGE_FISH -> new Vector3f(0.5f, 0.3f, 0.2f);
@@ -356,6 +363,7 @@ public class MarineCreatureFactory {
             case DOLPHIN -> "models/marine/dolphin.obj";
             case SEA_TURTLE -> "models/marine/turtle.obj";
             case OCTOPUS -> "models/marine/octopus.obj";
+            case FISH -> "models/marine/fish.obj";
             case SMALL_FISH -> "models/marine/small_fish.obj";
             case MEDIUM_FISH -> "models/marine/medium_fish.obj";
             case LARGE_FISH -> "models/marine/large_fish.obj";
@@ -374,6 +382,7 @@ public class MarineCreatureFactory {
             case DOLPHIN -> "textures/marine/dolphin.png";
             case SEA_TURTLE -> "textures/marine/turtle.png";
             case OCTOPUS -> "textures/marine/octopus.png";
+            case FISH -> "textures/marine/fish.png";
             case SMALL_FISH -> "textures/marine/small_fish.png";
             case MEDIUM_FISH -> "textures/marine/medium_fish.png";
             case LARGE_FISH -> "textures/marine/large_fish.png";
@@ -387,7 +396,7 @@ public class MarineCreatureFactory {
      */
     private boolean isSchoolingSpecies(MarineEcosystem.SpeciesType species) {
         return switch (species) {
-            case SMALL_FISH, MEDIUM_FISH, LARGE_FISH, DOLPHIN -> true;
+            case FISH, SMALL_FISH, MEDIUM_FISH, LARGE_FISH, DOLPHIN -> true;
             case WHALE, SHARK, SEA_TURTLE, OCTOPUS, JELLYFISH -> false;
             default -> false;
         };

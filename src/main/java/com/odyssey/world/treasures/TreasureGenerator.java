@@ -1,5 +1,7 @@
 package com.odyssey.world.treasures;
 
+import com.odyssey.core.Engine;
+import com.odyssey.world.World;
 import org.joml.Vector3f;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,18 +13,24 @@ import java.util.Random;
 import java.util.UUID;
 
 /**
- * Generates procedural treasure maps and manages treasure locations.
- * Creates realistic treasure distributions across the world.
+ * Generates treasure maps and manages treasure locations in the world.
+ * Integrates with the world generation system to place treasures in suitable locations.
  */
 public class TreasureGenerator {
     private static final Logger logger = LoggerFactory.getLogger(TreasureGenerator.class);
     
     private final Random random;
+    private final long worldSeed;
+    
+    // Treasure generation parameters
+    private static final int MIN_TREASURE_DISTANCE = 500; // Minimum distance between treasures
+    private static final int MAX_GENERATION_ATTEMPTS = 100; // Max attempts to find suitable location
+    
+    // Generated treasures
     private final List<TreasureMap> generatedMaps;
     private final List<Vector3f> treasureLocations;
     
     // Configuration
-    private static final int MIN_TREASURE_DISTANCE = 500; // Minimum distance between treasures
     private static final int MAX_TREASURES_PER_REGION = 3; // Maximum treasures per 1000x1000 region
     private static final float ISLAND_PREFERENCE = 0.7f; // Preference for placing treasures on islands
     
@@ -104,8 +112,7 @@ public class TreasureGenerator {
                 continue;
             }
             
-            // TODO: Check if location is suitable (on land, not in deep ocean, etc.)
-            // For now, we'll use a simple heuristic based on coordinates
+            // Check if location is suitable (on land, not in deep ocean, etc.)
             if (isSuitableLocation(x, z)) {
                 // Set appropriate Y coordinate (sea level or slightly above)
                 candidate.y = getGroundLevel(x, z);
@@ -134,24 +141,69 @@ public class TreasureGenerator {
      * Determines if a location is suitable for treasure placement.
      */
     private boolean isSuitableLocation(float x, float z) {
-        // Simple noise-based terrain check
-        // TODO: Integrate with actual world generation system
+        // Integrate with actual world generation system
+        World world = Engine.getInstance().getWorld();
+        if (world == null) {
+            // Fallback to simple noise-based terrain check if world not available
+            double noise = Math.sin(x * 0.01) * Math.cos(z * 0.01) + 
+                          Math.sin(x * 0.005) * Math.cos(z * 0.005) * 0.5;
+            return noise > -0.3; // Threshold for "land"
+        }
         
-        // Use simple noise to simulate islands vs ocean
-        double noise = Math.sin(x * 0.01) * Math.cos(z * 0.01) + 
-                      Math.sin(x * 0.005) * Math.cos(z * 0.005) * 0.5;
+        // Get terrain height at this location
+        float terrainHeight = world.getHeightAt(x, z);
         
-        // Prefer locations that are likely to be islands
-        return noise > -0.3; // Threshold for "land"
+        // Check if location is on land (above sea level)
+        boolean isOnLand = terrainHeight > World.getSeaLevel();
+        
+        // Check if location is not too high (avoid mountain peaks)
+        boolean isReasonableHeight = terrainHeight < World.getSeaLevel() + 50;
+        
+        // Check if location is accessible (not too steep)
+        boolean isAccessible = isLocationAccessible(world, x, z, terrainHeight);
+        
+        return isOnLand && isReasonableHeight && isAccessible;
+    }
+    
+    /**
+     * Checks if a location is accessible by checking the terrain slope.
+     */
+    private boolean isLocationAccessible(World world, float x, float z, float centerHeight) {
+        // Check terrain height in a small radius to determine slope
+        float radius = 5.0f;
+        float[] heights = {
+            world.getHeightAt(x + radius, z),
+            world.getHeightAt(x - radius, z),
+            world.getHeightAt(x, z + radius),
+            world.getHeightAt(x, z - radius)
+        };
+        
+        // Calculate maximum height difference
+        float maxDiff = 0;
+        for (float height : heights) {
+            maxDiff = Math.max(maxDiff, Math.abs(height - centerHeight));
+        }
+        
+        // Location is accessible if slope is not too steep
+        return maxDiff < 15.0f; // Maximum height difference of 15 blocks
     }
     
     /**
      * Gets the ground level at the specified coordinates.
      */
     private float getGroundLevel(float x, float z) {
-        // TODO: Integrate with actual world generation to get real ground level
-        // For now, return sea level with some variation
-        return 64 + (float)(Math.sin(x * 0.1) * Math.cos(z * 0.1) * 10);
+        // Integrate with actual world generation to get real ground level
+        World world = Engine.getInstance().getWorld();
+        if (world == null) {
+            // Fallback to sea level with some variation if world not available
+            return 64 + (float)(Math.sin(x * 0.1) * Math.cos(z * 0.1) * 10);
+        }
+        
+        // Get the actual terrain height from the world generator
+        float terrainHeight = world.getHeightAt(x, z);
+        
+        // Add a small offset to place treasure slightly above ground
+        return terrainHeight + 1.0f;
     }
     
     /**

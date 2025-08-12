@@ -46,8 +46,8 @@ public class GameRuleCommand implements Command {
     }
 
     @Override
-    public String[] getAliases() {
-        return new String[]{"gr", "rules"};
+    public List<String> getAliases() {
+        return Arrays.asList("gr", "rules");
     }
 
     @Override
@@ -132,7 +132,7 @@ public class GameRuleCommand implements Command {
                 
                 return CommandResult.success(message.toString());
             } catch (IllegalArgumentException e) {
-                return CommandResult.error("Invalid type: " + args[1] + ". Valid types: " + 
+                return CommandResult.failure("Invalid type: " + args[1] + ". Valid types: " + 
                     Arrays.stream(GameRuleType.values())
                         .map(t -> t.name().toLowerCase())
                         .collect(Collectors.joining(", ")));
@@ -156,7 +156,7 @@ public class GameRuleCommand implements Command {
         } else {
             GameRule rule = GameRule.getByName(target);
             if (rule == null) {
-                return CommandResult.error("Unknown game rule: " + target);
+                return CommandResult.failure("Unknown game rule: " + target);
             }
             
             Object oldValue = gameRuleManager.getValue(rule);
@@ -176,7 +176,7 @@ public class GameRuleCommand implements Command {
         GameRule rule = GameRule.getByName(ruleName);
         
         if (rule == null) {
-            return CommandResult.error("Unknown game rule: " + ruleName + 
+            return CommandResult.failure("Unknown game rule: " + ruleName + 
                 ". Use '/gamerule list' to see all available rules.");
         }
 
@@ -198,7 +198,7 @@ public class GameRuleCommand implements Command {
                 return CommandResult.success(String.format("Game rule %s updated from %s to %s", 
                     rule.getName(), oldValue, newValue));
             } else {
-                return CommandResult.error(String.format("Invalid value '%s' for game rule %s (type: %s)", 
+                return CommandResult.failure(String.format("Invalid value '%s' for game rule %s (type: %s)", 
                     newValueStr, rule.getName(), rule.getType().name().toLowerCase()));
             }
         }

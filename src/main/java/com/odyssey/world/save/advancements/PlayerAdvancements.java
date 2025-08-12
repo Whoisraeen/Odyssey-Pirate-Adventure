@@ -1,5 +1,6 @@
 package com.odyssey.world.save.advancements;
 
+import com.odyssey.world.save.advancements.AdvancementStats;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;

@@ -1,6 +1,7 @@
 package com.odyssey.graphics;
 
 import com.odyssey.core.GameConfig;
+import com.odyssey.graphics.Window;
 import com.odyssey.core.jobs.JobSystem;
 // Keep imports minimal
 import com.odyssey.world.ocean.OceanSystem;
@@ -23,9 +24,9 @@ import org.lwjgl.opengl.GL11;
 public class Renderer {
     private static final Logger logger = LoggerFactory.getLogger(Renderer.class);
     
+    // Core systems
     private final GameConfig config;
-    
-    // Core rendering systems
+    private final Window window;
     private Camera camera;
     private ShaderManager shaderManager;
     private MaterialManager materialManager;
@@ -64,8 +65,9 @@ public class Renderer {
     private Vector3f lightColor = new Vector3f(1.0f, 0.95f, 0.8f);
     private Vector3f ambientColor = new Vector3f(0.3f, 0.4f, 0.6f);
     
-    public Renderer(GameConfig config) {
+    public Renderer(GameConfig config, Window window) {
         this.config = config;
+        this.window = window;
         this.camera = new Camera();
         this.modelMatrix = new Matrix4f();
         this.shaderManager = new ShaderManager(config.isDebugMode());
@@ -281,54 +283,81 @@ public class Renderer {
     }
     
     public void beginFrame(double deltaTime, float clearR, float clearG, float clearB, float clearA) {
+        logger.info("beginFrame: Starting with deltaTime={}, clearColor=({},{},{},{})", deltaTime, clearR, clearG, clearB, clearA);
+        
         // Reset framebuffer efficiency flags for new frame
         needsDepthCopy = true;
+        logger.info("beginFrame: Reset framebuffer flags");
         
         // Check for shader hot-reloading in debug mode
         if (config.isDebugMode()) {
+            logger.info("beginFrame: About to check shader updates...");
             shaderManager.checkForUpdates();
+            logger.info("beginFrame: Shader updates checked");
         }
         
+        logger.info("beginFrame: About to update materials...");
         // Update animated materials
         materialManager.update(deltaTime);
+        logger.info("beginFrame: Materials updated");
         
+        logger.info("beginFrame: About to get camera matrices...");
         // Update lighting system
         lightingSystem.updateLights(camera.getViewMatrix(), camera.getProjectionMatrix());
+        logger.info("beginFrame: Lighting system updated");
         
+        logger.info("beginFrame: About to get viewport...");
         // Update viewport
         int[] viewport = new int[4];
         glGetIntegerv(GL_VIEWPORT, viewport);
         int width = viewport[2];
         int height = viewport[3];
+        logger.info("beginFrame: Got viewport: {}x{}", width, height);
         
         if (width > 0 && height > 0) {
+            logger.info("beginFrame: Setting camera aspect ratio...");
             camera.setAspectRatio((float) width / height);
-            camera.setScreenWidth(width);
-            camera.setScreenHeight(height);
+            camera.setScreenSize(width, height);
             glViewport(0, 0, width, height);
+            logger.info("beginFrame: Camera and viewport updated");
         }
         
+        logger.info("beginFrame: About to set clear color and clear screen...");
         // Set clear color and clear the screen
         glClearColor(clearR, clearG, clearB, clearA);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        logger.info("beginFrame: Screen cleared");
         
+        logger.info("beginFrame: About to update camera...");
         // Update camera
         camera.update(deltaTime);
+        logger.info("beginFrame: Camera updated");
         
+        logger.info("beginFrame: About to set polygon mode...");
         // Set wireframe mode if enabled
         if (wireframeMode) {
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
         } else {
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
         }
+        logger.info("beginFrame: Polygon mode set, beginFrame completed successfully");
     }
     
     public void endFrame() {
+        // Ensure we're rendering to the default framebuffer for UI
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        
+        // Set viewport to full window for UI rendering
+        glViewport(0, 0, config.getWindowWidth(), config.getWindowHeight());
+        
         // Check for OpenGL errors
         int error = glGetError();
         if (error != GL_NO_ERROR) {
             logger.warn("OpenGL error: {}", error);
         }
+        
+        // Swap the front and back buffers to display the rendered frame
+        window.swapBuffers();
     }
     
     public void updateProjection(int width, int height) {
@@ -426,7 +455,7 @@ public class Renderer {
         
         // TAA pass - apply temporal anti-aliasing after lighting
         if (deferredRenderer.isTAAEnabled()) {
-            deferredRenderer.performTAAPass(camera, deferredRenderer.getColorTexture());
+            deferredRenderer.performTAAPass(camera, deferredRenderer.getFinalTexture());
         }
         
         // Present final result with underwater effects support

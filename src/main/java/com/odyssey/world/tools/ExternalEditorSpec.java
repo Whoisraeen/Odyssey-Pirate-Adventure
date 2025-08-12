@@ -601,7 +601,7 @@ public class ExternalEditorSpec {
         Files.writeString(outputPath.resolve("README.md"), readme);
     }
     
-    private void generateFormatOverview(Path docsPath) throws IOException {
+    private static void generateFormatOverview(Path docsPath) throws IOException {
         String overview = """
             # Odyssey World Format Overview
             
@@ -694,7 +694,7 @@ public class ExternalEditorSpec {
         Files.writeString(docsPath.resolve("format_overview.md"), overview);
     }
     
-    private void generateLevelDatSpec(Path docsPath) throws IOException {
+    private static void generateLevelDatSpec(Path docsPath) throws IOException {
         String spec = """
             # Level.dat File Specification
             
@@ -794,7 +794,7 @@ public class ExternalEditorSpec {
                         
                         // Read header
                         int magic = dis.readInt();
-                        if (magic != LEVEL_MAGIC) {
+                        if (magic != WorldSaveFormat.LEVEL_MAGIC) {
                             throw new IOException("Invalid magic number");
                         }
                         
@@ -854,7 +854,7 @@ public class ExternalEditorSpec {
         Files.writeString(docsPath.resolve("level_dat_spec.md"), spec);
     }
     
-    private void generateRegionFileSpec(Path docsPath) throws IOException {
+    private static void generateRegionFileSpec(Path docsPath) throws IOException {
         String spec = """
             # Region File Specification
             
@@ -1026,7 +1026,7 @@ public class ExternalEditorSpec {
         Files.writeString(docsPath.resolve("region_file_spec.md"), spec);
     }
     
-    private void generatePlayerDataSpec(Path docsPath) throws IOException {
+    private static void generatePlayerDataSpec(Path docsPath) throws IOException {
         String spec = """
             # Player Data Specification
             
@@ -1218,7 +1218,7 @@ public class ExternalEditorSpec {
         Files.writeString(docsPath.resolve("player_data_spec.md"), spec);
     }
     
-    private void generateChunkDataSpec(Path docsPath) throws IOException {
+    private static void generateChunkDataSpec(Path docsPath) throws IOException {
         String spec = """
             # Chunk Data Specification
             
@@ -1433,7 +1433,7 @@ public class ExternalEditorSpec {
         Files.writeString(docsPath.resolve("chunk_data_spec.md"), spec);
     }
     
-    private void generateApiDocumentation(Path docsPath) throws IOException {
+    private static void generateApiDocumentation(Path docsPath) throws IOException {
         String api = """
             # API Documentation
             
@@ -1735,7 +1735,7 @@ public class ExternalEditorSpec {
         Files.writeString(docsPath.resolve("api_documentation.md"), api);
     }
     
-    private void generateBestPracticesGuide(Path docsPath) throws IOException {
+    private static void generateBestPracticesGuide(Path docsPath) throws IOException {
         String guide = """
             # Best Practices Guide
             
@@ -2410,8 +2410,10 @@ public class ExternalEditorSpec {
             """;
     }
     
-    private static String generateBinaryFormatSpecs() {
-        return """
+    private static void generateBinaryFormatSpecs(Path schemaPath) throws IOException {
+        Files.createDirectories(schemaPath);
+        
+        String specs = """
             # Binary Format Specifications
             
             This document describes the binary format specifications for Odyssey world files.
@@ -2452,10 +2454,14 @@ public class ExternalEditorSpec {
             - Game rules and difficulty settings
             - Tidal system configuration
             """;
+        
+        Files.writeString(schemaPath.resolve("binary_format_specs.md"), specs);
     }
     
-    private static String generateMinimalWorld() {
-        return """
+    private static void generateMinimalWorld(Path worldPath) throws IOException {
+        Files.createDirectories(worldPath);
+        
+        String readme = """
             # Minimal World Example
             
             This is a minimal world structure for testing:
@@ -2505,10 +2511,14 @@ public class ExternalEditorSpec {
             
             This minimal world is suitable for basic testing and validation.
             """;
+        
+        Files.writeString(worldPath.resolve("README.md"), readme);
     }
     
-    private static String generateComplexWorld() {
-        return """
+    private static void generateComplexWorld(Path worldPath) throws IOException {
+        Files.createDirectories(worldPath);
+        
+        String readme = """
             # Complex World Example
             
             This example demonstrates a complex world with multiple features:
@@ -2556,6 +2566,8 @@ public class ExternalEditorSpec {
             
             This complex world showcases the full capabilities of the Odyssey format.
             """;
+        
+        Files.writeString(worldPath.resolve("README.md"), readme);
     }
     
     private static void generateCorruptedSamples(Path samplesPath) throws IOException {

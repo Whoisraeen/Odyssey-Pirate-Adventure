@@ -10,6 +10,8 @@ import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
 
 import java.nio.ByteBuffer;
+import java.util.List;
+import java.util.ArrayList;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -110,8 +112,10 @@ public class WaterShader {
      * Creates a new water shader system.
      * @param shaderManager The shader manager to use for shader creation
      * @param quality The water quality settings
+     * @param atlasManager The texture atlas manager for animated water textures
      */
-    public WaterShader(ShaderManager shaderManager, WaterQuality quality) {
+    public WaterShader(ShaderManager shaderManager, WaterQuality quality, TextureAtlasManager atlasManager) {
+        this.atlasManager = atlasManager;
         this.quality = quality;
         this.waves = generateDefaultWaves(quality.getWaveCount());
         
@@ -497,20 +501,77 @@ public class WaterShader {
         logger.info("Initialized refraction framebuffer: " + refractionWidth + "x" + refractionHeight);
     }
     
+    // Texture atlas integration
+    private TextureAtlasManager atlasManager;
+    private List<TextureAtlasManager.AtlasTextureReference> waterAnimationFrames = new ArrayList<>();
+    private List<TextureAtlasManager.AtlasTextureReference> waterFlowFrames = new ArrayList<>();
+    private List<TextureAtlasManager.AtlasTextureReference> waterStillFrames = new ArrayList<>();
+    private int currentAnimationFrame = 0;
+    private float animationTimer = 0.0f;
+    private final float ANIMATION_SPEED = 0.2f; // Seconds per frame
+    
     /**
      * Loads water-specific textures (DuDv map, normal map, caustics, and animated surface).
      */
     private void loadWaterTextures() {
+        // Load animated water surface textures from TextureAtlasManager
+        loadAnimatedWaterTextures();
+        
         // Create procedural textures for advanced effects
         dudvTexture = createProceduralDudvTexture();
         normalTexture = createProceduralNormalTexture();
         causticsTexture = createProceduralCausticsTexture();
         
-        // TODO: Integrate with TextureAtlasManager for animated water surface textures
-        // This would load the animated water surface textures created in resources/textures/water/
-        // and blend them with the procedural wave simulation for enhanced detail
+        logger.info("Loaded water textures with procedural generation and atlas integration");
+    }
+    
+    /**
+     * Loads animated water surface textures from the TextureAtlasManager.
+     */
+    private void loadAnimatedWaterTextures() {
+        if (atlasManager == null) {
+            logger.warn("TextureAtlasManager not available, skipping animated water textures");
+            return;
+        }
         
-        logger.info("Loaded water textures with procedural generation");
+        try {
+            // Load water flow animation frames
+            for (int i = 0; i < 4; i++) {
+                String flowTextureId = "water_flow_frame_" + i;
+                TextureAtlasManager.AtlasTextureReference flowRef = atlasManager.getTexture(flowTextureId);
+                if (flowRef != null) {
+                    waterFlowFrames.add(flowRef);
+                    logger.debug("Loaded water flow frame {}: {}", i, flowTextureId);
+                } else {
+                    logger.warn("Water flow frame {} not found in atlas: {}", i, flowTextureId);
+                }
+            }
+            
+            // Load water still animation frames
+            for (int i = 0; i < 4; i++) {
+                String stillTextureId = "water_still_frame_" + i;
+                TextureAtlasManager.AtlasTextureReference stillRef = atlasManager.getTexture(stillTextureId);
+                if (stillRef != null) {
+                    waterStillFrames.add(stillRef);
+                    logger.debug("Loaded water still frame {}: {}", i, stillTextureId);
+                } else {
+                    logger.warn("Water still frame {} not found in atlas: {}", i, stillTextureId);
+                }
+            }
+            
+            // Combine all frames for general animation
+            waterAnimationFrames.addAll(waterFlowFrames);
+            waterAnimationFrames.addAll(waterStillFrames);
+            
+            if (waterAnimationFrames.isEmpty()) {
+                logger.warn("No animated water textures found, using procedural generation only");
+            } else {
+                logger.info("Loaded {} animated water texture frames", waterAnimationFrames.size());
+            }
+            
+        } catch (Exception e) {
+            logger.error("Failed to load animated water textures: {}", e.getMessage());
+        }
     }
     
     /**
@@ -713,6 +774,9 @@ public class WaterShader {
             waterShader.setUniform("waveSteepness" + i, wave.steepness);
         }
         
+        // Update animation
+        updateWaterAnimation(time);
+        
         // Bind textures
         GL13.glActiveTexture(GL13.GL_TEXTURE0);
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, dudvTexture);
@@ -725,6 +789,21 @@ public class WaterShader {
         GL13.glActiveTexture(GL13.GL_TEXTURE2);
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, causticsTexture);
         waterShader.setUniform("causticsTexture", 2);
+        
+        // Bind animated water texture if available
+        if (!waterAnimationFrames.isEmpty() && atlasManager != null) {
+            GL13.glActiveTexture(GL13.GL_TEXTURE6);
+            TextureAtlasManager.AtlasTextureReference currentFrame = waterAnimationFrames.get(currentAnimationFrame);
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, currentFrame.getAtlas().getTextureId());
+            waterShader.setUniform("waterAnimationTexture", 6);
+            
+            // Set current animation frame UV coordinates
+            Vector4f uvBounds = currentFrame.getRegion().getUVBounds();
+            waterShader.setUniform("animationFrameUV", new Vector4f(uvBounds.x, uvBounds.y, uvBounds.x + uvBounds.z, uvBounds.y + uvBounds.w));
+            waterShader.setUniform("useAnimatedTexture", 1.0f);
+        } else {
+            waterShader.setUniform("useAnimatedTexture", 0.0f);
+        }
         
         if (quality.isReflectionsEnabled()) {
             GL13.glActiveTexture(GL13.GL_TEXTURE3);
@@ -806,6 +885,33 @@ public class WaterShader {
      */
     public void setUnderwaterDepth(float depth) {
         this.underwaterDepth = Math.max(0.0f, Math.min(1.0f, depth));
+    }
+    
+    /**
+     * Updates the water animation frame based on time.
+     * @param time Current time in seconds
+     */
+    private void updateWaterAnimation(float time) {
+        if (waterAnimationFrames.isEmpty()) {
+            return;
+        }
+        
+        animationTimer += time;
+        if (animationTimer >= ANIMATION_SPEED) {
+            animationTimer = 0.0f;
+            currentAnimationFrame = (currentAnimationFrame + 1) % waterAnimationFrames.size();
+        }
+    }
+    
+    /**
+     * Sets the texture atlas manager for animated water textures.
+     * @param atlasManager The texture atlas manager
+     */
+    public void setAtlasManager(TextureAtlasManager atlasManager) {
+        this.atlasManager = atlasManager;
+        if (atlasManager != null) {
+            loadAnimatedWaterTextures();
+        }
     }
     
     /**

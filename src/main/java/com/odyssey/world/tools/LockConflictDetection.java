@@ -144,10 +144,10 @@ public class LockConflictDetection {
      */
     public boolean breakLock(Path worldPath) {
         Path lockFile = worldPath.resolve(LOCK_FILE_NAME);
-        return breakLock(lockFile);
+        return breakLockFile(lockFile);
     }
     
-    private boolean breakLock(Path lockFile) {
+    private boolean breakLockFile(Path lockFile) {
         try {
             Files.deleteIfExists(lockFile);
             logger.warn("Forcibly broke lock: {}", lockFile);

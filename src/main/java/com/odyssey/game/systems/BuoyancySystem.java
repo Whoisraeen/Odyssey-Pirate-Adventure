@@ -7,6 +7,7 @@ import com.odyssey.game.components.TransformComponent;
 import com.odyssey.game.components.PhysicsComponent;
 import com.odyssey.game.components.BuoyancyComponent;
 import com.odyssey.game.math.Vector2f;
+import org.joml.Vector3f;
 
 import java.util.List;
 
@@ -68,7 +69,7 @@ public class BuoyancySystem extends System {
         if (buoyancyForce > 0.0f) {
             // Convert force to acceleration (F = ma, so a = F/m)
             float acceleration = buoyancyForce / physics.mass;
-            physics.applyForce(new Vector2f(0, acceleration * deltaTime));
+            physics.applyForce(new Vector3f(0, acceleration * deltaTime, 0));
         }
         
         // Apply drag forces
@@ -101,7 +102,11 @@ public class BuoyancySystem extends System {
             Vector2f dragDirection = velocity.copy().normalize().multiply(-1.0f);
             float dragAcceleration = dragForce / physics.mass;
             
-            Vector2f dragForceVector = dragDirection.multiply(dragAcceleration * deltaTime);
+            Vector3f dragForceVector = new Vector3f(
+                dragDirection.x * dragAcceleration * deltaTime,
+                dragDirection.y * dragAcceleration * deltaTime,
+                0.0f
+            );
             physics.applyForce(dragForceVector);
         }
     }

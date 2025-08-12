@@ -412,10 +412,12 @@ public class TextureAtlas {
             return regions.get(name);
         }
         
-        // Find position for the texture using simple row-based packing
+        // Find position for the texture using the selected packing algorithm
         Rectangle position = findPosition(width, height);
         if (position == null) {
-            logger.warning("Cannot fit texture '" + name + "' (" + width + "x" + height + ") in atlas");
+            logger.fine("Cannot fit texture '" + name + "' (" + width + "x" + height + ") in " + 
+                       atlasSize + "x" + atlasSize + " atlas (utilization: " + 
+                       String.format("%.1f%%", getSpaceUtilization() * 100) + ")");
             return null;
         }
         

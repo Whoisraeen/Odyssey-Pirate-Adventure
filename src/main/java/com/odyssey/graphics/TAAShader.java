@@ -20,19 +20,6 @@ public class TAAShader {
         shader.createFragmentShader(createFragmentShader());
         shader.link();
         
-        // Create uniforms
-        shader.createUniform("u_currentTexture");
-        shader.createUniform("u_historyTexture");
-        shader.createUniform("u_velocityTexture");
-        shader.createUniform("u_depthTexture");
-        shader.createUniform("u_previousViewProjectionMatrix");
-        shader.createUniform("u_currentViewProjectionMatrix");
-        shader.createUniform("u_invCurrentViewProjectionMatrix");
-        shader.createUniform("u_screenSize");
-        shader.createUniform("u_frameIndex");
-        shader.createUniform("u_blendFactor");
-        shader.createUniform("u_velocityScale");
-        
         logger.info("TAA shader initialized successfully");
     }
     

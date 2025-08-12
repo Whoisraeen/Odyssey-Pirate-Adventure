@@ -276,22 +276,218 @@ public class DungeonGenerator {
      * Places treasure in a specific room.
      */
     private void placeTreasureInRoom(Dungeon dungeon, DungeonRoom room, boolean isMainTreasure) {
-        // This is a placeholder - in a real implementation, this would create
-        // actual treasure objects and place them in the room
-        
-        // For now, we'll just mark the room as containing treasure
-        // The actual treasure system would be implemented separately
-        
         Vector3i treasurePosition = room.getCenterPosition();
         
-        // TODO: Create actual treasure objects
-        // - Determine treasure type based on dungeon type and difficulty
-        // - Create treasure chest or item spawns
-        // - Add to dungeon's treasure list
+        // Determine treasure type based on dungeon type and difficulty
+        DungeonTreasure.TreasureType treasureType = determineTreasureType(dungeon, room, isMainTreasure);
+        
+        // Calculate treasure value based on difficulty and type
+        int baseValue = calculateTreasureValue(dungeon.getDifficulty(), treasureType, isMainTreasure);
+        
+        // Create the treasure object
+        String treasureId = "treasure_" + room.getRoomId() + "_" + (isMainTreasure ? "main" : "secondary");
+        DungeonTreasure treasure = new DungeonTreasure(treasureId, treasurePosition, treasureType, baseValue);
+        
+        // Generate treasure contents
+        generateTreasureContents(treasure, dungeon);
+        
+        // Add to dungeon's treasure list
+        dungeon.addTreasure(treasure);
+        
+        // Place treasure chest block in the world (if world manager is available)
+        placeTreasureInWorld(treasure, dungeon);
         
         System.out.println("Placed " + (isMainTreasure ? "main" : "secondary") + 
-                          " treasure in room " + room.getRoomId() + 
-                          " at position " + treasurePosition);
+                          " treasure (" + treasureType.getDisplayName() + ") in room " + room.getRoomId() + 
+                          " at position " + treasurePosition + " with value " + baseValue);
+    }
+    
+    /**
+     * Determines the appropriate treasure type for the given context.
+     */
+    private DungeonTreasure.TreasureType determineTreasureType(Dungeon dungeon, DungeonRoom room, boolean isMainTreasure) {
+        // Main treasures are always more valuable
+        if (isMainTreasure) {
+            switch (dungeon.getType()) {
+                case PIRATE_CAVE:
+                    return random.nextFloat() < 0.7f ? DungeonTreasure.TreasureType.PIRATE_CHEST : DungeonTreasure.TreasureType.GOLDEN_CHEST;
+                case ANCIENT_TEMPLE:
+                    return random.nextFloat() < 0.6f ? DungeonTreasure.TreasureType.ANCIENT_ARTIFACT : DungeonTreasure.TreasureType.GOLDEN_CHEST;
+                case UNDERWATER_RUIN:
+                    return random.nextFloat() < 0.8f ? DungeonTreasure.TreasureType.SUNKEN_TREASURE : DungeonTreasure.TreasureType.CORAL_CHEST;
+                case VOLCANIC_CHAMBER:
+                    return random.nextFloat() < 0.5f ? DungeonTreasure.TreasureType.MOLTEN_TREASURE : DungeonTreasure.TreasureType.GOLDEN_CHEST;
+                default:
+                    return DungeonTreasure.TreasureType.GOLDEN_CHEST;
+            }
+        } else {
+            // Secondary treasures are more common types
+            DungeonTreasure.TreasureType[] commonTypes = {
+                DungeonTreasure.TreasureType.WOODEN_CHEST,
+                DungeonTreasure.TreasureType.IRON_CHEST,
+                DungeonTreasure.TreasureType.SUPPLY_CACHE,
+                DungeonTreasure.TreasureType.WEAPON_RACK
+            };
+            return commonTypes[random.nextInt(commonTypes.length)];
+        }
+    }
+    
+    /**
+     * Calculates the base value for a treasure.
+     */
+    private int calculateTreasureValue(int dungeonDifficulty, DungeonTreasure.TreasureType type, boolean isMainTreasure) {
+        int baseValue = type.getBaseValue();
+        
+        // Apply difficulty multiplier
+        float difficultyMultiplier = 1.0f + (dungeonDifficulty - 1) * 0.3f;
+        baseValue = (int) (baseValue * difficultyMultiplier);
+        
+        // Main treasures are worth 2-4x more
+        if (isMainTreasure) {
+            baseValue *= (2 + random.nextInt(3));
+        }
+        
+        // Add some randomness (±25%)
+        float randomMultiplier = 0.75f + random.nextFloat() * 0.5f;
+        baseValue = (int) (baseValue * randomMultiplier);
+        
+        return Math.max(1, baseValue);
+    }
+    
+    /**
+     * Generates the actual contents of a treasure.
+     */
+    private void generateTreasureContents(DungeonTreasure treasure, Dungeon dungeon) {
+        List<String> contents = new ArrayList<>();
+        int totalValue = treasure.getValue();
+        int remainingValue = totalValue;
+        
+        // Generate items based on treasure type and remaining value
+        while (remainingValue > 0 && contents.size() < 10) { // Max 10 items per treasure
+            String item = generateTreasureItem(treasure.getType(), dungeon.getType(), remainingValue);
+            if (item != null) {
+                contents.add(item);
+                remainingValue -= getItemValue(item);
+            } else {
+                break; // No more suitable items
+            }
+        }
+        
+        // Ensure at least one item
+        if (contents.isEmpty()) {
+            contents.add("gold_coins:" + Math.max(1, totalValue / 10));
+        }
+        
+        treasure.setContents(contents);
+    }
+    
+    /**
+     * Generates a single treasure item.
+     */
+    private String generateTreasureItem(DungeonTreasure.TreasureType treasureType, Dungeon.DungeonType dungeonType, int maxValue) {
+        List<String> possibleItems = new ArrayList<>();
+        
+        // Add common items
+        if (maxValue >= 10) possibleItems.add("gold_coins:" + (5 + random.nextInt(Math.min(maxValue / 2, 50))));
+        if (maxValue >= 20) possibleItems.add("silver_coins:" + (10 + random.nextInt(Math.min(maxValue / 3, 30))));
+        if (maxValue >= 50) possibleItems.add("precious_gems:" + (1 + random.nextInt(3)));
+        
+        // Add type-specific items
+        switch (treasureType) {
+            case PIRATE_CHEST:
+                if (maxValue >= 30) possibleItems.add("cutlass");
+                if (maxValue >= 40) possibleItems.add("pirate_map");
+                if (maxValue >= 25) possibleItems.add("rum_bottle:" + (1 + random.nextInt(3)));
+                break;
+            case ANCIENT_ARTIFACT:
+                if (maxValue >= 100) possibleItems.add("ancient_scroll");
+                if (maxValue >= 80) possibleItems.add("mystical_orb");
+                if (maxValue >= 60) possibleItems.add("ceremonial_dagger");
+                break;
+            case WEAPON_RACK:
+                if (maxValue >= 40) possibleItems.add("iron_sword");
+                if (maxValue >= 30) possibleItems.add("steel_dagger");
+                if (maxValue >= 50) possibleItems.add("crossbow");
+                break;
+            case SUPPLY_CACHE:
+                if (maxValue >= 15) possibleItems.add("hardtack:" + (3 + random.nextInt(5)));
+                if (maxValue >= 20) possibleItems.add("water_barrel");
+                if (maxValue >= 25) possibleItems.add("rope_coil");
+                break;
+        }
+        
+        // Add dungeon-specific items
+        switch (dungeonType) {
+            case UNDERWATER_RUIN:
+                if (maxValue >= 35) possibleItems.add("pearl:" + (1 + random.nextInt(3)));
+                if (maxValue >= 60) possibleItems.add("coral_crown");
+                break;
+            case VOLCANIC_CHAMBER:
+                if (maxValue >= 45) possibleItems.add("obsidian_blade");
+                if (maxValue >= 70) possibleItems.add("fire_ruby");
+                break;
+            case ANCIENT_TEMPLE:
+                if (maxValue >= 55) possibleItems.add("temple_key");
+                if (maxValue >= 80) possibleItems.add("divine_blessing");
+                break;
+        }
+        
+        return possibleItems.isEmpty() ? null : possibleItems.get(random.nextInt(possibleItems.size()));
+    }
+    
+    /**
+     * Gets the estimated value of an item.
+     */
+    private int getItemValue(String item) {
+        String[] parts = item.split(":");
+        String itemType = parts[0];
+        int quantity = parts.length > 1 ? Integer.parseInt(parts[1]) : 1;
+        
+        // Base values for different item types
+        return switch (itemType) {
+            case "gold_coins" -> quantity;
+            case "silver_coins" -> quantity / 2;
+            case "precious_gems" -> quantity * 25;
+            case "cutlass", "iron_sword" -> 40;
+            case "steel_dagger" -> 30;
+            case "crossbow" -> 50;
+            case "pirate_map" -> 35;
+            case "ancient_scroll" -> 100;
+            case "mystical_orb" -> 80;
+            case "ceremonial_dagger" -> 60;
+            case "pearl" -> quantity * 15;
+            case "coral_crown" -> 60;
+            case "obsidian_blade" -> 45;
+            case "fire_ruby" -> 70;
+            case "temple_key" -> 55;
+            case "divine_blessing" -> 80;
+            case "rum_bottle" -> quantity * 8;
+            case "hardtack" -> quantity * 2;
+            case "water_barrel" -> 20;
+            case "rope_coil" -> 25;
+            default -> 10;
+        };
+    }
+    
+    /**
+     * Places the treasure in the actual world if world manager is available.
+     */
+    private void placeTreasureInWorld(DungeonTreasure treasure, Dungeon dungeon) {
+        try {
+            // This would integrate with the world/chunk system to place actual blocks
+            // For now, we'll just log the placement
+            System.out.println("Would place " + treasure.getType().getDisplayName() + 
+                             " block at world position " + treasure.getPosition());
+            
+            // In a full implementation, this would:
+            // 1. Get the world manager from the engine
+            // 2. Convert dungeon coordinates to world coordinates
+            // 3. Place the appropriate treasure chest block
+            // 4. Set the block's inventory to match the treasure contents
+            
+        } catch (Exception e) {
+            System.err.println("Failed to place treasure in world: " + e.getMessage());
+        }
     }
     
     /**

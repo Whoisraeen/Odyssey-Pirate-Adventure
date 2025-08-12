@@ -263,6 +263,17 @@ public class Dungeon {
     public long getSeed() { return seed; }
     
     /**
+     * Adds a treasure to this dungeon.
+     * 
+     * @param treasure The treasure to add
+     */
+    public void addTreasure(DungeonTreasure treasure) {
+        if (treasure != null) {
+            treasures.add(treasure);
+        }
+    }
+    
+    /**
      * Gets the total size of the dungeon in blocks.
      */
     public Vector3i getBounds() {
@@ -298,7 +309,13 @@ public class Dungeon {
         TEMPLE("Ancient Temple"),
         SHIPWRECK("Sunken Ship"),
         RUINS("Forgotten Ruins"),
-        MINE("Abandoned Mine");
+        MINE("Abandoned Mine"),
+        
+        // Additional types for enhanced generation
+        PIRATE_CAVE("Pirate Cave"),
+        ANCIENT_TEMPLE("Ancient Temple"),
+        UNDERWATER_RUIN("Underwater Ruin"),
+        VOLCANIC_CHAMBER("Volcanic Chamber");
         
         private final String displayName;
         

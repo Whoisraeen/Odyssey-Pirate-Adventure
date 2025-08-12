@@ -58,13 +58,7 @@ public class ChunkSerializerV2 {
             return CompletableFuture.completedFuture(null);
         }
         
-        ChunkPosition pos = chunk.getPosition();
-        RegionPosition regionPos = new RegionPosition(
-            WorldSaveFormat.chunkToRegion(pos.x, pos.z)[0],
-            WorldSaveFormat.chunkToRegion(pos.x, pos.z)[1]
-        );
-        
-        return regionManager.saveChunkAsync(regionPos, pos.x, pos.z, serializeChunk(chunk));
+        return regionManager.saveChunkAsync(chunk);
     }
     
     /**
@@ -74,19 +68,7 @@ public class ChunkSerializerV2 {
      * @throws IOException if the save operation fails
      */
     public void saveChunk(Chunk chunk) throws IOException {
-        if (chunk == null) {
-            return;
-        }
-        
-        ChunkPosition pos = chunk.getPosition();
-        RegionPosition regionPos = new RegionPosition(
-            WorldSaveFormat.chunkToRegion(pos.x, pos.z)[0],
-            WorldSaveFormat.chunkToRegion(pos.x, pos.z)[1]
-        );
-        
-        regionManager.saveChunk(regionPos, pos.x, pos.z, serializeChunk(chunk));
-        
-        logger.debug("Saved chunk {} to region {}", pos, regionPos);
+        regionManager.saveChunk(chunk);
     }
     
     /**
@@ -100,21 +82,11 @@ public class ChunkSerializerV2 {
             return CompletableFuture.completedFuture(null);
         }
         
-        RegionPosition regionPos = new RegionPosition(
-            WorldSaveFormat.chunkToRegion(position.x, position.z)[0],
-            WorldSaveFormat.chunkToRegion(position.x, position.z)[1]
-        );
-        
-        return regionManager.loadChunkAsync(regionPos, position.x, position.z)
-            .thenCompose(data -> {
-                if (data != null) {
+        return regionManager.loadChunkAsync(position)
+            .thenCompose(chunk -> {
+                if (chunk != null) {
                     // Found in new format
-                    try {
-                        Chunk chunk = deserializeChunk(position, data);
-                        return CompletableFuture.completedFuture(chunk);
-                    } catch (IOException e) {
-                        logger.warn("Failed to deserialize chunk {} from new format, trying legacy", position, e);
-                    }
+                    return CompletableFuture.completedFuture(chunk);
                 }
                 
                 // Try legacy format
@@ -134,23 +106,14 @@ public class ChunkSerializerV2 {
             return null;
         }
         
-        RegionPosition regionPos = new RegionPosition(
-            WorldSaveFormat.chunkToRegion(position.x, position.z)[0],
-            WorldSaveFormat.chunkToRegion(position.x, position.z)[1]
-        );
-        
         // Try new format first
-        byte[] data = regionManager.loadChunk(regionPos, position.x, position.z);
-        if (data != null) {
-            try {
-                return deserializeChunk(position, data);
-            } catch (IOException e) {
-                logger.warn("Failed to deserialize chunk {} from new format, trying legacy", position, e);
-            }
+        Chunk chunk = regionManager.loadChunk(position);
+        if (chunk != null) {
+            return chunk;
         }
         
         // Fall back to legacy format
-        Chunk chunk = legacySerializer.loadChunk(position);
+        chunk = legacySerializer.loadChunk(position);
         if (chunk != null) {
             logger.debug("Loaded chunk {} from legacy format", position);
             
@@ -178,13 +141,8 @@ public class ChunkSerializerV2 {
             return false;
         }
         
-        RegionPosition regionPos = new RegionPosition(
-            WorldSaveFormat.chunkToRegion(position.x, position.z)[0],
-            WorldSaveFormat.chunkToRegion(position.x, position.z)[1]
-        );
-        
         // Check new format first
-        if (regionManager.chunkExists(regionPos, position.x, position.z)) {
+        if (regionManager.chunkExists(position)) {
             return true;
         }
         
@@ -212,7 +170,7 @@ public class ChunkSerializerV2 {
         );
         
         try {
-            if (regionManager.chunkExists(regionPos, position.x, position.z)) {
+            if (regionManager.chunkExists(position)) {
                 // Note: RegionFileManager doesn't have a delete method yet
                 // This would need to be implemented
                 logger.debug("Would delete chunk {} from region format", position);

@@ -180,11 +180,19 @@ public class FontRenderer {
         
         // Create simple character data
         STBTTBakedChar.Buffer charData = STBTTBakedChar.malloc(NUM_CHARS);
+        
+        // Manually populate the baked char data.
+        // This is a workaround for older LWJGL versions that don't have setters on the struct.
+        ByteBuffer buffer = charData.buffer();
         for (int i = 0; i < NUM_CHARS; i++) {
-            STBTTBakedChar charInfo = charData.get(i);
-            charInfo.x0(i * 8).y0(0).x1((i + 1) * 8).y1(8);
-            charInfo.xoff(0).yoff(0).xadvance(8);
-            charInfo.xoff2(0).yoff2(0);
+            int offset = i * STBTTBakedChar.SIZEOF;
+            buffer.putShort(offset + STBTTBakedChar.X0, (short)(i * 8));
+            buffer.putShort(offset + STBTTBakedChar.Y0, (short)0);
+            buffer.putShort(offset + STBTTBakedChar.X1, (short)((i + 1) * 8));
+            buffer.putShort(offset + STBTTBakedChar.Y1, (short)8);
+            buffer.putFloat(offset + STBTTBakedChar.XOFF, 0.0f);
+            buffer.putFloat(offset + STBTTBakedChar.YOFF, 0.0f);
+            buffer.putFloat(offset + STBTTBakedChar.XADVANCE, 8.0f);
         }
         
         return new Font("fallback", 8.0f, textureId, charData, null, null, 8.0f, 0.0f, 2.0f);

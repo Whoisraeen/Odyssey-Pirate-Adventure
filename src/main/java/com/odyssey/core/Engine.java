@@ -1,11 +1,17 @@
 package com.odyssey.core;
 
+import com.odyssey.game.managers.InventoryManager;
+import com.odyssey.game.managers.PlayerManager;
+import com.odyssey.game.managers.QuestManager;
+import com.odyssey.game.managers.ShipManager;
+import com.odyssey.game.managers.WorldManager;
 import com.odyssey.graphics.Renderer;
 import com.odyssey.graphics.Window;
 import com.odyssey.graphics.TimeOfDaySystem;
 import com.odyssey.input.InputManager;
 import com.odyssey.world.World;
 import com.odyssey.world.ocean.OceanSystem;
+import com.odyssey.world.save.SaveManager;
 import com.odyssey.world.weather.WeatherSystem;
 import com.odyssey.audio.AudioManager;
 import com.odyssey.game.GameStateManager;
@@ -24,6 +30,7 @@ import static org.lwjgl.glfw.GLFW.*;
  */
 public class Engine {
     private static final Logger logger = LoggerFactory.getLogger(Engine.class);
+    private static Engine instance;
     
     private final GameConfig config;
     private boolean running = false;
@@ -43,6 +50,14 @@ public class Engine {
     private OceanSystem oceanSystem;
     private WeatherSystem weatherSystem;
     private TimeOfDaySystem timeOfDaySystem;
+
+    // Manager systems
+    private SaveManager saveManager;
+    private PlayerManager playerManager;
+    private WorldManager worldManager;
+    private ShipManager shipManager;
+    private InventoryManager inventoryManager;
+    private QuestManager questManager;
     
     // Timing
     private double lastFrameTime;
@@ -55,7 +70,19 @@ public class Engine {
         this.config = config;
         this.crashReporter = new CrashReporter(config);
         this.memoryManager = new MemoryManager(config);
+        instance = this; // Set singleton instance
         logger.info("Engine created with config: {}", config);
+    }
+    
+    /**
+     * Gets the singleton instance of the Engine
+     * @return The Engine instance
+     */
+    public static Engine getInstance() {
+        if (instance == null) {
+            throw new IllegalStateException("Engine has not been initialized yet");
+        }
+        return instance;
     }
     
     /**
@@ -82,7 +109,7 @@ public class Engine {
             inputManager.setMouseSensitivity(config.getMouseSensitivity());
             
             // Initialize renderer
-            renderer = new Renderer(config);
+            renderer = new Renderer(config, window);
             renderer.initialize();
             
             // Initialize audio
@@ -110,6 +137,14 @@ public class Engine {
             // Initialize time of day system
             timeOfDaySystem = new TimeOfDaySystem();
             timeOfDaySystem.initialize();
+
+            // Initialize managers
+            saveManager = new SaveManager();
+            playerManager = new PlayerManager();
+            worldManager = new WorldManager();
+            shipManager = new ShipManager();
+            inventoryManager = new InventoryManager();
+            questManager = new QuestManager();
             
             // Initialize game state manager
             gameStateManager = new GameStateManager(this);
@@ -143,15 +178,50 @@ public class Engine {
                     // Update FPS counter
                     updateFPS(deltaTime);
                     
+                    // Debug: Log first few frames
+                    if (frameCount < 5) {
+                        logger.info("Frame {}: running={}, windowShouldClose={}, deltaTime={}", 
+                            frameCount, running, window.shouldClose(), deltaTime);
+                        logger.info("About to call update(deltaTime)...");
+                    }
+                    
                     // Update game systems
                     update(deltaTime);
                     
+                    if (frameCount < 5) {
+                        logger.info("Update completed, about to call render()...");
+                    }
+                    
                     // Render frame
-                    render();
+                    try {
+                        logger.info("ABOUT TO CALL RENDER METHOD - Line before method call");
+                        render();
+                        logger.info("RENDER METHOD RETURNED SUCCESSFULLY");
+                        if (frameCount < 5) {
+                            logger.info("Render completed successfully!");
+                        }
+                    } catch (Exception e) {
+                        logger.error("EXCEPTION IN RENDER METHOD: ", e);
+                        throw e; // Re-throw to trigger main loop exception handler
+                    } catch (Error e) {
+                        logger.error("ERROR IN RENDER METHOD: ", e);
+                        throw e; // Re-throw to trigger main loop exception handler
+                    } catch (Throwable e) {
+                        logger.error("THROWABLE IN RENDER METHOD: ", e);
+                        throw e; // Re-throw to trigger main loop exception handler
+                    }
+                    
+                    if (frameCount < 5) {
+                        logger.info("Render completed, about to poll events...");
+                    }
                     
                     // Poll events and swap buffers
                     glfwPollEvents();
                     window.swapBuffers();
+                    
+                    if (frameCount < 5) {
+                        logger.info("Frame {} completed successfully", frameCount);
+                    }
                     
                     // Exit conditions are now handled by the game state manager
                 } catch (Exception e) {
@@ -165,6 +235,9 @@ public class Engine {
                     running = false;
                 }
             }
+            
+            // Debug: Log why the loop exited
+            logger.info("Main game loop exited: running={}, windowShouldClose={}", running, window.shouldClose());
         } catch (Exception e) {
             crashReporter.reportCrash("Game loop fatal error", e);
             throw new RuntimeException("Fatal error in game loop", e);
@@ -359,18 +432,24 @@ public class Engine {
      * Render the current frame
      */
     private void render() {
+        logger.info("Starting render() method...");
+        
         // Handle window resize
         if (window.isResized()) {
+            logger.info("Handling window resize...");
             renderer.handleResize(window.getWidth(), window.getHeight());
             gameStateManager.getUIRenderer().resize(window.getWidth(), window.getHeight());
             window.setResized(false);
+            logger.info("Window resize handled.");
         }
         
         // Determine render mode and clear color based on game state
         GameStateManager.GameState currentState = gameStateManager.getCurrentState();
         boolean shouldRender3D = currentState instanceof GameStateManager.PlayingState;
+        logger.info("Current state: {}, shouldRender3D: {}", currentState.getClass().getSimpleName(), shouldRender3D);
         
         if (shouldRender3D) {
+            logger.info("Rendering 3D scene...");
             // Update celestial lighting based on time of day
             renderer.updateCelestialLighting(timeOfDaySystem);
             
@@ -389,19 +468,53 @@ public class Engine {
             // Render weather effects
             weatherSystem.render(renderer);
         } else {
-            // Black for menu states
-            renderer.beginFrame(deltaTime, 0.0f, 0.0f, 0.0f, 1.0f);
+            logger.info("Rendering menu state with black background...");
+            logger.info("Renderer object: {}", renderer);
+            logger.info("Renderer null check: {}", renderer == null);
+            if (renderer != null) {
+                logger.info("About to call renderer.beginFrame with deltaTime={}", deltaTime);
+                
+                // Check renderer's critical member variables
+                try {
+                    logger.info("Checking engine config...");
+                    boolean debugMode = config.isDebugMode();
+                    logger.info("Config debug mode: {}", debugMode);
+                } catch (Exception e) {
+                    logger.error("Error accessing engine config: ", e);
+                }
+                
+                try {
+                    logger.info("Checking renderer camera...");
+                    var camera = renderer.getCamera();
+                    logger.info("Camera: {}", camera);
+                } catch (Exception e) {
+                    logger.error("Error accessing renderer camera: ", e);
+                }
+                
+                // Black for menu states
+                renderer.beginFrame(deltaTime, 0.0f, 0.0f, 0.0f, 1.0f);
+                logger.info("beginFrame completed for menu state.");
+            } else {
+                logger.error("CRITICAL: Renderer is null!");
+                throw new RuntimeException("Renderer is null during render call");
+            }
         }
         
+        logger.info("About to render UI/game state...");
         // Always render UI (which includes menu states)
         gameStateManager.render(renderer);
+        logger.info("Game state render completed.");
         
         // Render debug info if enabled
         if (config.isDebugMode()) {
+            logger.info("Rendering debug info...");
             renderDebugInfo();
+            logger.info("Debug info rendered.");
         }
         
+        logger.info("About to call endFrame...");
         renderer.endFrame();
+        logger.info("endFrame completed, render() method finished.");
     }
     
     /**
@@ -479,5 +592,37 @@ public class Engine {
     
     public void stop() {
         running = false;
+    }
+
+    public SaveManager getSaveManager() {
+        return saveManager;
+    }
+
+    public String getVersion() {
+        return "0.0.1-ALPHA"; // Placeholder
+    }
+
+    public PlayerManager getPlayerManager() {
+        return playerManager;
+    }
+
+    public WorldManager getWorldManager() {
+        return worldManager;
+    }
+
+    public ShipManager getShipManager() {
+        return shipManager;
+    }
+
+    public InventoryManager getInventoryManager() {
+        return inventoryManager;
+    }
+
+    public QuestManager getQuestManager() {
+        return questManager;
+    }
+
+    public GameConfig getGameConfig() {
+        return config;
     }
 }

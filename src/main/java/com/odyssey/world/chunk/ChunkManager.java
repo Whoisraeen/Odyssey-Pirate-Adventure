@@ -439,6 +439,16 @@ public class ChunkManager {
     public int getLoadedChunkCount() {
         return loadedChunks.size();
     }
+
+    /**
+     * Returns an unmodifiable collection of the currently loaded chunks.
+     * This is a snapshot and may not reflect changes made after the call.
+     *
+     * @return A collection of loaded chunks.
+     */
+    public java.util.Collection<Chunk> getLoadedChunks() {
+        return java.util.Collections.unmodifiableCollection(loadedChunks.values());
+    }
     
     /**
      * Generates the block data for a chunk using the world generator.
@@ -918,6 +928,24 @@ public class ChunkManager {
         }
         
         return CompletableFuture.allOf(saveTasks.toArray(new CompletableFuture[0]));
+    }
+    
+    /**
+     * Schedules lighting updates for all loaded chunks.
+     * This method is called by the day/night cycle system.
+     */
+    public void scheduleAllLightingUpdates() {
+        logger.debug("Scheduling lighting updates for {} loaded chunks", loadedChunks.size());
+        
+        // Schedule lighting updates for all loaded chunks
+        for (Chunk chunk : loadedChunks.values()) {
+            // TODO: Implement proper lighting update scheduling
+            // This would typically involve:
+            // 1. Marking chunks for lighting recalculation
+            // 2. Scheduling async lighting computation
+            // 3. Updating chunk meshes after lighting changes
+            logger.trace("Scheduling lighting update for chunk at {}", chunk.getPosition());
+        }
     }
     
     /**

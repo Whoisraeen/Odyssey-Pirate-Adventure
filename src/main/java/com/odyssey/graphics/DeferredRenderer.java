@@ -4,6 +4,7 @@ import org.joml.Vector3f;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL20;
+import org.lwjgl.opengl.GL21;
 import org.lwjgl.opengl.GL30;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -583,7 +584,7 @@ public class DeferredRenderer {
         lightingShader.bind();
         
         // Bind G-Buffer textures
-        lightingShader.bindGBufferTextures(gAlbedoTexture, gNormalTexture, gVelocityTexture, gEmissionTexture, gDepthTexture);
+        lightingShader.bindGBufferTextures(gAlbedoTexture, gNormalTexture, gDepthTexture, gEmissionTexture);
         
         // Bind IBL textures if available
         if (lightingSystem.isIBLEnabled()) {

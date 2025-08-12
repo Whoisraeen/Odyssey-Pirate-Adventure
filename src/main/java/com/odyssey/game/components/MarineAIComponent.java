@@ -173,7 +173,7 @@ public class MarineAIComponent implements Component {
                 maxSpeed = 2.5f;
                 agility = 1.8f;
             }
-            case TURTLE -> {
+            case SEA_TURTLE -> {
                 isPredator = false;
                 isSchooling = false;
                 isTerritorial = false;
@@ -296,5 +296,44 @@ public class MarineAIComponent implements Component {
     public void onDetach() {
         // Clean up when component is removed
         leaveAllGroups();
+    }
+
+    @Override
+    public Component copy() {
+        MarineAIComponent copy = new MarineAIComponent(this.species);
+        copy.currentBehavior = this.currentBehavior;
+        copy.previousBehavior = this.previousBehavior;
+        copy.behaviorTimer = this.behaviorTimer;
+        copy.behaviorCooldown = this.behaviorCooldown;
+        copy.targetPosition = new Vector3f(this.targetPosition);
+        copy.targetCreature = this.targetCreature;
+        copy.targetDistance = this.targetDistance;
+        copy.aggressionLevel = this.aggressionLevel;
+        copy.fearLevel = this.fearLevel;
+        copy.hungerLevel = this.hungerLevel;
+        copy.socialNeed = this.socialNeed;
+        copy.territorialInstinct = this.territorialInstinct;
+        copy.perceptionRadius = this.perceptionRadius;
+        copy.fleeDistance = this.fleeDistance;
+        copy.huntDistance = this.huntDistance;
+        copy.schoolingRadius = this.schoolingRadius;
+        copy.maxSpeed = this.maxSpeed;
+        copy.agility = this.agility;
+        copy.schoolId = this.schoolId;
+        copy.huntingPackId = this.huntingPackId;
+        copy.socialGroupId = this.socialGroupId;
+        copy.territoryId = this.territoryId;
+        copy.isPredator = this.isPredator;
+        copy.isSchooling = this.isSchooling;
+        copy.isTerritorial = this.isTerritorial;
+        copy.isMigratory = this.isMigratory;
+        copy.lastKnownThreatPosition = new Vector3f(this.lastKnownThreatPosition);
+        copy.threatMemoryTimer = this.threatMemoryTimer;
+        copy.lastFoodLocation = new Vector3f(this.lastFoodLocation);
+        copy.foodMemoryTimer = this.foodMemoryTimer;
+        copy.energy = this.energy;
+        copy.stress = this.stress;
+        copy.reproductiveUrge = this.reproductiveUrge;
+        return copy;
     }
 }

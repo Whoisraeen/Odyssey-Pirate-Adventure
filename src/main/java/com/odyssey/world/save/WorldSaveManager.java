@@ -92,9 +92,9 @@ public class WorldSaveManager {
         // Initialize managers
         this.regionManager = new RegionFileManager(worldDirectory.resolve("region"));
         this.playerDataManager = new PlayerDataManager(worldDirectory.resolve("playerdata"));
-        this.levelMetadata = new LevelMetadata(worldDirectory.resolve("level.meta"));
+        this.levelMetadata = new LevelMetadata();
         this.journal = new WriteAheadJournal(worldDirectory.resolve("journal.wal"));
-        this.backupManager = new BackupManager(worldDirectory.resolve("snapshots"), config);
+        this.backupManager = new BackupManager(worldDirectory, journal);
         this.compressionType = CompressionType.ZSTD;
         
         // Initialize executor service
@@ -230,8 +230,7 @@ public class WorldSaveManager {
             try {
                 logger.info("Starting world save for: {}", worldName);
                 
-                // Save level metadata
-                levelMetadata.save();
+                // Level metadata is saved automatically when modified
                 
                 // Flush journal
                 journal.flush();
@@ -240,7 +239,7 @@ public class WorldSaveManager {
                 regionManager.saveAllDirtyChunks();
                 
                 // Save all player data
-                playerDataManager.saveAllPlayers();
+                playerDataManager.saveAllPlayerData();
                 
                 logger.info("Completed world save for: {}", worldName);
                 
@@ -259,7 +258,8 @@ public class WorldSaveManager {
      * @return a CompletableFuture that completes when the snapshot is created
      */
     public CompletableFuture<Path> createSnapshot() {
-        return backupManager.createSnapshot();
+        return backupManager.createBackupAsync(BackupManager.BackupType.FULL, "Manual snapshot")
+                .thenApply(backupInfo -> backupInfo.filePath);
     }
     
     /**
@@ -274,9 +274,9 @@ public class WorldSaveManager {
             
             // Close all managers
             regionManager.close();
-            playerDataManager.close();
+            // PlayerDataManager doesn't have a close method - it's stateless
             journal.close();
-            backupManager.close();
+            backupManager.shutdown();
             
             // Release session lock
             releaseSessionLock();

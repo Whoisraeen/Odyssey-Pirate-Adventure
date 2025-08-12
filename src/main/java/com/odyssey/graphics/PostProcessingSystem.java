@@ -106,6 +106,11 @@ public class PostProcessingSystem {
             return;
         }
         
+        if (width <= 0 || height <= 0) {
+            logger.warn("Post-processing system initialized with invalid dimensions ({}x{}). Deferring initialization.", width, height);
+            return;
+        }
+        
         this.screenWidth = width;
         this.screenHeight = height;
         

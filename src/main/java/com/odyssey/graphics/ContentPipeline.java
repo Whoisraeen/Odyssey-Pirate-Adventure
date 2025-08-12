@@ -551,16 +551,109 @@ public class ContentPipeline {
      * @param textures List of textures of this type
      */
     private void rebuildAtlasForType(AssetType type, List<AssetInfo> textures) {
-        // This would integrate with the existing TextureAtlasManager
-        // For now, we'll log the operation
         logger.info("Rebuilding atlas for type {} with {} textures", type, textures.size());
         
-        // TODO: Integrate with TextureAtlasManager to actually rebuild atlases
-        // This would involve:
-        // 1. Creating new atlas for the type
-        // 2. Loading texture data for each asset
-        // 3. Adding textures to the atlas
-        // 4. Updating texture references
+        try {
+            // Get the texture atlas manager instance
+            TextureAtlasManager atlasManager = getTextureAtlasManager();
+            if (atlasManager == null) {
+                logger.error("TextureAtlasManager not available for atlas rebuild");
+                return;
+            }
+            
+            // Determine the atlas category based on asset type
+            TextureAtlasManager.AtlasCategory category = mapAssetTypeToAtlasCategory(type);
+            if (category == null) {
+                logger.warn("No atlas category mapping for asset type: {}", type);
+                return;
+            }
+            
+            // Clear existing textures for this category
+            atlasManager.clearAtlasCategory(category);
+            
+            // Add all valid textures to the atlas
+            for (AssetInfo texture : textures) {
+                try {
+                    // Load texture data
+                    String texturePath = texture.getPath();
+                    String textureName = extractTextureName(texturePath);
+                    
+                    // Register texture with atlas manager
+                    atlasManager.registerTexture(textureName, texturePath, category);
+                    
+                } catch (Exception e) {
+                    logger.error("Failed to add texture {} to atlas: {}", texture.getPath(), e.getMessage());
+                }
+            }
+            
+            // Rebuild the atlas for this category
+            atlasManager.rebuildAtlasForCategory(category);
+            
+            logger.info("Successfully rebuilt atlas for type {} with {} textures", type, textures.size());
+            
+        } catch (Exception e) {
+            logger.error("Failed to rebuild atlas for type {}: {}", type, e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Maps AssetType to TextureAtlasManager.AtlasCategory.
+     */
+    private TextureAtlasManager.AtlasCategory mapAssetTypeToAtlasCategory(AssetType assetType) {
+        switch (assetType) {
+            case TEXTURE:
+                return TextureAtlasManager.AtlasCategory.BLOCKS; // Default for generic textures
+            case BLOCK_TEXTURE:
+                return TextureAtlasManager.AtlasCategory.BLOCKS;
+            case ITEM_TEXTURE:
+                return TextureAtlasManager.AtlasCategory.ITEMS;
+            case ENTITY_TEXTURE:
+                return TextureAtlasManager.AtlasCategory.ENTITIES;
+            case UI_TEXTURE:
+                return TextureAtlasManager.AtlasCategory.UI;
+            case EFFECT_TEXTURE:
+                return TextureAtlasManager.AtlasCategory.EFFECTS;
+            case TERRAIN_TEXTURE:
+                return TextureAtlasManager.AtlasCategory.TERRAIN;
+            case PBR_ALBEDO:
+                return TextureAtlasManager.AtlasCategory.PBR_ALBEDO;
+            case PBR_NORMAL:
+                return TextureAtlasManager.AtlasCategory.PBR_NORMAL;
+            case PBR_METALLIC:
+                return TextureAtlasManager.AtlasCategory.PBR_METALLIC;
+            case PBR_ROUGHNESS:
+                return TextureAtlasManager.AtlasCategory.PBR_ROUGHNESS;
+            case PBR_AO:
+                return TextureAtlasManager.AtlasCategory.PBR_AO;
+            case PBR_EMISSION:
+                return TextureAtlasManager.AtlasCategory.PBR_EMISSION;
+            case PBR_HEIGHT:
+                return TextureAtlasManager.AtlasCategory.PBR_HEIGHT;
+            default:
+                return null;
+        }
+    }
+    
+    /**
+     * Extracts texture name from file path.
+     */
+    private String extractTextureName(String texturePath) {
+        String fileName = texturePath.substring(texturePath.lastIndexOf('/') + 1);
+        int dotIndex = fileName.lastIndexOf('.');
+        return dotIndex > 0 ? fileName.substring(0, dotIndex) : fileName;
+    }
+    
+    /**
+     * Gets the TextureAtlasManager instance from the engine.
+     */
+    private TextureAtlasManager getTextureAtlasManager() {
+        try {
+            // Get the texture atlas manager from the engine
+            return Engine.getInstance().getTextureAtlasManager();
+        } catch (Exception e) {
+            logger.error("Failed to get TextureAtlasManager from engine: {}", e.getMessage());
+            return null;
+        }
     }
     
     /**

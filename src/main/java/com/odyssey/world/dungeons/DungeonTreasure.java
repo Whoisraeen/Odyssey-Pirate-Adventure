@@ -1,6 +1,8 @@
 package com.odyssey.world.dungeons;
 
 import org.joml.Vector3i;
+import java.util.List;
+import java.util.ArrayList;
 
 /**
  * Represents a treasure found within a dungeon.
@@ -16,6 +18,7 @@ public class DungeonTreasure {
     private final int value;
     private final String description;
     private boolean collected;
+    private List<String> contents;
     
     /**
      * Creates a new dungeon treasure.
@@ -33,6 +36,7 @@ public class DungeonTreasure {
         this.value = value;
         this.description = description;
         this.collected = false;
+        this.contents = new ArrayList<>();
     }
     
     /**
@@ -54,6 +58,16 @@ public class DungeonTreasure {
     public int getValue() { return value; }
     public String getDescription() { return description; }
     public boolean isCollected() { return collected; }
+    public List<String> getContents() { return new ArrayList<>(contents); }
+    
+    /**
+     * Sets the contents of this treasure.
+     * 
+     * @param contents List of items contained in this treasure
+     */
+    public void setContents(List<String> contents) {
+        this.contents = new ArrayList<>(contents);
+    }
     
     /**
      * Marks this treasure as collected.
@@ -91,6 +105,7 @@ public class DungeonTreasure {
      * Types of treasures that can be found in dungeons.
      */
     public enum TreasureType {
+        // Original treasure types
         MINOR("Minor Treasure", "A small cache of coins and gems", 50, 200),
         MAJOR("Major Treasure", "A substantial hoard of valuable items", 200, 1000),
         LEGENDARY("Legendary Treasure", "An incredibly rare and valuable artifact", 1000, 5000),
@@ -99,7 +114,20 @@ public class DungeonTreasure {
         ANCIENT_ARTIFACT("Ancient Artifact", "A mysterious relic from ages past", 300, 1500),
         WEAPON_CACHE("Weapon Cache", "A hidden stash of fine weapons", 150, 800),
         SPELL_SCROLL("Spell Scroll", "Ancient magical knowledge preserved on parchment", 75, 400),
-        RARE_MATERIALS("Rare Materials", "Uncommon crafting materials and components", 40, 250);
+        RARE_MATERIALS("Rare Materials", "Uncommon crafting materials and components", 40, 250),
+        
+        // Pirate-themed treasure types
+        PIRATE_CHEST("Pirate Chest", "A weathered chest filled with pirate loot", 100, 400),
+        GOLDEN_CHEST("Golden Chest", "An ornate chest made of solid gold", 300, 800),
+        WOODEN_CHEST("Wooden Chest", "A simple wooden chest with basic supplies", 30, 120),
+        IRON_CHEST("Iron Chest", "A sturdy iron-bound chest", 80, 250),
+        SUPPLY_CACHE("Supply Cache", "A hidden cache of essential supplies", 40, 150),
+        WEAPON_RACK("Weapon Rack", "A rack containing various weapons", 120, 350),
+        
+        // Environment-specific treasure types
+        SUNKEN_TREASURE("Sunken Treasure", "Treasure recovered from the ocean depths", 200, 600),
+        CORAL_CHEST("Coral Chest", "A chest encrusted with beautiful coral", 150, 400),
+        MOLTEN_TREASURE("Molten Treasure", "Treasure forged in volcanic heat", 250, 700);
         
         private final String displayName;
         private final String defaultDescription;
@@ -117,6 +145,13 @@ public class DungeonTreasure {
         public String getDefaultDescription() { return defaultDescription; }
         public int getMinValue() { return minValue; }
         public int getMaxValue() { return maxValue; }
+        
+        /**
+         * Gets the base value for this treasure type (average of min and max).
+         */
+        public int getBaseValue() {
+            return (minValue + maxValue) / 2;
+        }
         
         /**
          * Generates a random value for this treasure type.

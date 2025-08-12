@@ -28,6 +28,10 @@ public class SSAOShader extends Shader {
         setUniform("u_gNormal", textureUnit);
     }
     
+    public void setGDepthTexture(int textureUnit) {
+        setUniform("u_gDepth", textureUnit);
+    }
+    
     public void setNoiseTexture(int textureUnit) {
         setUniform("u_texNoise", textureUnit);
     }

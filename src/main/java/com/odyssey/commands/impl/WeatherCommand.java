@@ -1,6 +1,9 @@
 package com.odyssey.commands.impl;
 
 import com.odyssey.commands.*;
+import com.odyssey.core.Engine;
+import com.odyssey.world.weather.WeatherSystem;
+import com.odyssey.world.weather.WeatherSystem.WeatherType;
 
 import java.util.List;
 
@@ -44,9 +47,43 @@ public class WeatherCommand implements Command {
             return CommandResult.invalidArgs("Invalid weather type. Use: " + String.join(", ", WEATHER_TYPES));
         }
         
-        // TODO: Implement actual weather control logic
-        // This would integrate with the WeatherSystem
-        return CommandResult.success("Weather changed to " + weatherType);
+        // Get the weather system from the engine
+        WeatherSystem weatherSystem = Engine.getInstance().getWeatherSystem();
+        if (weatherSystem == null) {
+            return CommandResult.failure("Weather system not available");
+        }
+        
+        // Map command arguments to WeatherType enum and set appropriate intensity
+        WeatherType targetWeather;
+        float intensity;
+        
+        switch (weatherType) {
+            case "clear" -> {
+                targetWeather = WeatherType.CLEAR;
+                intensity = 0.0f;
+            }
+            case "rain" -> {
+                targetWeather = WeatherType.MODERATE_RAIN;
+                intensity = 0.6f;
+            }
+            case "storm" -> {
+                targetWeather = WeatherType.THUNDERSTORM;
+                intensity = 0.9f;
+            }
+            case "fog" -> {
+                targetWeather = WeatherType.FOG;
+                intensity = 0.7f;
+            }
+            default -> {
+                return CommandResult.invalidArgs("Unknown weather type: " + weatherType);
+            }
+        }
+        
+        // Force the weather change for 5 minutes (300 seconds)
+        double duration = 300.0;
+        weatherSystem.forceWeather(targetWeather, intensity, duration);
+        
+        return CommandResult.success("Weather changed to " + weatherType + " for " + (int)(duration / 60) + " minutes");
     }
     
     @Override

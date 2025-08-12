@@ -144,6 +144,140 @@ public class GameConfig {
         this.jobSystemStatisticsEnabled = jobSystemStatisticsEnabled; 
     }
     
+    /**
+     * Returns a map of all game settings for serialization.
+     * 
+     * @return a map containing all game settings
+     */
+    public java.util.Map<String, Object> getGameSettings() {
+        java.util.Map<String, Object> settings = new java.util.HashMap<>();
+        settings.put("windowWidth", windowWidth);
+        settings.put("windowHeight", windowHeight);
+        settings.put("fullscreen", fullscreen);
+        settings.put("vsync", vsync);
+        settings.put("targetFPS", targetFPS);
+        settings.put("debugMode", debugMode);
+        settings.put("worldSeed", worldSeed);
+        settings.put("renderDistance", renderDistance);
+        settings.put("maxChunkUpdatesPerFrame", maxChunkUpdatesPerFrame);
+        settings.put("masterVolume", masterVolume);
+        settings.put("musicVolume", musicVolume);
+        settings.put("effectsVolume", effectsVolume);
+        settings.put("ambientVolume", ambientVolume);
+        settings.put("mouseSensitivity", mouseSensitivity);
+        settings.put("enableTidalSystem", enableTidalSystem);
+        settings.put("enableWeatherSystem", enableWeatherSystem);
+        settings.put("enableDynamicWaves", enableDynamicWaves);
+        settings.put("oceanSimulationQuality", oceanSimulationQuality);
+        settings.put("enableMultithreading", enableMultithreading);
+        settings.put("workerThreads", workerThreads);
+        settings.put("enableFrustumCulling", enableFrustumCulling);
+        settings.put("enableOcclusionCulling", enableOcclusionCulling);
+        settings.put("jobSystemWorkerCount", jobSystemWorkerCount);
+        settings.put("jobQueueCapacity", jobQueueCapacity);
+        settings.put("globalJobQueueCapacity", globalJobQueueCapacity);
+        settings.put("jobSystemStatisticsEnabled", jobSystemStatisticsEnabled);
+        return settings;
+    }
+    
+    public void applyGameSettings(java.util.Map<String, Object> settings) {
+        if (settings == null) {
+            return;
+        }
+        
+        // Display settings
+        if (settings.containsKey("windowWidth")) {
+            setWindowWidth(((Number) settings.get("windowWidth")).intValue());
+        }
+        if (settings.containsKey("windowHeight")) {
+            setWindowHeight(((Number) settings.get("windowHeight")).intValue());
+        }
+        if (settings.containsKey("fullscreen")) {
+            setFullscreen((Boolean) settings.get("fullscreen"));
+        }
+        if (settings.containsKey("vsync")) {
+            setVsync((Boolean) settings.get("vsync"));
+        }
+        if (settings.containsKey("targetFPS")) {
+            setTargetFPS(((Number) settings.get("targetFPS")).intValue());
+        }
+        
+        // Game settings
+        if (settings.containsKey("debugMode")) {
+            setDebugMode((Boolean) settings.get("debugMode"));
+        }
+        if (settings.containsKey("worldSeed")) {
+            setWorldSeed(((Number) settings.get("worldSeed")).longValue());
+        }
+        if (settings.containsKey("renderDistance")) {
+            setRenderDistance(((Number) settings.get("renderDistance")).floatValue());
+        }
+        if (settings.containsKey("maxChunkUpdatesPerFrame")) {
+            setMaxChunkUpdatesPerFrame(((Number) settings.get("maxChunkUpdatesPerFrame")).intValue());
+        }
+        
+        // Audio settings
+        if (settings.containsKey("masterVolume")) {
+            setMasterVolume(((Number) settings.get("masterVolume")).floatValue());
+        }
+        if (settings.containsKey("musicVolume")) {
+            setMusicVolume(((Number) settings.get("musicVolume")).floatValue());
+        }
+        if (settings.containsKey("effectsVolume")) {
+            setEffectsVolume(((Number) settings.get("effectsVolume")).floatValue());
+        }
+        if (settings.containsKey("ambientVolume")) {
+            setAmbientVolume(((Number) settings.get("ambientVolume")).floatValue());
+        }
+        
+        // Input settings
+        if (settings.containsKey("mouseSensitivity")) {
+            setMouseSensitivity(((Number) settings.get("mouseSensitivity")).floatValue());
+        }
+        
+        // Ocean simulation settings
+        if (settings.containsKey("enableTidalSystem")) {
+            setEnableTidalSystem((Boolean) settings.get("enableTidalSystem"));
+        }
+        if (settings.containsKey("enableWeatherSystem")) {
+            setEnableWeatherSystem((Boolean) settings.get("enableWeatherSystem"));
+        }
+        if (settings.containsKey("enableDynamicWaves")) {
+            setEnableDynamicWaves((Boolean) settings.get("enableDynamicWaves"));
+        }
+        if (settings.containsKey("oceanSimulationQuality")) {
+            setOceanSimulationQuality(((Number) settings.get("oceanSimulationQuality")).floatValue());
+        }
+        
+        // Performance settings
+        if (settings.containsKey("enableMultithreading")) {
+            setEnableMultithreading((Boolean) settings.get("enableMultithreading"));
+        }
+        if (settings.containsKey("workerThreads")) {
+            setWorkerThreads(((Number) settings.get("workerThreads")).intValue());
+        }
+        if (settings.containsKey("enableFrustumCulling")) {
+            setEnableFrustumCulling((Boolean) settings.get("enableFrustumCulling"));
+        }
+        if (settings.containsKey("enableOcclusionCulling")) {
+            setEnableOcclusionCulling((Boolean) settings.get("enableOcclusionCulling"));
+        }
+        
+        // Job System settings
+        if (settings.containsKey("jobSystemWorkerCount")) {
+            setJobSystemWorkerCount(((Number) settings.get("jobSystemWorkerCount")).intValue());
+        }
+        if (settings.containsKey("jobQueueCapacity")) {
+            setJobQueueCapacity(((Number) settings.get("jobQueueCapacity")).intValue());
+        }
+        if (settings.containsKey("globalJobQueueCapacity")) {
+            setGlobalJobQueueCapacity(((Number) settings.get("globalJobQueueCapacity")).intValue());
+        }
+        if (settings.containsKey("jobSystemStatisticsEnabled")) {
+            setJobSystemStatisticsEnabled((Boolean) settings.get("jobSystemStatisticsEnabled"));
+        }
+    }
+    
     @Override
     public String toString() {
         return String.format("GameConfig{resolution=%dx%d, fullscreen=%s, seed=%d, debug=%s}", 

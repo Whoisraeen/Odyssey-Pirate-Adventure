@@ -54,9 +54,9 @@ public class GameStateManager {
         // Initialize UI renderer
         inputLayer.initialize();
         
-        // Start with main menu to test TextNode implementation
-        pushState(new MainMenuState(this));
-        logger.info("Game started in MAIN MENU state for TextNode testing");
+        // Start directly in playing state (main menu disabled temporarily)
+        pushState(new PlayingState(this));
+        logger.info("Game started directly in PLAYING state (main menu disabled)");
     }
     
     public void update(double deltaTime) {

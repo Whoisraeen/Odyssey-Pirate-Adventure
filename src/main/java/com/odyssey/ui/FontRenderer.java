@@ -48,6 +48,9 @@ public class FontRenderer {
     private int textureUniform;
     private int colorUniform;
     
+    // Projection matrix for UI rendering
+    private org.joml.Matrix4f projectionMatrix;
+    
     /**
      * Represents a loaded font with its texture atlas and glyph data.
      */
@@ -305,6 +308,15 @@ public class FontRenderer {
         glUniform1i(textureUniform, 0);
         glUniform4f(colorUniform, color.x, color.y, color.z, color.w);
         
+        // Set projection matrix
+        if (projectionMatrix != null) {
+            try (MemoryStack stack = MemoryStack.stackPush()) {
+                FloatBuffer matrixBuffer = stack.mallocFloat(16);
+                projectionMatrix.get(matrixBuffer);
+                glUniformMatrix4fv(projectionUniform, false, matrixBuffer);
+            }
+        }
+        
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
         
@@ -381,6 +393,15 @@ public class FontRenderer {
         
         glUniform1i(textureUniform, 0);
         glUniform4f(colorUniform, color.x, color.y, color.z, color.w);
+        
+        // Set projection matrix
+        if (projectionMatrix != null) {
+            try (MemoryStack stack = MemoryStack.stackPush()) {
+                FloatBuffer matrixBuffer = stack.mallocFloat(16);
+                projectionMatrix.get(matrixBuffer);
+                glUniformMatrix4fv(projectionUniform, false, matrixBuffer);
+            }
+        }
         
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -603,15 +624,7 @@ public class FontRenderer {
      * Sets the projection matrix for text rendering.
      */
     public void setProjectionMatrix(org.joml.Matrix4f projection) {
-        glUseProgram(shaderProgram);
-        
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-            FloatBuffer buffer = stack.mallocFloat(16);
-            projection.get(buffer);
-            glUniformMatrix4fv(projectionUniform, false, buffer);
-        }
-        
-        glUseProgram(0);
+        this.projectionMatrix = new org.joml.Matrix4f(projection);
     }
     
     /**

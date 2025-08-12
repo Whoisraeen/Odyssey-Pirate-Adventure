@@ -33,6 +33,13 @@ public class UIRenderer {
         this.window = window;
         this.uiShader = shaderManager.getShader("ui");
         this.fontRenderer = fontRenderer;
+        
+        if (this.uiShader == null) {
+            logger.error("UI shader is null! Built-in shaders may not be loaded.");
+            throw new RuntimeException("UI shader not found");
+        }
+        
+        logger.info("UIRenderer initialized with UI shader: {}", this.uiShader);
 
         vao = GL30.glGenVertexArrays();
         GL30.glBindVertexArray(vao);
@@ -57,32 +64,42 @@ public class UIRenderer {
     }
 
     public void endFrame() {
-        if (vertexData.isEmpty()) {
-            return;
-        }
-
-        GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
-        float[] data = new float[vertexData.size()];
-        for (int i = 0; i < vertexData.size(); i++) {
-            data[i] = vertexData.get(i);
-        }
-        GL15.glBufferSubData(GL15.GL_ARRAY_BUFFER, 0, data);
-
-        uiShader.bind();
+        // Create projection matrix for UI rendering
         Matrix4f projection = new Matrix4f().ortho(0.0f, window.getWidth(), window.getHeight(), 0.0f, -1.0f, 1.0f);
-        uiShader.setUniform("u_projectionMatrix", projection);
+        
+        // Set projection matrix for font renderer
+        fontRenderer.setProjectionMatrix(projection);
+        
+        if (!vertexData.isEmpty()) {
+            GL15.glBindBuffer(GL15.GL_ARRAY_BUFFER, vbo);
+            float[] data = new float[vertexData.size()];
+            for (int i = 0; i < vertexData.size(); i++) {
+                data[i] = vertexData.get(i);
+            }
+            GL15.glBufferSubData(GL15.GL_ARRAY_BUFFER, 0, data);
 
-        GL30.glBindVertexArray(vao);
-        GL20.glEnableVertexAttribArray(0);
-        GL20.glEnableVertexAttribArray(1);
+            if (uiShader != null) {
+                uiShader.bind();
+                uiShader.setUniform("u_projectionMatrix", projection);
+            } else {
+                logger.error("UI shader is null during rendering!");
+                return;
+            }
 
-        GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, vertexData.size() / 5);
+            GL30.glBindVertexArray(vao);
+            GL20.glEnableVertexAttribArray(0);
+            GL20.glEnableVertexAttribArray(1);
 
-        GL20.glDisableVertexAttribArray(0);
-        GL20.glDisableVertexAttribArray(1);
-        GL30.glBindVertexArray(0);
+            GL11.glDrawArrays(GL11.GL_TRIANGLES, 0, vertexData.size() / 5);
 
-        uiShader.unbind();
+            GL20.glDisableVertexAttribArray(0);
+            GL20.glDisableVertexAttribArray(1);
+            GL30.glBindVertexArray(0);
+
+            if (uiShader != null) {
+                uiShader.unbind();
+            }
+        }
 
         // Check for OpenGL errors
         int error = GL11.glGetError();

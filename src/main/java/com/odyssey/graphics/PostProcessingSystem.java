@@ -558,7 +558,7 @@ public class PostProcessingSystem {
     /**
      * Performs final composition with tonemapping and gamma correction.
      */
-    public void performFinalComposition(int colorTexture, int bloomTexture, int volumetricTexture) {
+    public void performFinalComposition(int colorTexture, int bloomTexture, int volumetricTexture, int cloudTexture) {
         GL11.glViewport(0, 0, screenWidth, screenHeight);
         GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
         
@@ -584,6 +584,16 @@ public class PostProcessingSystem {
             finalCompositionShader.setUniform("u_volumetricEnabled", true);
         } else {
             finalCompositionShader.setUniform("u_volumetricEnabled", false);
+        }
+        
+        // Bind cloud texture for compositing
+        if (cloudTexture != 0) {
+            GL13.glActiveTexture(GL13.GL_TEXTURE3);
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, cloudTexture);
+            finalCompositionShader.setUniform("u_cloudTexture", 3);
+            finalCompositionShader.setUniform("u_cloudEnabled", true);
+        } else {
+            finalCompositionShader.setUniform("u_cloudEnabled", false);
         }
         
         finalCompositionShader.setUniform("u_exposure", exposure);
@@ -938,8 +948,10 @@ public class PostProcessingSystem {
             uniform sampler2D u_colorTexture;
             uniform sampler2D u_bloomTexture;
             uniform sampler2D u_volumetricTexture;
+            uniform sampler2D u_cloudTexture;
             uniform bool u_bloomEnabled;
             uniform bool u_volumetricEnabled;
+            uniform bool u_cloudEnabled;
             uniform float u_exposure;
             uniform float u_gamma;
             uniform float u_bloomIntensity;
@@ -1009,6 +1021,13 @@ public class PostProcessingSystem {
                 if (u_volumetricEnabled) {
                     vec3 volumetric = texture(u_volumetricTexture, v_texCoord).rgb;
                     color += volumetric * 0.8; // Slightly reduce intensity
+                }
+                
+                // Composite volumetric clouds with alpha blending
+                if (u_cloudEnabled) {
+                    vec4 clouds = texture(u_cloudTexture, v_texCoord);
+                    // Alpha blend clouds over the scene
+                    color = mix(color, clouds.rgb, clouds.a);
                 }
                 
                 // Exposure adjustment

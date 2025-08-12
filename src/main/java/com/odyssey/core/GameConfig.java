@@ -39,6 +39,9 @@ public class GameConfig {
     private boolean enableFrustumCulling = true;
     private boolean enableOcclusionCulling = false; // Advanced feature
     
+    // UI settings
+    private boolean enableUIRendering = false; // Disabled to prevent crashes
+    
     // Job System settings
     private int jobSystemWorkerCount = 0; // 0 = auto-detect
     private int jobQueueCapacity = 1024;
@@ -120,8 +123,16 @@ public class GameConfig {
     }
     
     public boolean isEnableOcclusionCulling() { return enableOcclusionCulling; }
-    public void setEnableOcclusionCulling(boolean enableOcclusionCulling) { 
-        this.enableOcclusionCulling = enableOcclusionCulling; 
+    public void setEnableOcclusionCulling(boolean enableOcclusionCulling) {
+        this.enableOcclusionCulling = enableOcclusionCulling;
+    }
+
+    public boolean isEnableUIRendering() {
+        return enableUIRendering;
+    }
+
+    public void setEnableUIRendering(boolean enableUIRendering) {
+        this.enableUIRendering = enableUIRendering;
     }
     
     public int getJobSystemWorkerCount() { return jobSystemWorkerCount; }

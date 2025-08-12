@@ -1054,8 +1054,11 @@ public class WorldGenerator {
         }
     }
     
-    public WorldGenerator(long seed) {
+    private final com.odyssey.world.World world;
+    
+    public WorldGenerator(long seed, com.odyssey.world.World world) {
         this.seed = seed;
+        this.world = world;
         this.random = new Random(seed);
         
         // Initialize noise generators with different seeds
@@ -1365,101 +1368,82 @@ public class WorldGenerator {
     }
     
     public float getHeightAt(float x, float z) {
-        // Generate base ocean floor using enhanced Simplex noise
-        float baseOceanFloor = SEA_LEVEL - 30; // Default deeper ocean floor
+        // Generate continental mask using proper continent noise with domain warping
+        float continentMask = continentNoise.domainWarp(x * CONTINENT_SCALE, z * CONTINENT_SCALE, 50.0f);
+        continentMask = continentNoise.simplexFbm(x * CONTINENT_SCALE + continentMask, z * CONTINENT_SCALE + continentMask, 4, 2.0f, 0.5f);
         
-        // Continental shelf generation using FBM
-        float continentalNoise = mountainNoise.fbm(x * 0.0005f, z * 0.0005f, 4, 2.0f, 0.5f);
-        float continentalHeight = baseOceanFloor + continentalNoise * 40.0f; // Continental shelf variation
+        // Base ocean floor depth
+        float baseOceanFloor = SEA_LEVEL - 30;
         
-        // Underwater mountain ranges using ridged noise
-        float underwaterMountains = mountainNoise.ridgedNoise(x * 0.002f, z * 0.002f, 6, 2.0f, 0.6f);
-        if (underwaterMountains > 0.4f) {
-            continentalHeight += (underwaterMountains - 0.4f) * 80.0f; // Underwater peaks
-        }
-        
-        // Ocean trenches using inverted ridged noise
-        float trenchNoise = mountainNoise.ridgedNoise(x * 0.001f + 1000, z * 0.001f + 1000, 4, 2.0f, 0.5f);
-        if (trenchNoise > 0.7f) {
-            continentalHeight -= (trenchNoise - 0.7f) * 120.0f; // Deep ocean trenches
-        }
-        
-        // Local terrain variation using multiple noise layers
-        float localTerrain = mountainNoise.octaveNoise(x * 0.01f, z * 0.01f, 8, 0.5f);
-        float microTerrain = mountainNoise.octaveNoise(x * 0.05f, z * 0.05f, 4, 0.3f);
-        
-        float height = continentalHeight + localTerrain * 15.0f + microTerrain * 5.0f;
-        
-        // Island mask for archipelago generation
-        float islandMask = generateIslandMask(x, z);
-        
-        // Apply island elevation where mask is strong
-        if (islandMask > 0.3f) {
-            float islandElevation = (islandMask - 0.3f) * 100.0f; // Raise land above sea level
+        // Continental vs oceanic terrain
+        if (continentMask > 0.2f) {
+            // CONTINENTAL TERRAIN - Large landmasses
+            float continentHeight = (continentMask - 0.2f) * 150.0f; // Scale to reasonable height
             
-            // Add mountainous terrain to islands using 3D Simplex noise
-            float mountainTerrain = mountainNoise.simplex3D(x * 0.02f, islandElevation * 0.01f, z * 0.02f);
-            islandElevation += mountainTerrain * 30.0f;
-            
-            // Create coastal cliffs using turbulence
-            float coastalDistance = Math.abs(islandMask - 0.5f) * 2.0f; // Distance from coast
-            if (coastalDistance < 0.3f) {
-                float cliffNoise = mountainNoise.turbulence(x * 0.1f, z * 0.1f, 3);
-                if (cliffNoise > 0.6f) {
-                    islandElevation += (cliffNoise - 0.6f) * 25.0f; // Coastal cliffs
-                }
+            // Add mountain ranges along continental boundaries (plate tectonics simulation)
+            float plateNoise = continentNoise.ridgedNoise(x * 0.001f, z * 0.001f, 6, 2.0f, 0.6f);
+            if (plateNoise > 0.5f) {
+                continentHeight += (plateNoise - 0.5f) * 80.0f; // Mountain ranges
             }
             
-            height = Math.max(height, SEA_LEVEL + islandElevation);
-        }
-        
-        // Check if position is on any pre-generated island (legacy support)
-        for (Island island : generatedIslands) {
-            float distance = new Vector2f(x, z).distance(island.center);
-            if (distance <= island.radius) {
-                // Use smooth falloff from center to edge with noise variation
-                float falloff = 1.0f - (distance / island.radius);
-                falloff = falloff * falloff; // Smooth curve
-                
-                // Add terrain detail to islands
-                float islandDetail = mountainNoise.fbm(x * 0.02f, z * 0.02f, 6, 2.0f, 0.5f);
-                float islandHeight = island.height * falloff + islandDetail * 20.0f;
-                
-                height = Math.max(height, SEA_LEVEL + islandHeight);
+            // Local terrain variation
+            float localTerrain = mountainNoise.fbm(x * 0.01f, z * 0.01f, 6, 2.0f, 0.5f);
+            continentHeight += localTerrain * 25.0f;
+            
+            // Coastal erosion - reduce height near continent edges
+            float coastalFactor = Math.min(1.0f, (continentMask - 0.2f) * 5.0f);
+            continentHeight *= coastalFactor;
+            
+            return SEA_LEVEL + continentHeight;
+        } else {
+            // OCEANIC TERRAIN - Ocean floor with islands
+            float oceanFloor = baseOceanFloor;
+            
+            // Underwater mountain ranges and ridges
+            float underwaterMountains = mountainNoise.ridgedNoise(x * 0.002f, z * 0.002f, 6, 2.0f, 0.6f);
+            if (underwaterMountains > 0.4f) {
+                oceanFloor += (underwaterMountains - 0.4f) * 60.0f;
             }
-        }
-        
-        // Check volcanic islands with enhanced terrain
-        for (VolcanicIsland volcano : volcanicIslands) {
-            float distance = new Vector2f(x, z).distance(volcano.center);
-            if (distance <= volcano.radius) {
-                float falloff = 1.0f - (distance / volcano.radius);
-                falloff = falloff * falloff;
+            
+            // Ocean trenches
+            float trenchNoise = mountainNoise.ridgedNoise(x * 0.001f + 1000, z * 0.001f + 1000, 4, 2.0f, 0.5f);
+            if (trenchNoise > 0.7f) {
+                oceanFloor -= (trenchNoise - 0.7f) * 100.0f;
+            }
+            
+            // Island generation using noise-based approach (replaces O(N) island loops)
+            float islandMask = generateIslandMask(x, z);
+            
+            if (islandMask > 0.3f) {
+                // Generate island above sea level
+                float islandHeight = (islandMask - 0.3f) * 120.0f;
                 
-                // Add volcanic terrain detail using 3D Simplex noise
-                float volcanoHeight = volcano.height * falloff;
-                float volcanicDetail = mountainNoise.simplex3D(x * 0.03f, volcanoHeight * 0.02f, z * 0.03f);
-                volcanoHeight += volcanicDetail * 25.0f;
-                
-                // Crater depression with realistic slopes
-                float craterDistance = new Vector2f(x, z).distance(volcano.craterCenter);
-                if (craterDistance <= volcano.craterRadius) {
-                    float craterFalloff = 1.0f - (craterDistance / volcano.craterRadius);
-                    craterFalloff = craterFalloff * craterFalloff * craterFalloff; // Steep crater walls
-                    float craterDepth = craterFalloff * volcano.height * 0.4f;
+                // Add volcanic features using noise
+                float volcanoNoise = mountainNoise.simplex3D(x * 0.005f, 0, z * 0.005f);
+                if (volcanoNoise > 0.6f) {
+                    islandHeight += (volcanoNoise - 0.6f) * 60.0f; // Volcanic peaks
                     
-                    // Add crater wall detail
-                    float craterWallNoise = mountainNoise.turbulence(x * 0.2f, z * 0.2f, 4);
-                    craterDepth += craterWallNoise * 8.0f;
-                    
-                    volcanoHeight -= craterDepth;
+                    // Crater formation
+                    float craterNoise = mountainNoise.simplex2D(x * 0.02f, z * 0.02f);
+                    if (craterNoise > 0.7f && islandHeight > 40.0f) {
+                        islandHeight -= (craterNoise - 0.7f) * 30.0f; // Crater depression
+                    }
                 }
                 
-                height = Math.max(height, SEA_LEVEL + volcanoHeight);
+                // Coastal cliffs and beaches
+                float coastalDistance = Math.abs(islandMask - 0.5f) * 2.0f;
+                if (coastalDistance < 0.3f) {
+                    float cliffNoise = mountainNoise.turbulence(x * 0.1f, z * 0.1f, 3);
+                    if (cliffNoise > 0.6f) {
+                        islandHeight += (cliffNoise - 0.6f) * 20.0f;
+                    }
+                }
+                
+                return Math.max(oceanFloor, SEA_LEVEL + islandHeight);
             }
+            
+            return oceanFloor;
         }
-        
-        return height;
     }
     
     /**
@@ -1567,16 +1551,9 @@ public class WorldGenerator {
         
         if (depthFromSurface <= 1) {
             // Surface layer - determine by biome and height
-            if (terrainHeight > SEA_LEVEL + 20) {
-                // High altitude - rocky terrain
-                float rockNoise = mountainNoise.octaveNoise(x * 0.1f, z * 0.1f, 3, 0.5f);
-                if (rockNoise > 0.3f) {
-                    return BlockType.STONE; // Rocky outcrops
-                } else {
-                    return BlockType.GRASS; // Grass on mountains
-                }
-            } else if (terrainHeight > SEA_LEVEL + 5) {
-                return BlockType.GRASS; // Normal land surface
+            if (terrainHeight > SEA_LEVEL) {
+                // Land surface - use biome-based block selection
+                return getSurfaceBlockForBiome(x, z, terrainHeight);
             } else if (terrainHeight > SEA_LEVEL - 2) {
                 return BlockType.SAND; // Beach/shallow water
             } else {
@@ -1607,6 +1584,93 @@ public class WorldGenerator {
             // Deep rock layer
             return BlockType.STONE;
         }
+    }
+    
+    /**
+     * Gets the surface block type for a biome at the given coordinates.
+     * 
+     * @param x the x coordinate
+     * @param z the z coordinate
+     * @param terrainHeight the terrain height at this location
+     * @return the appropriate surface block type
+     */
+    private BlockType getSurfaceBlockForBiome(int x, int z, float terrainHeight) {
+        // Get biome from BiomeManager if available
+        if (world != null && world.getBiomeManager() != null) {
+            var biomeType = world.getBiomeManager().getBiomeAt(x, z);
+            
+            // High altitude override - rocky terrain regardless of biome
+            if (terrainHeight > SEA_LEVEL + 20) {
+                float rockNoise = mountainNoise.octaveNoise(x * 0.1f, z * 0.1f, 3, 0.5f);
+                if (rockNoise > 0.3f) {
+                    return BlockType.STONE; // Rocky outcrops
+                }
+            }
+            
+            // Biome-specific surface blocks
+            return switch (biomeType) {
+                case TROPICAL_ATOLLS, CORAL_REEFS -> {
+                    if (terrainHeight < SEA_LEVEL + 3) {
+                        yield BlockType.SAND; // Beach sand
+                    } else {
+                        yield BlockType.GRASS; // Tropical grass
+                    }
+                }
+                case VOLCANIC_SPIRES -> {
+                    if (terrainHeight > SEA_LEVEL + 15) {
+                        yield BlockType.VOLCANIC_ROCK; // Volcanic peaks
+                    } else {
+                        yield BlockType.STONE; // Volcanic slopes
+                    }
+                }
+                case DENSE_JUNGLES -> BlockType.GRASS; // Rich jungle soil
+                case MANGROVE_SWAMPS -> {
+                    if (terrainHeight < SEA_LEVEL + 2) {
+                        yield BlockType.DIRT; // Muddy swamp floor
+                    } else {
+                        yield BlockType.GRASS; // Swamp grass
+                    }
+                }
+                case ARCTIC_ARCHIPELAGOS -> {
+                    if (terrainHeight > SEA_LEVEL + 10) {
+                        yield BlockType.STONE; // Frozen rock
+                    } else {
+                        yield BlockType.DIRT; // Permafrost
+                    }
+                }
+                case DESERT_OASIS -> BlockType.SAND; // Desert sand
+                case BONE_ISLANDS -> BlockType.LIMESTONE; // Bone-like limestone
+                case FLOATING_GARDENS -> BlockType.GRASS; // Fertile garden soil
+                case WHISPERING_ISLES, TEMPORAL_ANOMALIES, MAGNETIC_ANOMALIES -> {
+                    // Mystical biomes with unique properties
+                    float mysticalNoise = temperatureNoise.octaveNoise(x * 0.05f, z * 0.05f, 2, 0.3f);
+                    if (mysticalNoise > 0.4f) {
+                        yield BlockType.CRYSTAL; // Crystalline formations
+                    } else {
+                        yield BlockType.STONE; // Strange stone
+                    }
+                }
+                case BIOLUMINESCENT_CAVERNS -> BlockType.STONE; // Cave stone
+                case KELP_FORESTS, UNDERWATER_RUINS -> BlockType.SAND; // Ocean floor
+                default -> {
+                    // Default land surface based on height
+                    if (terrainHeight > SEA_LEVEL + 15) {
+                        yield BlockType.STONE; // Mountain stone
+                    } else {
+                        yield BlockType.GRASS; // Normal grass
+                    }
+                }
+            };
+        }
+        
+        // Fallback if no BiomeManager available
+        if (terrainHeight > SEA_LEVEL + 20) {
+            float rockNoise = mountainNoise.octaveNoise(x * 0.1f, z * 0.1f, 3, 0.5f);
+            if (rockNoise > 0.3f) {
+                return BlockType.STONE;
+            }
+        }
+        return terrainHeight > SEA_LEVEL + 5 ? BlockType.GRASS : BlockType.DIRT;
     }
     
     public float getTemperatureAt(float x, float z) {

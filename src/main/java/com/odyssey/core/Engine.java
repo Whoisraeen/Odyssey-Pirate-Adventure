@@ -281,6 +281,10 @@ public class Engine {
         
         if (isPlayingState) {
             updateCameraControls(deltaTime);
+            
+            // Synchronize camera player position with world
+            Vector3f cameraPlayerPosition = renderer.getCamera().getPlayerPosition();
+            world.setPlayerPosition(cameraPlayerPosition);
         }
         
         // Update world systems
@@ -461,11 +465,8 @@ public class Engine {
             // Ocean blue for 3D gameplay
             renderer.beginFrame(deltaTime, 0.1f, 0.3f, 0.8f, 1.0f);
             
-            // Render the basic scene (ocean and test cubes)
+            // Render the scene (includes world geometry in deferred geometry pass)
             renderer.renderScene();
-            
-            // Render world
-            world.render(renderer);
             
             // Ocean rendering is now handled by the renderer's renderScene method
             // oceanSystem.render(renderer);

@@ -59,7 +59,7 @@ public class World {
         gameRuleManager = new GameRuleManager();
         
         // Initialize world generation
-        worldGenerator = new WorldGenerator(seed);
+        worldGenerator = new WorldGenerator(seed, this);
         worldGenerator.initialize();
         
         // Initialize biome system

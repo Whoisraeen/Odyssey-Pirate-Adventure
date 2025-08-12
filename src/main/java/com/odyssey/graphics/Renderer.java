@@ -1,5 +1,6 @@
 package com.odyssey.graphics;
 
+import com.odyssey.core.Engine;
 import com.odyssey.core.GameConfig;
 import com.odyssey.graphics.Window;
 import com.odyssey.core.jobs.JobSystem;
@@ -436,11 +437,9 @@ public class Renderer {
         // Geometry pass - render to G-Buffer (solid geometry only)
         deferredRenderer.beginGeometryPass();
         
-        // Render ocean with PBR materials
-        if (usePBRMaterials && pbrShader != null) {
-            renderOceanPBR();
-        } else {
-            renderOcean();
+        // Render world geometry first (chunks, terrain, etc.)
+        if (Engine.getInstance().getWorld() != null) {
+            Engine.getInstance().getWorld().render(this);
         }
         
         // Test cubes removed - ready for world generation
@@ -451,12 +450,18 @@ public class Renderer {
         deferredRenderer.performSSAOPass(camera.getProjectionMatrix(), camera.getViewMatrix());
         
         // Lighting pass
-        deferredRenderer.performLightingPass(lightingSystem, camera.getPosition());
+        deferredRenderer.performLightingPass(lightingSystem, camera.getPosition(), camera.getViewMatrix(), camera.getProjectionMatrix());
         
         // TAA pass - apply temporal anti-aliasing after lighting
         if (deferredRenderer.isTAAEnabled()) {
             deferredRenderer.performTAAPass(camera, deferredRenderer.getFinalTexture());
         }
+        
+        // Transparent pass - render transparents on HDR buffer after lighting
+        renderTransparents();
+        
+        // Render sky and atmosphere in HDR before tonemap
+        renderSkyAndAtmosphere();
         
         // Present final result with underwater effects support
         if (postProcessingSystem != null) {
@@ -469,20 +474,68 @@ public class Renderer {
             // Get current time for animated effects
             float time = System.currentTimeMillis() / 1000.0f;
             
-            deferredRenderer.presentFinalResult(postProcessingSystem, camera, sunDirection, time);
+            // Get cloud texture for compositing
+            int cloudTexture = 0;
+            if (volumetricCloudRenderer != null) {
+                cloudTexture = volumetricCloudRenderer.getCloudTexture();
+            }
+            
+            deferredRenderer.presentFinalResult(postProcessingSystem, camera, sunDirection, time, cloudTexture);
         } else {
             // Fallback to standard post-processing
             deferredRenderer.presentFinalResult();
         }
+    }
+    
+    /**
+     * Renders transparent objects after lighting pass.
+     * This includes ocean, glass, particles, etc.
+     */
+    private void renderTransparents() {
+        // Bind the post-process framebuffer to render transparents on HDR buffer
+        if (deferredRenderer != null) {
+            deferredRenderer.bindPostProcessFramebuffer();
+        }
         
-        // Render sky as overlay on final framebuffer (after deferred pipeline)
-        // This ensures sky renders to the screen, not the G-Buffer
+        // Enable depth testing but disable depth writing for transparents
+        GL11.glEnable(GL11.GL_DEPTH_TEST);
+        GL11.glDepthMask(false);
+        
+        // Enable blending for transparency
+        GL11.glEnable(GL11.GL_BLEND);
+        GL11.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        
+        // Render ocean with proper transparency
+        if (usePBRMaterials && pbrShader != null) {
+            renderOceanPBR();
+        } else {
+            renderOcean();
+        }
+        
+        // TODO: Render other transparent objects here (particles, glass, etc.)
+        
+        // Restore depth writing and disable blending
+        GL11.glDepthMask(true);
+        GL11.glDisable(GL11.GL_BLEND);
+        
+        // Unbind framebuffer
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
+    }
+    
+    /**
+     * Renders sky and atmosphere in HDR before tonemap.
+     */
+    private void renderSkyAndAtmosphere() {
+        // Bind the post-process framebuffer to render sky in HDR
+        if (deferredRenderer != null) {
+            deferredRenderer.bindPostProcessFramebuffer();
+        }
+        
+        // Copy depth buffer from G-Buffer for proper depth testing
+        copyDepthBuffer();
+        
+        // Render sky with proper depth testing
         if (skyRenderer != null && currentTimeOfDaySystem != null) {
-            // Copy depth buffer from G-Buffer to default framebuffer for proper depth testing
-            // Only copy when sky renderer is active and time of day system is available
-            copyDepthBuffer();
-            
-            // Render sky with proper depth testing
             skyRenderer.render(camera.getViewMatrix(), camera.getProjectionMatrix(), currentTimeOfDaySystem);
         }
         
@@ -499,6 +552,9 @@ public class Renderer {
                 deltaTime
             );
         }
+        
+        // Unbind framebuffer
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, 0);
     }
     
     /**
@@ -635,8 +691,9 @@ public class Renderer {
             // Bind G-Buffer as read framebuffer
             GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, deferredRenderer.getGBufferFBO());
             
-            // Bind default framebuffer as draw framebuffer
-            GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, 0);
+            // Bind post-process framebuffer as draw framebuffer for sky rendering
+            deferredRenderer.bindPostProcessFramebuffer();
+            GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, deferredRenderer.getPostProcessFBO());
             
             // Copy depth buffer
             GL30.glBlitFramebuffer(

@@ -1,7 +1,7 @@
 package com.odyssey.world.biomes;
 
 import com.odyssey.core.Engine;
-import com.odyssey.world.generation.NoiseGenerator;
+import com.odyssey.world.generation.WorldGenerator.NoiseGenerator;
 import com.odyssey.world.biome.BiomeManager.ClimateData;
 import org.joml.Vector2f;
 import org.slf4j.Logger;
@@ -294,16 +294,16 @@ public class BiomeSystem {
      * Determines the biome type at coordinates
      */
     private BiomeType determineBiomeType(int x, int z) {
-        double temperature = temperatureNoise.noise(x * temperatureScale, z * temperatureScale);
-        double humidity = humidityNoise.noise(x * humidityScale, z * humidityScale);
-        double elevation = elevationNoise.noise(x * elevationScale, z * elevationScale);
-        double oceanCurrent = oceanCurrentNoise.noise(x * oceanCurrentScale, z * oceanCurrentScale);
+        float temperature = temperatureNoise.noise((float)(x * temperatureScale), (float)(z * temperatureScale));
+        float humidity = humidityNoise.noise((float)(x * humidityScale), (float)(z * humidityScale));
+        float elevation = elevationNoise.noise((float)(x * elevationScale), (float)(z * elevationScale));
+        float oceanCurrent = oceanCurrentNoise.noise((float)(x * oceanCurrentScale), (float)(z * oceanCurrentScale));
         
         // Normalize values to 0-1 range
-        temperature = (temperature + 1.0) * 0.5;
-        humidity = (humidity + 1.0) * 0.5;
-        elevation = (elevation + 1.0) * 0.5;
-        oceanCurrent = (oceanCurrent + 1.0) * 0.5;
+        temperature = (temperature + 1.0f) * 0.5f;
+        humidity = (humidity + 1.0f) * 0.5f;
+        elevation = (elevation + 1.0f) * 0.5f;
+        oceanCurrent = (oceanCurrent + 1.0f) * 0.5f;
         
         return selectBiomeByClimate(temperature, humidity, elevation, oceanCurrent);
     }
@@ -476,16 +476,16 @@ public class BiomeSystem {
         climate.rainfall = biome.getHumidity() * 0.8f; // Rainfall based on humidity
         
         // Add some noise variation
-        float tempNoise = (float) temperatureNoise.noise(x * temperatureScale, z * temperatureScale);
-        float humidityNoise = (float) this.humidityNoise.noise(x * humidityScale, z * humidityScale);
+        float tempNoise = temperatureNoise.noise((float)(x * temperatureScale), (float)(z * temperatureScale));
+        float humidityNoise = this.humidityNoise.noise((float)(x * humidityScale), (float)(z * humidityScale));
         
         climate.temperature += tempNoise * 5.0f;
         climate.humidity += humidityNoise * 20.0f;
         climate.humidity = Math.max(0, Math.min(100, climate.humidity));
         
         // Wind vector based on ocean currents
-        float windX = (float) oceanCurrentNoise.noise(x * oceanCurrentScale, z * oceanCurrentScale);
-        float windZ = (float) oceanCurrentNoise.noise((x + 1000) * oceanCurrentScale, z * oceanCurrentScale);
+        float windX = oceanCurrentNoise.noise((float)(x * oceanCurrentScale), (float)(z * oceanCurrentScale));
+        float windZ = oceanCurrentNoise.noise((float)((x + 1000) * oceanCurrentScale), (float)(z * oceanCurrentScale));
         climate.windVector = new Vector2f(windX * 10.0f, windZ * 10.0f);
         
         return climate;

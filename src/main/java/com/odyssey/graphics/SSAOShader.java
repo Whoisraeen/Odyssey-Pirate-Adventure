@@ -20,16 +20,12 @@ public class SSAOShader extends Shader {
         link();
     }
     
-    public void setGPositionTexture(int textureUnit) {
-        setUniform("u_gPosition", textureUnit);
+    public void setGDepthTexture(int textureUnit) {
+        setUniform("u_gDepth", textureUnit);
     }
     
     public void setGNormalTexture(int textureUnit) {
         setUniform("u_gNormal", textureUnit);
-    }
-    
-    public void setGDepthTexture(int textureUnit) {
-        setUniform("u_gDepth", textureUnit);
     }
     
     public void setNoiseTexture(int textureUnit) {
@@ -48,6 +44,11 @@ public class SSAOShader extends Shader {
     
     public void setViewMatrix(Matrix4f view) {
         setUniform("u_view", view);
+    }
+    
+    public void setInverseMatrices(Matrix4f invView, Matrix4f invProjection) {
+        setUniform("u_invView", invView);
+        setUniform("u_invProjection", invProjection);
     }
     
     public void setRadius(float radius) {
@@ -90,21 +91,43 @@ public class SSAOShader extends Shader {
             
             in vec2 TexCoords;
             
-            uniform sampler2D u_gPosition;
+            uniform sampler2D u_gDepth;
             uniform sampler2D u_gNormal;
             uniform sampler2D u_texNoise;
             
             uniform vec3 u_samples[64];
             uniform mat4 u_projection;
             uniform mat4 u_view;
+            uniform mat4 u_invView;
+            uniform mat4 u_invProjection;
             uniform float u_radius;
             uniform float u_bias;
             uniform float u_power;
             uniform vec2 u_screenSize;
             
+            // Reconstruct world position from depth
+            vec3 reconstructWorldPosition(vec2 texCoord, float depth) {
+                vec4 clipSpacePos = vec4(texCoord * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
+                vec4 viewSpacePos = u_invProjection * clipSpacePos;
+                viewSpacePos /= viewSpacePos.w;
+                vec4 worldSpacePos = u_invView * viewSpacePos;
+                return worldSpacePos.xyz;
+            }
+            
+            // Decode octahedral normal from RG channels
+            vec3 decodeOctahedralNormal(vec2 encoded) {
+                vec3 n = vec3(encoded.x, encoded.y, 1.0 - abs(encoded.x) - abs(encoded.y));
+                if (n.z < 0.0) {
+                    n.xy = (1.0 - abs(n.yx)) * sign(n.xy);
+                }
+                return normalize(n);
+            }
+            
             void main() {
-                vec3 fragPos = texture(u_gPosition, TexCoords).xyz;
-                vec3 normal = normalize(texture(u_gNormal, TexCoords).rgb);
+                float depth = texture(u_gDepth, TexCoords).r;
+                vec3 fragPos = reconstructWorldPosition(TexCoords, depth);
+                vec4 gNormal = texture(u_gNormal, TexCoords);
+                vec3 normal = decodeOctahedralNormal(gNormal.rg);
                 vec3 randomVec = normalize(texture(u_texNoise, TexCoords * (u_screenSize / 4.0)).xyz);
                 
                 // Create TBN change-of-basis matrix: from tangent-space to view-space
@@ -125,11 +148,12 @@ public class SSAOShader extends Shader {
                     offset.xyz = offset.xyz * 0.5 + 0.5; // transform to range 0.0 - 1.0
                     
                     // Get sample depth
-                    float sampleDepth = texture(u_gPosition, offset.xy).z; // get depth value of kernel sample
+                    float sampleDepth = texture(u_gDepth, offset.xy).r; // get depth value of kernel sample
+                    vec3 sampleWorldPos = reconstructWorldPosition(offset.xy, sampleDepth);
                     
                     // Range check & accumulate
-                    float rangeCheck = smoothstep(0.0, 1.0, u_radius / abs(fragPos.z - sampleDepth));
-                    occlusion += (sampleDepth >= samplePos.z + u_bias ? 1.0 : 0.0) * rangeCheck;
+                    float rangeCheck = smoothstep(0.0, 1.0, u_radius / abs(fragPos.z - sampleWorldPos.z));
+                    occlusion += (sampleWorldPos.z >= samplePos.z + u_bias ? 1.0 : 0.0) * rangeCheck;
                 }
                 occlusion = 1.0 - (occlusion / 64.0);
                 

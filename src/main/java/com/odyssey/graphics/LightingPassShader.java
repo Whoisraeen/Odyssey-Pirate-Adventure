@@ -25,7 +25,7 @@ public class LightingPassShader {
     // G-Buffer texture units
     private static final int GBUFFER_ALBEDO_UNIT = 0;
     private static final int GBUFFER_NORMAL_UNIT = 1;
-    private static final int GBUFFER_POSITION_UNIT = 2;
+    private static final int GBUFFER_DEPTH_UNIT = 2;  // Changed from POSITION to DEPTH
     private static final int GBUFFER_EMISSION_UNIT = 3;
     
     // IBL texture units
@@ -68,7 +68,7 @@ public class LightingPassShader {
     private void setTextureUniforms() {
         shader.setUniform("u_gAlbedo", GBUFFER_ALBEDO_UNIT);
         shader.setUniform("u_gNormal", GBUFFER_NORMAL_UNIT);
-        shader.setUniform("u_gPosition", GBUFFER_POSITION_UNIT);
+        shader.setUniform("u_gDepth", GBUFFER_DEPTH_UNIT);  // Changed from u_gPosition
         shader.setUniform("u_gEmission", GBUFFER_EMISSION_UNIT);
         shader.setUniform("u_irradianceMap", IRRADIANCE_TEXTURE_UNIT);
         shader.setUniform("u_prefilterMap", PREFILTER_TEXTURE_UNIT);
@@ -96,15 +96,15 @@ public class LightingPassShader {
     /**
      * Binds G-Buffer textures for reading.
      */
-    public void bindGBufferTextures(int albedoTexture, int normalTexture, int positionTexture, int emissionTexture) {
+    public void bindGBufferTextures(int albedoTexture, int normalTexture, int depthTexture, int emissionTexture) {
         GL13.glActiveTexture(GL13.GL_TEXTURE0 + GBUFFER_ALBEDO_UNIT);
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, albedoTexture);
         
         GL13.glActiveTexture(GL13.GL_TEXTURE0 + GBUFFER_NORMAL_UNIT);
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, normalTexture);
         
-        GL13.glActiveTexture(GL13.GL_TEXTURE0 + GBUFFER_POSITION_UNIT);
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, positionTexture);
+        GL13.glActiveTexture(GL13.GL_TEXTURE0 + GBUFFER_DEPTH_UNIT);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, depthTexture);
         
         GL13.glActiveTexture(GL13.GL_TEXTURE0 + GBUFFER_EMISSION_UNIT);
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, emissionTexture);
@@ -147,6 +147,14 @@ public class LightingPassShader {
      */
     public void setCameraPosition(Vector3f cameraPosition) {
         shader.setUniform("u_cameraPosition", cameraPosition);
+    }
+    
+    /**
+     * Sets inverse view and projection matrices for position reconstruction.
+     */
+    public void setInverseMatrices(Matrix4f invViewMatrix, Matrix4f invProjectionMatrix) {
+        shader.setUniform("u_invViewMatrix", invViewMatrix);
+        shader.setUniform("u_invProjectionMatrix", invProjectionMatrix);
     }
     
     /**
@@ -259,7 +267,7 @@ public class LightingPassShader {
             // G-Buffer textures
             uniform sampler2D u_gAlbedo;
             uniform sampler2D u_gNormal;
-            uniform sampler2D u_gPosition;
+            uniform sampler2D u_gDepth;     // Changed from u_gPosition to u_gDepth
             uniform sampler2D u_gEmission;
             
             // IBL textures
@@ -274,8 +282,10 @@ public class LightingPassShader {
             // SSAO
             uniform sampler2D u_ssaoTexture;
             
-            // Camera
+            // Camera and matrices for position reconstruction
             uniform vec3 u_cameraPosition;
+            uniform mat4 u_invViewMatrix;
+            uniform mat4 u_invProjectionMatrix;
             
             // Ambient lighting
             uniform vec3 u_ambientColor;
@@ -533,24 +543,47 @@ public class LightingPassShader {
                 return kD * diffuse + specular;
             }
             
+            // Reconstruct world position from depth
+            vec3 reconstructWorldPosition(vec2 texCoord, float depth) {
+                // Convert screen coordinates to NDC
+                vec4 clipSpacePos = vec4(texCoord * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
+                
+                // Transform to view space
+                vec4 viewSpacePos = u_invProjectionMatrix * clipSpacePos;
+                viewSpacePos /= viewSpacePos.w;
+                
+                // Transform to world space
+                vec4 worldSpacePos = u_invViewMatrix * viewSpacePos;
+                return worldSpacePos.xyz;
+            }
+            
+            // Decode octahedral normal from RG channels
+            vec3 decodeOctahedralNormal(vec2 encoded) {
+                vec3 n = vec3(encoded.x, encoded.y, 1.0 - abs(encoded.x) - abs(encoded.y));
+                if (n.z < 0.0) {
+                    n.xy = (1.0 - abs(n.yx)) * sign(n.xy);
+                }
+                return normalize(n);
+            }
+            
             void main() {
                 // Sample G-Buffer
                 vec4 gAlbedo = texture(u_gAlbedo, v_texCoord);
                 vec4 gNormal = texture(u_gNormal, v_texCoord);
-                vec4 gPosition = texture(u_gPosition, v_texCoord);
+                float gDepth = texture(u_gDepth, v_texCoord).r;
                 vec4 gEmission = texture(u_gEmission, v_texCoord);
                 
                 // Extract material properties
                 vec3 albedo = gAlbedo.rgb;
                 float metallic = gAlbedo.a;
-                vec3 normal = normalize(gNormal.rgb * 2.0 - 1.0);
-                float roughness = gNormal.a;
-                vec3 worldPos = gPosition.rgb;
+                vec3 normal = decodeOctahedralNormal(gNormal.rg);  // Decode from RG channels
+                float roughness = gNormal.b;  // Roughness from B channel
+                vec3 worldPos = reconstructWorldPosition(v_texCoord, gDepth);  // Reconstruct from depth
                 vec3 emission = gEmission.rgb;
                 
                 // Sample SSAO
                 float ssao = texture(u_ssaoTexture, v_texCoord).r;
-                float ao = gEmission.a * ssao;
+                float ao = gNormal.a * ssao;
                 
                 // Calculate view direction
                 vec3 V = normalize(u_cameraPosition - worldPos);
@@ -587,9 +620,6 @@ public class LightingPassShader {
                 
                 // Final color
                 vec3 color = ambient + Lo + emission;
-                
-                // Apply ambient occlusion to ambient lighting only
-                color = mix(color, color * ao, 0.5);
                 
                 fragColor = vec4(color, 1.0);
             }

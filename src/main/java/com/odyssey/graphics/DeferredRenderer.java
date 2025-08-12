@@ -447,6 +447,14 @@ public class DeferredRenderer {
     }
     
     /**
+     * Binds the post-process framebuffer for transparent rendering.
+     */
+    public void bindPostProcessFramebuffer() {
+        GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, postProcessFBO);
+        GL11.glViewport(0, 0, screenWidth, screenHeight);
+    }
+    
+    /**
      * Performs the SSAO pass to generate ambient occlusion.
      */
     public void performSSAOPass(Matrix4f projectionMatrix, Matrix4f viewMatrix) {
@@ -478,6 +486,11 @@ public class DeferredRenderer {
         // Set matrices
         ssaoShader.setProjectionMatrix(projectionMatrix);
         ssaoShader.setViewMatrix(viewMatrix);
+        
+        // Set inverse matrices for position reconstruction
+        Matrix4f invViewMatrix = new Matrix4f(viewMatrix).invert();
+        Matrix4f invProjectionMatrix = new Matrix4f(projectionMatrix).invert();
+        ssaoShader.setInverseMatrices(invViewMatrix, invProjectionMatrix);
         
         // Set SSAO parameters
         ssaoShader.setRadius(1.0f);
@@ -575,7 +588,7 @@ public class DeferredRenderer {
     /**
      * Performs the lighting pass using the G-Buffer data.
      */
-    public void performLightingPass(LightingSystem lightingSystem, Vector3f cameraPosition) {
+    public void performLightingPass(LightingSystem lightingSystem, Vector3f cameraPosition, Matrix4f viewMatrix, Matrix4f projectionMatrix) {
         GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, postProcessFBO);
         GL11.glViewport(0, 0, screenWidth, screenHeight);
         GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
@@ -583,8 +596,13 @@ public class DeferredRenderer {
         
         lightingShader.bind();
         
-        // Bind G-Buffer textures
+        // Bind G-Buffer textures (now using depth texture instead of position)
         lightingShader.bindGBufferTextures(gAlbedoTexture, gNormalTexture, gDepthTexture, gEmissionTexture);
+        
+        // Set inverse matrices for position reconstruction
+        Matrix4f invViewMatrix = new Matrix4f(viewMatrix).invert();
+        Matrix4f invProjectionMatrix = new Matrix4f(projectionMatrix).invert();
+        lightingShader.setInverseMatrices(invViewMatrix, invProjectionMatrix);
         
         // Bind IBL textures if available
         if (lightingSystem.isIBLEnabled()) {
@@ -743,6 +761,14 @@ public class DeferredRenderer {
      */
     public void presentFinalResult(PostProcessingSystem postProcessingSystem, Camera camera, 
                                  Vector3f sunDirection, float time) {
+        presentFinalResult(postProcessingSystem, camera, sunDirection, time, 0);
+    }
+    
+    /**
+     * Presents the final result with underwater effects support and cloud compositing.
+     */
+    public void presentFinalResult(PostProcessingSystem postProcessingSystem, Camera camera, 
+                                 Vector3f sunDirection, float time, int cloudTexture) {
         if (postProcessingSystem != null && camera.isUnderwater()) {
             // Apply underwater effects
             postProcessingSystem.applyUnderwaterEffects(
@@ -758,7 +784,8 @@ public class DeferredRenderer {
             postProcessingSystem.performFinalComposition(
                 postProcessingSystem.getUnderwaterTexture(), 
                 postProcessingSystem.getBloomTexture(0),
-                postProcessingSystem.getVolumetricTexture()
+                postProcessingSystem.getVolumetricTexture(),
+                0 // No cloud texture for underwater scenes
             );
         } else {
             // Standard post-processing
@@ -766,7 +793,7 @@ public class DeferredRenderer {
             postProcessingSystem.applyBloom(brightTexture);
             // Apply volumetric lighting using depth + shadow map
             postProcessingSystem.applyVolumetricLighting(gDepthTexture, 0);
-            postProcessingSystem.performFinalComposition(colorTexture, postProcessingSystem.getBloomTexture(0), postProcessingSystem.getVolumetricTexture());
+            postProcessingSystem.performFinalComposition(colorTexture, postProcessingSystem.getBloomTexture(0), postProcessingSystem.getVolumetricTexture(), cloudTexture);
         }
     }
     

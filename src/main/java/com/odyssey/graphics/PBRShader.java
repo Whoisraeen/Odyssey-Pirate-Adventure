@@ -279,9 +279,9 @@ public class PBRShader {
             
             // G-Buffer outputs for deferred rendering
             layout (location = 0) out vec4 g_albedo;      // RGB: albedo, A: metallic
-            layout (location = 1) out vec4 g_normal;      // RGB: world normal, A: roughness
-            layout (location = 2) out vec4 g_position;    // RGB: world position, A: depth
-            layout (location = 3) out vec4 g_emission;    // RGB: emission, A: AO
+            layout (location = 1) out vec4 g_normal;      // RG: octahedral normal, B: roughness, A: AO
+            layout (location = 2) out vec4 g_velocity;    // RG: motion vectors, BA: unused
+            layout (location = 3) out vec4 g_emission;    // RGB: emission, A: material ID
             
             in vec3 v_worldPos;
             in vec3 v_normal;
@@ -323,6 +323,16 @@ public class PBRShader {
                 return normalize(v_TBN * tangentNormal);
             }
             
+            // Encode normal using octahedral mapping for efficient storage
+            vec2 encodeOctahedralNormal(vec3 n) {
+                n /= (abs(n.x) + abs(n.y) + abs(n.z));
+                if (n.z >= 0.0) {
+                    return n.xy;
+                } else {
+                    return (1.0 - abs(n.yx)) * sign(n.xy);
+                }
+            }
+            
             void main() {
                 // Sample material properties
                 vec3 albedo = u_albedoFactor;
@@ -352,11 +362,14 @@ public class PBRShader {
                 
                 vec3 normal = getNormalFromMap();
                 
+                // Encode normal using octahedral mapping
+                vec2 encodedNormal = encodeOctahedralNormal(normal);
+                
                 // Pack data into G-Buffer
                 g_albedo = vec4(albedo, metallic);
-                g_normal = vec4(normal * 0.5 + 0.5, roughness);
-                g_position = vec4(v_worldPos, gl_FragCoord.z);
-                g_emission = vec4(emission, ao);
+                g_normal = vec4(encodedNormal, roughness, ao);  // RG: octahedral normal, B: roughness, A: AO
+                g_velocity = vec4(0.0, 0.0, 0.0, 0.0);  // Motion vectors (TODO: implement proper velocity)
+                g_emission = vec4(emission, 1.0);  // Material ID in alpha channel
             }
             """;
     }

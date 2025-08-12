@@ -39,7 +39,13 @@ public class GameStateManager {
     
     public GameStateManager(Engine engine) {
         this.engine = engine;
-        this.uiRenderer = new UIRenderer(engine.getWindow(), engine.getRenderer().getShaderManager(), engine.getFontRenderer());
+        // Only create UIRenderer if UI rendering is enabled
+        if (engine.getGameConfig().isEnableUIRendering()) {
+            this.uiRenderer = new UIRenderer(engine.getWindow(), engine.getRenderer().getShaderManager(), engine.getFontRenderer());
+        } else {
+            this.uiRenderer = null;
+            logger.info("UI rendering disabled - UIRenderer not initialized");
+        }
         this.inputLayer = new InputAbstractionLayer(engine.getInputManager(), "keybindings.cfg");
         this.menuSystem = MainMenuSystem.getInstance();
         this.eventBus = EventBus.getInstance();
@@ -70,14 +76,18 @@ public class GameStateManager {
     
     public void render(Renderer renderer) {
         if (currentState != null) {
-            // Begin UI rendering
-            uiRenderer.beginFrame();
+            // Begin UI rendering only if enabled
+            if (uiRenderer != null) {
+                uiRenderer.beginFrame();
+            }
             
             // Render current state
             currentState.render(renderer);
             
-            // End UI rendering
-            uiRenderer.endFrame();
+            // End UI rendering only if enabled
+            if (uiRenderer != null) {
+                uiRenderer.endFrame();
+            }
         }
     }
     
@@ -126,12 +136,19 @@ public class GameStateManager {
             stateStack.pop().cleanup();
         }
         
-        uiRenderer.cleanup();
+        if (uiRenderer != null) {
+            uiRenderer.cleanup();
+        }
     }
     
     // Getters
-    public Engine getEngine() { return engine; }
-    public UIRenderer getUIRenderer() { return uiRenderer; }
+    public Engine getEngine() {
+        return engine;
+    }
+    
+    public UIRenderer getUIRenderer() {
+        return uiRenderer;
+    }
     public InputAbstractionLayer getInputLayer() { return inputLayer; }
     
     public MainMenuSystem getMenuSystem() {
@@ -381,6 +398,10 @@ public class GameStateManager {
         @Override
         public void render(Renderer renderer) {
             var uiRenderer = stateManager.getUIRenderer();
+            if (uiRenderer == null) {
+                return; // UI rendering disabled
+            }
+            
             var window = stateManager.getEngine().getWindow();
             var menuSystem = stateManager.getMenuSystem();
             
@@ -490,6 +511,9 @@ public class GameStateManager {
         public void render(Renderer renderer) {
             // Game UI rendering (minimal for now)
             var uiRenderer = stateManager.getUIRenderer();
+            if (uiRenderer == null) {
+                return; // UI rendering disabled
+            }
             
             // Draw crosshair if mouse is captured
             if (stateManager.getEngine().getInputManager().isMouseCaptured()) {
@@ -559,6 +583,10 @@ public class GameStateManager {
         @Override
         public void render(Renderer renderer) {
             var uiRenderer = stateManager.getUIRenderer();
+            if (uiRenderer == null) {
+                return; // UI rendering disabled
+            }
+            
             var window = stateManager.getEngine().getWindow();
             var menuSystem = stateManager.getMenuSystem();
             

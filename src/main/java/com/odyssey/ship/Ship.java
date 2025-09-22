@@ -325,6 +325,7 @@ public class Ship {
     public float getHealthPercentage() { return health / maxHealth; }
     public float getSpeed() { return speed; }
     public float getWaterLevel() { return waterLevel; }
+    public float getMass() { return mass; }
     
     public void setOceanPhysics(OceanPhysics oceanPhysics) { this.oceanPhysics = oceanPhysics; }
     public void setWaveSystem(WaveSystem waveSystem) { this.waveSystem = waveSystem; }

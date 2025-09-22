@@ -131,8 +131,7 @@ public class RenderEngine {
      */
     public void renderWorld(World world) {
         if (!initialized || world == null) return;
-        // TODO: Implement world rendering
-        LOGGER.debug("Rendering world");
+        renderer.render(world, null);
     }
     
     /**
@@ -140,8 +139,7 @@ public class RenderEngine {
      */
     public void renderUI() {
         if (!initialized) return;
-        // TODO: Implement UI rendering
-        LOGGER.debug("Rendering UI");
+        renderer.renderUI();
     }
     
     /**

@@ -33,6 +33,8 @@ public class OceanPhysics {
     private static final float WATER_DENSITY = 1000.0f;
     private static final float AIR_DENSITY = 1.225f;
     private static final float VISCOSITY = 0.001f;
+    private static final float FOAM_THRESHOLD = 2.0f;
+    private static final float WAVE_BREAK_THRESHOLD = 1.5f;
     
     // Wave parameters
     private static final int MAX_WAVE_COMPONENTS = 8;
@@ -340,7 +342,83 @@ public class OceanPhysics {
             waterChunk.update(deltaTime);
         }
         
-        // TODO: Add/remove water chunks based on player position
+        // Add/remove water chunks based on player position
+        updateWaterChunkLoading();
+    }
+    
+    /**
+     * Manages loading and unloading of water chunks based on player position
+     */
+    private void updateWaterChunkLoading() {
+        // Get player position from world (assuming there's a player entity)
+        Vector3f playerPos = getPlayerPosition();
+        if (playerPos == null) return;
+        
+        int playerChunkX = (int) Math.floor(playerPos.x / Chunk.CHUNK_SIZE);
+        int playerChunkZ = (int) Math.floor(playerPos.z / Chunk.CHUNK_SIZE);
+        
+        // Define render distance for water chunks
+        int waterChunkRenderDistance = 8;
+        
+        // Load water chunks around player
+        for (int x = playerChunkX - waterChunkRenderDistance; x <= playerChunkX + waterChunkRenderDistance; x++) {
+            for (int z = playerChunkZ - waterChunkRenderDistance; z <= playerChunkZ + waterChunkRenderDistance; z++) {
+                ChunkCoordinate coord = new ChunkCoordinate(x, z);
+                
+                // Only create water chunks for ocean areas (not land)
+                if (!waterChunks.containsKey(coord) && isOceanChunk(x, z)) {
+                    WaterChunk waterChunk = new WaterChunk(x, z);
+                    waterChunks.put(coord, waterChunk);
+                    initializeWaterChunk(waterChunk);
+                }
+            }
+        }
+        
+        // Unload distant water chunks
+        waterChunks.entrySet().removeIf(entry -> {
+            ChunkCoordinate coord = entry.getKey();
+            int distance = Math.max(Math.abs(coord.x - playerChunkX), Math.abs(coord.z - playerChunkZ));
+            return distance > waterChunkRenderDistance + 2; // Add buffer to prevent constant loading/unloading
+        });
+    }
+    
+    /**
+     * Gets the current player position from the world
+     */
+    private Vector3f getPlayerPosition() {
+        // This would typically get the player entity from the world
+        // For now, return a default position or implement based on your player system
+        return new Vector3f(0, 64, 0); // Default sea level position
+    }
+    
+    /**
+     * Checks if a chunk coordinate represents an ocean area
+     */
+    private boolean isOceanChunk(int chunkX, int chunkZ) {
+        // Check if this chunk is primarily ocean
+        // This could be determined by checking the world's terrain height
+        // For now, assume all chunks can have water
+        return true;
+    }
+    
+    /**
+     * Initializes a newly created water chunk with wave data
+     */
+    private void initializeWaterChunk(WaterChunk waterChunk) {
+        // Initialize the water chunk's height field with current wave state
+        for (int x = 0; x < Chunk.CHUNK_SIZE; x++) {
+            for (int z = 0; z < Chunk.CHUNK_SIZE; z++) {
+                float worldX = waterChunk.chunkX * Chunk.CHUNK_SIZE + x;
+                float worldZ = waterChunk.chunkZ * Chunk.CHUNK_SIZE + z;
+                
+                // Set initial wave height
+                waterChunk.heightField[x][z] = calculateWaveHeight(worldX, worldZ, simulationTime);
+                
+                // Set initial velocity based on currents
+                Vector2f current = getCurrentVelocity(worldX, worldZ);
+                waterChunk.velocityField[x][z].set(current);
+            }
+        }
     }
     
     /**
@@ -417,7 +495,7 @@ public class OceanPhysics {
     /**
      * Represents a chunk of water for local simulation
      */
-    private static class WaterChunk {
+    private class WaterChunk {
         final int chunkX, chunkZ;
         final float[][] heightField;
         final Vector2f[][] velocityField;
@@ -437,8 +515,73 @@ public class OceanPhysics {
         }
         
         void update(float deltaTime) {
-            // Update local water simulation
-            // This could include foam, splash effects, etc.
+            // Update local water simulation with foam, splash effects, and wave propagation
+            updateWaveHeights(deltaTime);
+            updateVelocityField(deltaTime);
+            updateFoamEffects(deltaTime);
+        }
+        
+        /**
+         * Updates wave heights in this water chunk
+         */
+        private void updateWaveHeights(float deltaTime) {
+            for (int x = 0; x < Chunk.CHUNK_SIZE; x++) {
+                for (int z = 0; z < Chunk.CHUNK_SIZE; z++) {
+                    float worldX = chunkX * Chunk.CHUNK_SIZE + x;
+                    float worldZ = chunkZ * Chunk.CHUNK_SIZE + z;
+                    
+                    // Update height based on global wave system
+                    heightField[x][z] = calculateWaveHeight(worldX, worldZ, simulationTime);
+                }
+            }
+        }
+        
+        /**
+         * Updates velocity field for water flow simulation
+         */
+        private void updateVelocityField(float deltaTime) {
+            for (int x = 0; x < Chunk.CHUNK_SIZE; x++) {
+                for (int z = 0; z < Chunk.CHUNK_SIZE; z++) {
+                    float worldX = chunkX * Chunk.CHUNK_SIZE + x;
+                    float worldZ = chunkZ * Chunk.CHUNK_SIZE + z;
+                    
+                    // Get current at this position
+                    Vector2f current = getCurrentVelocity(worldX, worldZ);
+                    
+                    // Apply wave-induced velocity
+                    float waveInfluence = 0.1f;
+                    Vector2f waveVelocity = calculateWaveVelocity(worldX, worldZ);
+                    
+                    // Blend current and wave velocity
+                    velocityField[x][z].lerp(current, deltaTime * 2.0f);
+                    velocityField[x][z].add(waveVelocity.x * waveInfluence, waveVelocity.y * waveInfluence);
+                }
+            }
+        }
+        
+        /**
+         * Updates foam effects based on wave activity
+         */
+        private void updateFoamEffects(float deltaTime) {
+            // This could track foam intensity, whitecaps, etc.
+            // For now, this is a placeholder for future foam rendering
+        }
+        
+        /**
+         * Calculates wave-induced velocity at a position
+         */
+        private Vector2f calculateWaveVelocity(float worldX, float worldZ) {
+            Vector2f velocity = new Vector2f(0, 0);
+            
+            for (WaveComponent wave : waveComponents) {
+                float dotProduct = worldX * wave.direction.x + worldZ * wave.direction.y;
+                float wavePhase = dotProduct * wave.frequency + simulationTime * wave.speed + wave.phase;
+                float waveDerivative = (float) Math.cos(wavePhase) * wave.frequency * wave.amplitude;
+                
+                velocity.add(wave.direction.x * waveDerivative, wave.direction.y * waveDerivative);
+            }
+            
+            return velocity;
         }
     }
     

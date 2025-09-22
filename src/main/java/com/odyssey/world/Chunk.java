@@ -420,6 +420,22 @@ public class Chunk {
     public int getWaterBlockCount() { return waterBlockCount; }
     
     /**
+     * Gets the solid mesh for rendering
+     */
+    public Mesh getMesh() {
+        return solidMesh;
+    }
+    
+    /**
+     * Gets the model matrix for this chunk's world position
+     */
+    public org.joml.Matrix4f getModelMatrix() {
+        org.joml.Matrix4f matrix = new org.joml.Matrix4f();
+        matrix.translation(chunkX * CHUNK_SIZE, 0, chunkZ * CHUNK_SIZE);
+        return matrix;
+    }
+    
+    /**
      * Gets world coordinates for this chunk
      */
     public Vector3i getWorldPosition() {

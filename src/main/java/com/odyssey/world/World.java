@@ -465,6 +465,13 @@ public class World {
     }
     
     /**
+     * Gets all loaded chunks for rendering
+     */
+    public java.util.Collection<Chunk> getChunks() {
+        return loadedChunks.values();
+    }
+    
+    /**
      * Gets world statistics
      */
     public Map<String, Object> getStatistics() {

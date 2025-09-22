@@ -329,6 +329,48 @@ public class Renderer {
     }
     
     /**
+     * Render the world.
+     *
+     * @param world The world to render
+     * @param camera The camera to render from
+     */
+    public void render(com.odyssey.world.World world, Camera camera) {
+        if (world == null) {
+            return;
+        }
+
+        // If a camera is provided, use it. Otherwise, use the renderer's internal camera.
+        Camera currentCamera = (camera != null) ? camera : this.camera;
+
+        // Update camera matrices
+        currentCamera.updateViewMatrix(viewMatrix);
+        viewProjectionMatrix.set(projectionMatrix).mul(viewMatrix);
+
+        // Get the list of chunks from the world
+        java.util.Collection<com.odyssey.world.Chunk> chunks = world.getChunks();
+
+        // Create a render command for each chunk and submit it to the renderer
+        for (com.odyssey.world.Chunk chunk : chunks) {
+            if (chunk.getMesh() != null) {
+                RenderCommand command = new RenderCommand(
+                    chunk.getMesh(),
+                    shaderManager.getShader("chunk"), // Assuming a "chunk" shader exists
+                    chunk.getModelMatrix()
+                );
+                command.setRenderQueue(RenderCommand.RenderQueue.OPAQUE);
+                submit(command);
+            }
+        }
+    }
+
+    /**
+     * Render the UI.
+     */
+    public void renderUI() {
+        // TODO: Implement UI rendering
+    }
+
+    /**
      * Update camera matrices.
      */
     private void updateCameraMatrices() {

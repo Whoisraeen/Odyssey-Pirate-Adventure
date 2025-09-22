@@ -4,7 +4,12 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="d108f4bf-3e08-4c61-ba9a-34aa8d8b54fa" name="Changes" comment="" />
+    <list default="true" id="d108f4bf-3e08-4c61-ba9a-34aa8d8b54fa" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/rendering/RenderEngine.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/rendering/RenderEngine.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/RenderEngine.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/RenderEngine.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst" beforeDir="false" afterPath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/inputFiles.lst" beforeDir="false" afterPath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/inputFiles.lst" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />

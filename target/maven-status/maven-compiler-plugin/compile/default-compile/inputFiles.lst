@@ -28,6 +28,7 @@ C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\rend
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\rendering\Renderer.java
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\rendering\Shader.java
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\rendering\ShaderManager.java
+C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\rendering\TextRenderer.java
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\rendering\Texture.java
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\rendering\TextureManager.java
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\ship\components\CannonComponent.java
@@ -41,6 +42,7 @@ C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\ship
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\ship\ShipComponent.java
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\ship\ShipPhysics.java
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\ship\ShipType.java
+C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\ui\MainMenu.java
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\util\Logger.java
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\util\MathUtils.java
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\util\NoiseGenerator.java

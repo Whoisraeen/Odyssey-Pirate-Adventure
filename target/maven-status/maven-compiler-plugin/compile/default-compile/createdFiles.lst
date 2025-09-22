@@ -67,6 +67,7 @@ com\odyssey\ship\ShipComponent$ComponentInfo.class
 com\odyssey\ship\components\HullComponent.class
 com\odyssey\world\feature\OreDeposit.class
 com\odyssey\rendering\Framebuffer$Builder.class
+com\odyssey\ui\MainMenu.class
 com\odyssey\world\LightingEngine$LightNode.class
 com\odyssey\rendering\Material$BlendMode.class
 com\odyssey\world\feature\VolcanicCrater$ActivityLevel.class
@@ -133,6 +134,7 @@ com\odyssey\ship\Ship.class
 com\odyssey\rendering\Material$DepthTest.class
 com\odyssey\rendering\Renderer.class
 com\odyssey\world\weather\WeatherPattern.class
+com\odyssey\rendering\TextRenderer.class
 com\odyssey\render\Window$WindowResizeCallback.class
 com\odyssey\rendering\Material$Builder.class
 com\odyssey\core\GameConfig.class
@@ -143,6 +145,7 @@ com\odyssey\ship\ShipPhysics.class
 com\odyssey\world\TradeGood.class
 com\odyssey\input\InputManager$InputDispatcher.class
 com\odyssey\world\IslandClimate.class
+com\odyssey\ui\MainMenu$MenuInput.class
 com\odyssey\world\WorldConfig.class
 com\odyssey\world\ChunkMeshBuilder.class
 com\odyssey\world\TradeEventType$Season.class

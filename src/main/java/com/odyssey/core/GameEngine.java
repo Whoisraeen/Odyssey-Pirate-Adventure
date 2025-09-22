@@ -345,9 +345,54 @@ public class GameEngine {
     
     // State-specific input processing methods
     private void processMainMenuInput() {
-        // Handle main menu navigation
-        if (inputManager.isActionPressed(GameAction.INTERACT)) {
-            setState(GameState.LOADING);
+        // Handle main menu navigation with arrow keys
+        if (inputManager.isActionPressed(GameAction.TURN_LEFT) || inputManager.isActionPressed(GameAction.MOVE_BACKWARD)) {
+            // Use TURN_LEFT (A key) or MOVE_BACKWARD (S key) for UP navigation
+            if (renderEngine != null && renderEngine.getMainMenu() != null) {
+                renderEngine.getMainMenu().handleInput(com.odyssey.ui.MainMenu.MenuInput.UP);
+            }
+        }
+        
+        if (inputManager.isActionPressed(GameAction.TURN_RIGHT) || inputManager.isActionPressed(GameAction.MOVE_FORWARD)) {
+            // Use TURN_RIGHT (D key) or MOVE_FORWARD (W key) for DOWN navigation  
+            if (renderEngine != null && renderEngine.getMainMenu() != null) {
+                renderEngine.getMainMenu().handleInput(com.odyssey.ui.MainMenu.MenuInput.DOWN);
+            }
+        }
+        
+        // Handle menu selection with Enter/Interact
+        if (inputManager.isActionPressed(GameAction.INTERACT) || inputManager.isActionPressed(GameAction.PRIMARY_ACTION)) {
+            if (renderEngine != null && renderEngine.getMainMenu() != null) {
+                renderEngine.getMainMenu().handleInput(com.odyssey.ui.MainMenu.MenuInput.SELECT);
+                
+                // Handle state transitions based on selected menu option
+                int selectedOption = renderEngine.getMainMenu().getSelectedOption();
+                switch (selectedOption) {
+                    case 0: // Start New Adventure
+                        setState(GameState.LOADING);
+                        break;
+                    case 1: // Load Game
+                        // TODO: Implement load game functionality
+                        LOGGER.info("Load game functionality not yet implemented");
+                        break;
+                    case 2: // Multiplayer
+                        setState(GameState.MULTIPLAYER_LOBBY);
+                        break;
+                    case 3: // Settings
+                        setState(GameState.SETTINGS);
+                        break;
+                    case 4: // Exit
+                        setState(GameState.EXITING);
+                        shouldClose = true;
+                        break;
+                }
+            }
+        }
+        
+        // Handle escape key to exit
+        if (inputManager.isActionPressed(GameAction.MENU)) {
+            setState(GameState.EXITING);
+            shouldClose = true;
         }
     }
     

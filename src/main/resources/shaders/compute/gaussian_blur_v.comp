@@ -1,0 +1,50 @@
+#version 430
+
+// Work group size
+layout(local_size_x = 1, local_size_y = 256, local_size_z = 1) in;
+
+// Input and output textures
+layout(binding = 0, rgba16f) uniform readonly image2D inputTexture;
+layout(binding = 1, rgba16f) uniform writeonly image2D outputTexture;
+
+// Uniforms
+uniform float blurRadius = 5.0;
+uniform float blurStrength = 1.0;
+
+void main() {
+    ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 outputSize = imageSize(outputTexture);
+    
+    if (coord.x >= outputSize.x || coord.y >= outputSize.y) {
+        return;
+    }
+    
+    vec3 color = vec3(0.0);
+    float totalWeight = 0.0;
+    
+    int radius = int(blurRadius);
+    
+    // Vertical blur
+    for (int i = -radius; i <= radius; i++) {
+        ivec2 sampleCoord = coord + ivec2(0, i);
+        
+        // Clamp to texture bounds
+        sampleCoord.y = clamp(sampleCoord.y, 0, outputSize.y - 1);
+        
+        // Calculate Gaussian weight
+        float weight = exp(-0.5 * float(i * i) / (blurRadius * blurRadius));
+        weight /= sqrt(2.0 * 3.14159265359 * blurRadius * blurRadius);
+        
+        // Sample and accumulate
+        vec3 sampleColor = imageLoad(inputTexture, sampleCoord).rgb;
+        color += sampleColor * weight;
+        totalWeight += weight;
+    }
+    
+    // Normalize and apply strength
+    color /= totalWeight;
+    color *= blurStrength;
+    
+    // Write result
+    imageStore(outputTexture, coord, vec4(color, 1.0));
+}

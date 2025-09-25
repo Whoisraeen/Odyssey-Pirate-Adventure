@@ -1,0 +1,79 @@
+#version 430
+
+// Work group size
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+// Histogram buffer (256 bins)
+layout(std430, binding = 0) restrict readonly buffer HistogramBuffer {
+    uint histogram[256];
+};
+
+// Exposure buffer
+layout(std430, binding = 1) restrict buffer ExposureBuffer {
+    float currentExposure;
+    float targetExposure;
+    float averageLuminance;
+};
+
+// Uniforms
+uniform float minLogLuminance = -10.0;
+uniform float maxLogLuminance = 2.0;
+uniform float deltaLogLuminance = 12.0;
+uniform float adaptationRate = 1.0;
+uniform float deltaTime = 0.016;
+uniform uint totalPixels = 1920 * 1080;
+uniform float keyValue = 0.18; // Middle gray target
+uniform float minExposure = 0.1;
+uniform float maxExposure = 10.0;
+
+void main() {
+    // Calculate weighted average luminance from histogram
+    float weightedSum = 0.0;
+    float totalWeight = 0.0;
+    
+    for (uint i = 1; i < 255; i++) { // Skip first and last bins
+        if (histogram[i] > 0) {
+            float binCenter = float(i - 1) / 254.0;
+            float logLuminance = minLogLuminance + binCenter * deltaLogLuminance;
+            float luminance = exp2(logLuminance);
+            
+            float weight = float(histogram[i]);
+            weightedSum += luminance * weight;
+            totalWeight += weight;
+        }
+    }
+    
+    // Calculate average luminance
+    float avgLuminance = 0.0;
+    if (totalWeight > 0.0) {
+        avgLuminance = weightedSum / totalWeight;
+    } else {
+        avgLuminance = 0.5; // Fallback value
+    }
+    
+    // Calculate target exposure using key value
+    float newTargetExposure = keyValue / max(avgLuminance, 0.001);
+    newTargetExposure = clamp(newTargetExposure, minExposure, maxExposure);
+    
+    // Smooth adaptation towards target exposure
+    float exposureDifference = newTargetExposure - currentExposure;
+    float adaptationSpeed = adaptationRate * deltaTime;
+    
+    // Use different adaptation speeds for brightening vs darkening
+    if (exposureDifference > 0.0) {
+        // Brightening (slower)
+        adaptationSpeed *= 0.5;
+    } else {
+        // Darkening (faster)
+        adaptationSpeed *= 2.0;
+    }
+    
+    // Apply exponential smoothing
+    float newExposure = currentExposure + exposureDifference * (1.0 - exp(-adaptationSpeed));
+    newExposure = clamp(newExposure, minExposure, maxExposure);
+    
+    // Update values
+    currentExposure = newExposure;
+    targetExposure = newTargetExposure;
+    averageLuminance = avgLuminance;
+}

@@ -115,7 +115,11 @@ public class ShaderManager {
         
         // Post-processing shader
         createPostProcessShader();
+        
+        // Load external shaders
         loadShader("pbr", "src/main/resources/shaders/pbr.vert", "src/main/resources/shaders/pbr.frag");
+        loadShader("csm_shadow", "src/main/resources/shaders/csm_shadow.vert", "src/main/resources/shaders/csm_shadow.frag");
+        loadShader("csm_pbr", "src/main/resources/shaders/pbr.vert", "src/main/resources/shaders/csm_pbr.frag");
     }
     
     /**

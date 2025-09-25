@@ -51,7 +51,28 @@ public class PostProcessingRenderer {
         REINHARD,
         ACES,
         FILMIC,
-        EXPOSURE
+        EXPOSURE,
+        REINHARD_EXTENDED
+    }
+    
+    /**
+     * Post-processing quality levels.
+     */
+    public enum PostProcessingQuality {
+        LOW(1, 4, 8),
+        MEDIUM(2, 8, 16),
+        HIGH(4, 16, 32),
+        ULTRA(8, 32, 64);
+        
+        public final int bloomPasses;
+        public final int motionBlurSamples;
+        public final int taaHistoryFrames;
+        
+        PostProcessingQuality(int bloomPasses, int motionBlurSamples, int taaHistoryFrames) {
+            this.bloomPasses = bloomPasses;
+            this.motionBlurSamples = motionBlurSamples;
+            this.taaHistoryFrames = taaHistoryFrames;
+        }
     }
     
     /**
@@ -97,6 +118,22 @@ public class PostProcessingRenderer {
     private Shader filmGrainShader;
     private Shader underwaterShader;
     private Shader finalCombineShader;
+    private Shader taaShader;
+    
+    // TAA resources
+    private Framebuffer[] taaHistoryBuffers;
+    private int currentTaaFrame = 0;
+    private boolean taaEnabled = true;
+    private float taaBlendFactor = 0.1f;
+    private float taaVarianceClipping = 1.0f;
+    private Vector2f jitterOffset = new Vector2f();
+    
+    // Enhanced settings
+    private PostProcessingQuality currentQuality = PostProcessingQuality.HIGH;
+    private float bloomKnee = 0.5f;
+    private float whitePoint = 11.2f;
+    private int motionBlurSamples = 16;
+    private float maxBlurRadius = 32.0f;
     
     // Post-processing passes
     private List<PostProcessPass> processingPasses;
@@ -359,10 +396,54 @@ public class PostProcessingRenderer {
      */
     private boolean loadShaders() {
         try {
-            // Create basic placeholder shaders for now since we don't have the actual shader files
-            // In a real implementation, these would load from actual shader files
+            // Load bloom shaders
+            bloomExtractShader = Shader.load("bloom_extract");
+            if (bloomExtractShader == null) {
+                logger.error("Failed to load bloom extract shader");
+                return false;
+            }
             
-            // Basic vertex shader source for post-processing
+            bloomBlurShader = Shader.load("bloom_blur");
+            if (bloomBlurShader == null) {
+                logger.error("Failed to load bloom blur shader");
+                return false;
+            }
+            
+            bloomCombineShader = Shader.load("bloom_combine");
+            if (bloomCombineShader == null) {
+                logger.error("Failed to load bloom combine shader");
+                return false;
+            }
+            
+            // Load tone mapping shader
+            toneMappingShader = Shader.load("tone_mapping");
+            if (toneMappingShader == null) {
+                logger.error("Failed to load tone mapping shader");
+                return false;
+            }
+            
+            // Load depth of field shader
+            depthOfFieldShader = Shader.load("depth_of_field");
+            if (depthOfFieldShader == null) {
+                logger.error("Failed to load depth of field shader");
+                return false;
+            }
+            
+            // Load motion blur shader
+            motionBlurShader = Shader.load("motion_blur");
+            if (motionBlurShader == null) {
+                logger.error("Failed to load motion blur shader");
+                return false;
+            }
+            
+            // Load TAA shader
+            taaShader = Shader.load("taa");
+            if (taaShader == null) {
+                logger.error("Failed to load TAA shader");
+                return false;
+            }
+            
+            // Create basic placeholder shaders for effects not yet implemented
             String basicVertexSource = "#version 330 core\n" +
                 "layout (location = 0) in vec2 aPos;\n" +
                 "layout (location = 1) in vec2 aTexCoord;\n" +
@@ -374,7 +455,6 @@ public class PostProcessingRenderer {
                 "    TexCoord = aTexCoord;\n" +
                 "}";
             
-            // Basic fragment shader source for post-processing
             String basicFragmentSource = "#version 330 core\n" +
                 "out vec4 FragColor;\n" +
                 "\n" +
@@ -385,54 +465,14 @@ public class PostProcessingRenderer {
                 "    FragColor = texture(screenTexture, TexCoord);\n" +
                 "}";
             
-            // Create basic shaders using the Shader.create method with source code
-            bloomExtractShader = Shader.create("bloomExtract", basicVertexSource, basicFragmentSource);
-            if (bloomExtractShader == null) {
-                logger.error("Failed to create bloom extract shader");
-                return false;
-            }
-            
-            bloomBlurShader = Shader.create("bloomBlur", basicVertexSource, basicFragmentSource);
-            if (bloomBlurShader == null) {
-                logger.error("Failed to create bloom blur shader");
-                return false;
-            }
-            
-            bloomCombineShader = Shader.create("bloomCombine", basicVertexSource, basicFragmentSource);
-            if (bloomCombineShader == null) {
-                logger.error("Failed to create bloom combine shader");
-                return false;
-            }
-            
-            // Tone mapping shader
-            toneMappingShader = Shader.create("toneMapping", basicVertexSource, basicFragmentSource);
-            if (toneMappingShader == null) {
-                logger.error("Failed to create tone mapping shader");
-                return false;
-            }
-            
-            // Color grading shader
+            // Create placeholder shaders for other effects
             colorGradingShader = Shader.create("colorGrading", basicVertexSource, basicFragmentSource);
-            if (colorGradingShader == null) {
-                logger.error("Failed to create color grading shader");
-                return false;
-            }
-            
-            // Other effect shaders (create placeholder implementations with basic shaders)
-            depthOfFieldShader = Shader.create("depthOfField", basicVertexSource, basicFragmentSource);
-            motionBlurShader = Shader.create("motionBlur", basicVertexSource, basicFragmentSource);
             ssrShader = Shader.create("ssr", basicVertexSource, basicFragmentSource);
             chromaticAberrationShader = Shader.create("chromaticAberration", basicVertexSource, basicFragmentSource);
             vignetteShader = Shader.create("vignette", basicVertexSource, basicFragmentSource);
             filmGrainShader = Shader.create("filmGrain", basicVertexSource, basicFragmentSource);
             underwaterShader = Shader.create("underwater", basicVertexSource, basicFragmentSource);
-            
-            // Final combine shader
             finalCombineShader = Shader.create("finalCombine", basicVertexSource, basicFragmentSource);
-            if (finalCombineShader == null) {
-                logger.error("Failed to create final combine shader");
-                return false;
-            }
             
             return true;
             
@@ -563,8 +603,15 @@ public class PostProcessingRenderer {
     
     /**
      * Applies bloom effect to the scene.
+     * 
+     * @param sceneTexture The input scene texture
+     * @return The bloom texture
      */
     private int applyBloom(int sceneTexture) {
+        if (!bloomEnabled || bloomExtractShader == null || bloomBlurShader == null || bloomCombineShader == null) {
+            return sceneTexture;
+        }
+        
         // Extract bright pixels
         brightBuffer.bind();
         glViewport(0, 0, brightBuffer.getWidth(), brightBuffer.getHeight());
@@ -573,6 +620,8 @@ public class PostProcessingRenderer {
         bloomExtractShader.bind();
         bloomExtractShader.setUniform("u_SceneTexture", 0);
         bloomExtractShader.setUniform("u_Threshold", bloomThreshold);
+        bloomExtractShader.setUniform("u_Knee", bloomKnee);
+        bloomExtractShader.setUniform("u_Intensity", bloomIntensity);
         
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, sceneTexture);
@@ -583,7 +632,7 @@ public class PostProcessingRenderer {
         // Apply gaussian blur passes
         int currentBloomTexture = brightBuffer.getColorTexture(0);
         
-        for (int i = 0; i < bloomPasses; i++) {
+        for (int i = 0; i < currentQuality.bloomPasses; i++) {
             // Horizontal blur
             bloomBuffers[i * 2].bind();
             glViewport(0, 0, bloomBuffers[i * 2].getWidth(), bloomBuffers[i * 2].getHeight());
@@ -639,9 +688,16 @@ public class PostProcessingRenderer {
     }
     
     /**
-     * Applies tone mapping to the scene.
+     * Applies tone mapping to the HDR scene.
+     * 
+     * @param hdrTexture The HDR input texture
+     * @return The tone mapped texture
      */
-    private int applyToneMapping(int inputTexture) {
+    private int applyToneMapping(int hdrTexture) {
+        if (toneMappingShader == null) {
+            return hdrTexture;
+        }
+        
         finalBuffer.bind();
         glViewport(0, 0, screenWidth, screenHeight);
         glClear(GL_COLOR_BUFFER_BIT);
@@ -651,9 +707,10 @@ public class PostProcessingRenderer {
         toneMappingShader.setUniform("u_ToneMappingType", toneMappingType.ordinal());
         toneMappingShader.setUniform("u_Exposure", exposure);
         toneMappingShader.setUniform("u_Gamma", gamma);
+        toneMappingShader.setUniform("u_WhitePoint", whitePoint);
         
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, inputTexture);
+        glBindTexture(GL_TEXTURE_2D, hdrTexture);
         
         renderFullscreenQuad();
         Framebuffer.unbind();
@@ -687,18 +744,125 @@ public class PostProcessingRenderer {
     
     /**
      * Applies depth of field effect.
+     * 
+     * @param colorTexture The color texture
+     * @param depthTexture The depth texture
+     * @return The DOF processed texture
      */
-    private int applyDepthOfField(int inputTexture, int depthTexture) {
-        // Placeholder implementation
-        return inputTexture;
+    private int applyDepthOfField(int colorTexture, int depthTexture) {
+        if (!depthOfFieldEnabled || depthOfFieldShader == null) {
+            return colorTexture;
+        }
+        
+        tempBuffer.bind();
+        glViewport(0, 0, screenWidth, screenHeight);
+        glClear(GL_COLOR_BUFFER_BIT);
+        
+        depthOfFieldShader.bind();
+        depthOfFieldShader.setUniform("u_ColorTexture", 0);
+        depthOfFieldShader.setUniform("u_DepthTexture", 1);
+        depthOfFieldShader.setUniform("u_FocusDistance", focusDistance);
+        depthOfFieldShader.setUniform("u_FocusRange", focusRange);
+        depthOfFieldShader.setUniform("u_BokehRadius", bokehRadius);
+        depthOfFieldShader.setUniform("u_ScreenSize", new Vector2f(screenWidth, screenHeight));
+        
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, colorTexture);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, depthTexture);
+        
+        renderFullscreenQuad();
+        Framebuffer.unbind();
+        
+        return tempBuffer.getColorTexture(0);
     }
     
     /**
      * Applies motion blur effect.
+     * 
+     * @param colorTexture The color texture
+     * @return The motion blurred texture
      */
-    private int applyMotionBlur(int inputTexture) {
-        // Placeholder implementation
-        return inputTexture;
+    private int applyMotionBlur(int colorTexture) {
+        if (!motionBlurEnabled || motionBlurShader == null) {
+            return colorTexture;
+        }
+        
+        tempBuffer.bind();
+        glViewport(0, 0, screenWidth, screenHeight);
+        glClear(GL_COLOR_BUFFER_BIT);
+        
+        motionBlurShader.bind();
+        motionBlurShader.setUniform("u_ColorTexture", 0);
+        motionBlurShader.setUniform("u_Strength", motionBlurStrength);
+        motionBlurShader.setUniform("u_Samples", motionBlurSamples);
+        motionBlurShader.setUniform("u_MaxRadius", maxBlurRadius);
+        motionBlurShader.setUniform("u_Time", time);
+        
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, colorTexture);
+        
+        renderFullscreenQuad();
+        Framebuffer.unbind();
+        
+        return tempBuffer.getColorTexture(0);
+    }
+    
+    /**
+     * Applies Temporal Anti-Aliasing (TAA).
+     * 
+     * @param currentTexture The current frame texture
+     * @param depthTexture The depth texture
+     * @return The TAA processed texture
+     */
+    private int applyTAA(int currentTexture, int depthTexture) {
+        if (!taaEnabled || taaShader == null || taaHistoryBuffers == null) {
+            return currentTexture;
+        }
+        
+        // Use ping-pong buffers for history
+        int historyIndex = currentTaaFrame % currentQuality.taaHistoryFrames;
+        int outputIndex = (currentTaaFrame + 1) % currentQuality.taaHistoryFrames;
+        
+        if (taaHistoryBuffers[outputIndex] == null) {
+            taaHistoryBuffers[outputIndex] = new Framebuffer.Builder()
+                .name("TAAHistory" + outputIndex)
+                .size(screenWidth, screenHeight)
+                .addColorRGBA16F()
+                .build();
+        }
+        
+        taaHistoryBuffers[outputIndex].bind();
+        glViewport(0, 0, screenWidth, screenHeight);
+        glClear(GL_COLOR_BUFFER_BIT);
+        
+        taaShader.bind();
+        taaShader.setUniform("u_CurrentTexture", 0);
+        taaShader.setUniform("u_HistoryTexture", 1);
+        taaShader.setUniform("u_DepthTexture", 2);
+        taaShader.setUniform("u_BlendFactor", taaBlendFactor);
+        taaShader.setUniform("u_VarianceClipping", taaVarianceClipping);
+        taaShader.setUniform("u_JitterOffset", jitterOffset);
+        taaShader.setUniform("u_ScreenSize", new Vector2f(screenWidth, screenHeight));
+        taaShader.setUniform("u_FrameCounter", currentTaaFrame);
+        
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, currentTexture);
+        glActiveTexture(GL_TEXTURE1);
+        if (taaHistoryBuffers[historyIndex] != null) {
+            glBindTexture(GL_TEXTURE_2D, taaHistoryBuffers[historyIndex].getColorTexture(0));
+        } else {
+            glBindTexture(GL_TEXTURE_2D, currentTexture);
+        }
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, depthTexture);
+        
+        renderFullscreenQuad();
+        Framebuffer.unbind();
+        
+        currentTaaFrame++;
+        
+        return taaHistoryBuffers[outputIndex].getColorTexture(0);
     }
 
     private int applySSR(int inputTexture, int depthTexture) {
@@ -845,6 +1009,230 @@ public class PostProcessingRenderer {
         this.underwaterTint.set(tint);
     }
     
+    /**
+     * Renders the post-processing effects to the screen.
+     * 
+     * @param sceneTexture The rendered scene texture
+     * @param depthTexture The depth buffer texture
+     * @param velocityTexture The velocity buffer texture (optional, can be 0)
+     */
+    public void render(int sceneTexture, int depthTexture, int velocityTexture) {
+        if (!initialized) {
+            logger.warn("PostProcessingRenderer not initialized");
+            return;
+        }
+        
+        int currentTexture = sceneTexture;
+        
+        // Apply TAA first if enabled
+        if (taaEnabled) {
+            currentTexture = applyTAA(currentTexture, depthTexture);
+        }
+        
+        // Apply bloom effect
+        int bloomTexture = 0;
+        if (bloomEnabled) {
+            bloomTexture = applyBloom(currentTexture);
+        }
+        
+        // Apply depth of field
+        if (depthOfFieldEnabled) {
+            currentTexture = applyDepthOfField(currentTexture, depthTexture);
+        }
+        
+        // Apply motion blur
+        if (motionBlurEnabled && velocityTexture != 0) {
+            currentTexture = applyMotionBlur(currentTexture);
+        }
+        
+        // Combine bloom with scene if enabled
+        if (bloomEnabled && bloomTexture != 0) {
+            currentTexture = combineBloom(currentTexture, bloomTexture);
+        }
+        
+        // Apply tone mapping
+        currentTexture = applyToneMapping(currentTexture);
+        
+        // Apply other effects if enabled
+        if (chromaticAberrationEnabled) {
+            currentTexture = applyChromaticAberration(currentTexture);
+        }
+        
+        if (vignetteEnabled) {
+            currentTexture = applyVignette(currentTexture);
+        }
+        
+        if (filmGrainEnabled) {
+            currentTexture = applyFilmGrain(currentTexture);
+        }
+        
+        // Final output to screen
+        renderToScreen(currentTexture);
+    }
+    
+    /**
+     * Combines the scene with bloom.
+     * 
+     * @param sceneTexture The scene texture
+     * @param bloomTexture The bloom texture
+     * @return The combined texture
+     */
+    private int combineBloom(int sceneTexture, int bloomTexture) {
+        if (bloomCombineShader == null) {
+            return sceneTexture;
+        }
+        
+        tempBuffer.bind();
+        glViewport(0, 0, screenWidth, screenHeight);
+        glClear(GL_COLOR_BUFFER_BIT);
+        
+        bloomCombineShader.bind();
+        bloomCombineShader.setUniform("u_SceneTexture", 0);
+        bloomCombineShader.setUniform("u_BloomTexture0", 1);
+        bloomCombineShader.setUniform("u_BloomIntensity", bloomIntensity);
+        bloomCombineShader.setUniform("u_BloomRadius", bloomRadius);
+        bloomCombineShader.setUniform("u_BloomLevels", 1);
+        
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, sceneTexture);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, bloomTexture);
+        
+        renderFullscreenQuad();
+        Framebuffer.unbind();
+        
+        return tempBuffer.getColorTexture(0);
+    }
+    
+    /**
+     * Renders the final result to the screen.
+     * 
+     * @param texture The final processed texture
+     */
+    private void renderToScreen(int texture) {
+        // Bind default framebuffer (screen)
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glViewport(0, 0, screenWidth, screenHeight);
+        glClear(GL_COLOR_BUFFER_BIT);
+        
+        if (finalCombineShader != null) {
+            finalCombineShader.bind();
+            finalCombineShader.setUniform("u_ScreenTexture", 0);
+            
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, texture);
+            
+            renderFullscreenQuad();
+        }
+    }
+    
+    // Getters and setters for new post-processing settings
+    
+    public void setPostProcessingQuality(PostProcessingQuality quality) {
+        this.currentQuality = quality;
+        this.motionBlurSamples = quality.motionBlurSamples;
+        logger.info("Post-processing quality set to: {}", quality);
+    }
+    
+    public PostProcessingQuality getPostProcessingQuality() {
+        return currentQuality;
+    }
+    
+    public void setTAAEnabled(boolean enabled) {
+        this.taaEnabled = enabled;
+        if (enabled && taaHistoryBuffers == null) {
+            initializeTAABuffers();
+        }
+    }
+    
+    public boolean isTAAEnabled() {
+        return taaEnabled;
+    }
+    
+    public void setTAASettings(float blendFactor, boolean varianceClipping) {
+        this.taaBlendFactor = blendFactor;
+        this.taaVarianceClipping = varianceClipping;
+    }
+    
+    public void setDepthOfFieldEnabled(boolean enabled) {
+        this.depthOfFieldEnabled = enabled;
+    }
+    
+    public boolean isDepthOfFieldEnabled() {
+        return depthOfFieldEnabled;
+    }
+    
+    public void setDepthOfFieldSettings(float focusDistance, float focusRange, float bokehRadius) {
+        this.focusDistance = focusDistance;
+        this.focusRange = focusRange;
+        this.bokehRadius = bokehRadius;
+    }
+    
+    public void setMotionBlurEnabled(boolean enabled) {
+        this.motionBlurEnabled = enabled;
+    }
+    
+    public boolean isMotionBlurEnabled() {
+        return motionBlurEnabled;
+    }
+    
+    public void setMotionBlurSettings(float strength, float maxRadius) {
+        this.motionBlurStrength = strength;
+        this.maxBlurRadius = maxRadius;
+    }
+    
+    public void setChromaticAberrationEnabled(boolean enabled) {
+        this.chromaticAberrationEnabled = enabled;
+    }
+    
+    public void setVignetteEnabled(boolean enabled) {
+        this.vignetteEnabled = enabled;
+    }
+    
+    public void setFilmGrainEnabled(boolean enabled) {
+        this.filmGrainEnabled = enabled;
+    }
+    
+    public void setBloomRadius(float radius) {
+        this.bloomRadius = radius;
+    }
+    
+    public void setBloomKnee(float knee) {
+        this.bloomKnee = knee;
+    }
+    
+    public void setWhitePoint(float whitePoint) {
+        this.whitePoint = whitePoint;
+    }
+    
+    /**
+     * Initializes TAA history buffers.
+     */
+    private void initializeTAABuffers() {
+        if (taaHistoryBuffers != null) {
+            for (Framebuffer buffer : taaHistoryBuffers) {
+                if (buffer != null) {
+                    buffer.cleanup();
+                }
+            }
+        }
+        
+        taaHistoryBuffers = new Framebuffer[currentQuality.taaHistoryFrames];
+        currentTaaFrame = 0;
+        
+        logger.info("TAA history buffers initialized with {} frames", currentQuality.taaHistoryFrames);
+    }
+    
+    /**
+     * Updates jitter offset for TAA.
+     * 
+     * @param jitterX X jitter offset
+     * @param jitterY Y jitter offset
+     */
+    public void updateTAAJitter(float jitterX, float jitterY) {
+        this.jitterOffset.set(jitterX, jitterY);
+    }
+
     // Getters
     
     public boolean isInitialized() { return initialized; }

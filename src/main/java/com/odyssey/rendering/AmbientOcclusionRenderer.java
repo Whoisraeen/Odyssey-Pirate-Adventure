@@ -42,11 +42,41 @@ public class AmbientOcclusionRenderer {
     private static final float SSAO_BIAS = 0.025f;
     private static final float SSAO_POWER = 2.0f;
     
+    // Enhanced SSAO parameters
+    private static final int HBAO_DIRECTIONS = 8;
+    private static final int HBAO_STEPS = 4;
+    private static final float HBAO_ANGLE_BIAS = 0.1f;
+    private static final float HBAO_ATTENUATION = 1.0f;
+    
+    // Quality settings
+    public enum SSAOQuality {
+        LOW(32, 2, 2),
+        MEDIUM(64, 4, 4),
+        HIGH(128, 8, 4),
+        ULTRA(256, 16, 8);
+        
+        public final int kernelSize;
+        public final int directions;
+        public final int steps;
+        
+        SSAOQuality(int kernelSize, int directions, int steps) {
+            this.kernelSize = kernelSize;
+            this.directions = directions;
+            this.steps = steps;
+        }
+    }
+    
+    // Current quality setting
+    private SSAOQuality currentQuality = SSAOQuality.HIGH;
+    
     // Rendering components
     private Shader gBufferShader;
     private Shader ssaoShader;
     private Shader ssaoBlurShader;
     private Shader voxelAOShader;
+    private Shader hbaoShader;
+    private Shader gtaoShader;
+    private Shader bilateralBlurShader;
     
     // Framebuffers and textures
     private Framebuffer gBuffer;
@@ -65,10 +95,22 @@ public class AmbientOcclusionRenderer {
     // Settings
     private boolean enableSSAO = true;
     private boolean enableVoxelAO = true;
+    private boolean enableHBAO = false;
+    private boolean enableGTAO = false;
+    private boolean enableBilateralBlur = true;
     private float ssaoIntensity = 1.0f;
     private float voxelAOIntensity = 0.8f;
     private int screenWidth = 1920;
     private int screenHeight = 1080;
+    
+    // AO technique selection
+    public enum AOTechnique {
+        SSAO,
+        HBAO,
+        GTAO
+    }
+    
+    private AOTechnique currentTechnique = AOTechnique.SSAO;
     
     // World reference
     private World world;
@@ -139,6 +181,24 @@ public class AmbientOcclusionRenderer {
             voxelAOShader.compileFragmentShader(getVoxelAOFragmentShader());
             voxelAOShader.link();
             
+            // HBAO shader
+            hbaoShader = new Shader("HBAO");
+            hbaoShader.compileVertexShader(getHBAOVertexShader());
+            hbaoShader.compileFragmentShader(getHBAOFragmentShader());
+            hbaoShader.link();
+            
+            // GTAO shader
+            gtaoShader = new Shader("GTAO");
+            gtaoShader.compileVertexShader(getGTAOVertexShader());
+            gtaoShader.compileFragmentShader(getGTAOFragmentShader());
+            gtaoShader.link();
+            
+            // Bilateral blur shader
+            bilateralBlurShader = new Shader("Bilateral Blur");
+            bilateralBlurShader.compileVertexShader(getBilateralBlurVertexShader());
+            bilateralBlurShader.compileFragmentShader(getBilateralBlurFragmentShader());
+            bilateralBlurShader.link();
+            
             logger.debug("Ambient occlusion shaders loaded successfully");
         } catch (Exception e) {
             logger.error("Failed to load ambient occlusion shaders", e);
@@ -180,23 +240,35 @@ public class AmbientOcclusionRenderer {
     }
     
     /**
-     * Generates the SSAO kernel for sampling.
+     * Generates hemisphere-oriented SSAO kernel for better sampling distribution.
      */
     private void generateSSAOKernel() {
-        ssaoKernel = BufferUtils.createFloatBuffer(SSAO_KERNEL_SIZE * 3);
+        int kernelSize = currentQuality.kernelSize;
+        ssaoKernel = BufferUtils.createFloatBuffer(kernelSize * 3);
 
-        for (int i = 0; i < SSAO_KERNEL_SIZE; i++) {
-            // Generate random hemisphere sample
+        for (int i = 0; i < kernelSize; i++) {
+            // Generate hemisphere-oriented sample using cosine-weighted distribution
+            float u1 = random.nextFloat();
+            float u2 = random.nextFloat();
+            
+            // Convert to spherical coordinates
+            float theta = 2.0f * (float) Math.PI * u1;
+            float phi = (float) Math.acos(Math.sqrt(u2));
+            
+            // Convert to Cartesian coordinates (hemisphere)
             Vector3f sample = new Vector3f(
-                random.nextFloat() * 2.0f - 1.0f,
-                random.nextFloat() * 2.0f - 1.0f,
-                random.nextFloat()
+                (float) (Math.sin(phi) * Math.cos(theta)),
+                (float) (Math.sin(phi) * Math.sin(theta)),
+                (float) Math.cos(phi)
             );
-            sample.normalize();
-            sample.mul(random.nextFloat());
-
-            // Scale samples to be more distributed close to origin
-            float scale = (float) i / SSAO_KERNEL_SIZE;
+            
+            // Apply hemisphere orientation (ensure z > 0)
+            if (sample.z < 0) {
+                sample.z = -sample.z;
+            }
+            
+            // Scale samples with better distribution
+            float scale = (float) i / kernelSize;
             scale = lerp(0.1f, 1.0f, scale * scale);
             sample.mul(scale);
 
@@ -206,7 +278,7 @@ public class AmbientOcclusionRenderer {
         }
 
         ssaoKernel.flip();
-        logger.debug("Generated SSAO kernel with {} samples", SSAO_KERNEL_SIZE);
+        logger.debug("Generated hemisphere-oriented SSAO kernel with {} samples", kernelSize);
     }
     
     /**
@@ -281,6 +353,40 @@ public class AmbientOcclusionRenderer {
     }
     
     /**
+     * Renders ambient occlusion using the selected technique.
+     */
+    public void renderAO(Camera camera, Matrix4f projectionMatrix, int depthTexture, int normalTexture, int colorTexture) {
+        if (!enableSSAO && !enableVoxelAO) return;
+
+        // Render screen-space ambient occlusion
+        if (enableSSAO) {
+            switch (currentTechnique) {
+                case SSAO:
+                    renderSSAO(camera, projectionMatrix, depthTexture, normalTexture);
+                    break;
+                case HBAO:
+                    renderHBAO(camera, projectionMatrix, depthTexture, normalTexture);
+                    break;
+                case GTAO:
+                    renderGTAO(camera, projectionMatrix, depthTexture, normalTexture);
+                    break;
+            }
+            
+            // Apply bilateral blur if enabled
+            if (enableBilateralBlur) {
+                bilateralBlurSSAO(depthTexture, normalTexture);
+            } else {
+                blurSSAO();
+            }
+        }
+
+        // Render voxel-based ambient occlusion
+        if (enableVoxelAO) {
+            renderVoxelAO(camera, projectionMatrix, colorTexture);
+        }
+    }
+    
+    /**
      * Renders screen-space ambient occlusion.
      * 
      * @param projectionMatrix Projection matrix
@@ -334,13 +440,119 @@ public class AmbientOcclusionRenderer {
         // Unbind shader and buffer
         ssaoShader.unbind();
         Framebuffer.unbind();
-        
-        // Blur SSAO
-        blurSSAO();
     }
     
     /**
-     * Blurs the SSAO texture to reduce noise.
+     * Renders Horizon-Based Ambient Occlusion (HBAO).
+     */
+    private void renderHBAO(Camera camera, Matrix4f projectionMatrix, int depthTexture, int normalTexture) {
+        if (hbaoShader == null) return;
+
+        // Bind SSAO framebuffer
+        ssaoFramebuffer.bind();
+        GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
+        GL11.glViewport(0, 0, screenWidth, screenHeight);
+
+        // Use HBAO shader
+        hbaoShader.bind();
+
+        // Set matrices
+        hbaoShader.setUniform("u_projectionMatrix", projectionMatrix);
+        hbaoShader.setUniform("u_viewMatrix", camera.getViewMatrix());
+        hbaoShader.setUniform("u_inverseProjectionMatrix", new Matrix4f(projectionMatrix).invert());
+
+        // Set camera parameters
+        hbaoShader.setUniform("u_cameraPosition", camera.getPosition());
+        hbaoShader.setUniform("u_nearPlane", camera.getNearPlane());
+        hbaoShader.setUniform("u_farPlane", camera.getFarPlane());
+
+        // Set HBAO parameters
+        hbaoShader.setUniform("u_radius", SSAO_RADIUS);
+        hbaoShader.setUniform("u_bias", HBAO_ANGLE_BIAS);
+        hbaoShader.setUniform("u_attenuation", HBAO_ATTENUATION);
+        hbaoShader.setUniform("u_directions", currentQuality.directions);
+        hbaoShader.setUniform("u_steps", currentQuality.steps);
+        hbaoShader.setUniform("u_intensity", ssaoIntensity);
+
+        // Set screen parameters
+        hbaoShader.setUniform("u_screenSize", new Vector2f(screenWidth, screenHeight));
+        hbaoShader.setUniform("u_invScreenSize", new Vector2f(1.0f / screenWidth, 1.0f / screenHeight));
+
+        // Bind textures
+        GL13.glActiveTexture(GL13.GL_TEXTURE0);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, depthTexture);
+        hbaoShader.setUniform("u_depthTexture", 0);
+
+        GL13.glActiveTexture(GL13.GL_TEXTURE1);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, normalTexture);
+        hbaoShader.setUniform("u_normalTexture", 1);
+
+        GL13.glActiveTexture(GL13.GL_TEXTURE2);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, ssaoNoiseTexture);
+        hbaoShader.setUniform("u_noiseTexture", 2);
+
+        // Render fullscreen quad
+        renderFullscreenQuad();
+
+        hbaoShader.unbind();
+        Framebuffer.unbind();
+    }
+
+    /**
+     * Renders Ground Truth Ambient Occlusion (GTAO).
+     */
+    private void renderGTAO(Camera camera, Matrix4f projectionMatrix, int depthTexture, int normalTexture) {
+        if (gtaoShader == null) return;
+
+        // Bind SSAO framebuffer
+        ssaoFramebuffer.bind();
+        GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
+        GL11.glViewport(0, 0, screenWidth, screenHeight);
+
+        // Use GTAO shader
+        gtaoShader.bind();
+
+        // Set matrices
+        gtaoShader.setUniform("u_projectionMatrix", projectionMatrix);
+        gtaoShader.setUniform("u_viewMatrix", camera.getViewMatrix());
+        gtaoShader.setUniform("u_inverseProjectionMatrix", new Matrix4f(projectionMatrix).invert());
+
+        // Set camera parameters
+        gtaoShader.setUniform("u_cameraPosition", camera.getPosition());
+        gtaoShader.setUniform("u_nearPlane", camera.getNearPlane());
+        gtaoShader.setUniform("u_farPlane", camera.getFarPlane());
+
+        // Set GTAO parameters
+        gtaoShader.setUniform("u_radius", SSAO_RADIUS);
+        gtaoShader.setUniform("u_bias", SSAO_BIAS);
+        gtaoShader.setUniform("u_power", SSAO_POWER);
+        gtaoShader.setUniform("u_sliceCount", currentQuality.directions);
+        gtaoShader.setUniform("u_stepsPerSlice", currentQuality.steps);
+        gtaoShader.setUniform("u_intensity", ssaoIntensity);
+
+        // Set screen parameters
+        gtaoShader.setUniform("u_screenSize", new Vector2f(screenWidth, screenHeight));
+        gtaoShader.setUniform("u_invScreenSize", new Vector2f(1.0f / screenWidth, 1.0f / screenHeight));
+
+        // Bind textures
+        GL13.glActiveTexture(GL13.GL_TEXTURE0);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, depthTexture);
+        gtaoShader.setUniform("u_depthTexture", 0);
+
+        GL13.glActiveTexture(GL13.GL_TEXTURE1);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, normalTexture);
+        gtaoShader.setUniform("u_normalTexture", 1);
+
+        GL13.glActiveTexture(GL13.GL_TEXTURE2);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, ssaoNoiseTexture);
+        gtaoShader.setUniform("u_noiseTexture", 2);
+
+        // Render fullscreen quad
+        renderFullscreenQuad();
+
+        gtaoShader.unbind();
+        Framebuffer.unbind();
+    }
      */
     private void blurSSAO() {
         if (ssaoBlurShader == null || ssaoBlurBuffer == null) {
@@ -369,6 +581,75 @@ public class AmbientOcclusionRenderer {
         // Unbind shader and buffer
         ssaoBlurShader.unbind();
         Framebuffer.unbind();
+    }
+    
+    /**
+     * Applies bilateral blur to SSAO texture for better edge preservation.
+     */
+    private void bilateralBlurSSAO(int depthTexture, int normalTexture) {
+        if (bilateralBlurShader == null || ssaoBlurBuffer == null) {
+            return;
+        }
+
+        // Bind blur buffer
+        ssaoBlurBuffer.bind();
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        // Bind bilateral blur shader
+        bilateralBlurShader.bind();
+
+        // Set uniforms
+        bilateralBlurShader.setUniform("u_screenSize", new Vector2f(screenWidth, screenHeight));
+        bilateralBlurShader.setUniform("u_invScreenSize", new Vector2f(1.0f / screenWidth, 1.0f / screenHeight));
+        bilateralBlurShader.setUniform("u_blurRadius", 4.0f);
+        bilateralBlurShader.setUniform("u_depthThreshold", 0.01f);
+        bilateralBlurShader.setUniform("u_normalThreshold", 0.8f);
+
+        // Bind textures
+        glActiveTexture(GL_TEXTURE0);
+        ssaoBuffer.bindColorTexture(0, 0);
+        bilateralBlurShader.setUniform("u_ssaoTexture", 0);
+
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, depthTexture);
+        bilateralBlurShader.setUniform("u_depthTexture", 1);
+
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, normalTexture);
+        bilateralBlurShader.setUniform("u_normalTexture", 2);
+
+        // Render fullscreen quad
+        renderFullscreenQuad();
+
+        bilateralBlurShader.unbind();
+        Framebuffer.unbind();
+    }
+    
+    /**
+     * Renders voxel-based ambient occlusion.
+     */
+    private void renderVoxelAO(Camera camera, Matrix4f projectionMatrix, int colorTexture) {
+        if (!enableVoxelAO || voxelAOShader == null) {
+            return;
+        }
+
+        // Use voxel AO shader
+        voxelAOShader.bind();
+
+        // Set matrices
+        voxelAOShader.setUniform("u_ProjectionMatrix", projectionMatrix);
+        voxelAOShader.setUniform("u_ViewMatrix", camera.getViewMatrix());
+        voxelAOShader.setUniform("u_VoxelAOIntensity", voxelAOIntensity);
+
+        // Bind color texture
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, colorTexture);
+        voxelAOShader.setUniform("u_Texture", 0);
+
+        // Render geometry with voxel AO
+        // This would typically be integrated into the main rendering pass
+        
+        voxelAOShader.unbind();
     }
     
     /**
@@ -740,22 +1021,63 @@ public class AmbientOcclusionRenderer {
                 "}";
     }
     
-    // Getters and setters
+    // Getters and setters for configuration
+    public void setSSAOQuality(SSAOQuality quality) {
+        this.currentQuality = quality;
+        // Regenerate kernel with new quality settings
+        generateSSAOKernel();
+    }
+    
+    public SSAOQuality getSSAOQuality() {
+        return currentQuality;
+    }
+    
+    public void setAOTechnique(AOTechnique technique) {
+        this.currentTechnique = technique;
+    }
+    
+    public AOTechnique getAOTechnique() {
+        return currentTechnique;
+    }
     
     public void setEnableSSAO(boolean enable) {
         this.enableSSAO = enable;
+    }
+    
+    public boolean isSSAOEnabled() {
+        return enableSSAO;
     }
     
     public void setEnableVoxelAO(boolean enable) {
         this.enableVoxelAO = enable;
     }
     
+    public boolean isVoxelAOEnabled() {
+        return enableVoxelAO;
+    }
+    
+    public void setEnableBilateralBlur(boolean enable) {
+        this.enableBilateralBlur = enable;
+    }
+    
+    public boolean isBilateralBlurEnabled() {
+        return enableBilateralBlur;
+    }
+    
     public void setSSAOIntensity(float intensity) {
         this.ssaoIntensity = Math.max(0.0f, Math.min(2.0f, intensity));
     }
     
+    public float getSSAOIntensity() {
+        return ssaoIntensity;
+    }
+    
     public void setVoxelAOIntensity(float intensity) {
         this.voxelAOIntensity = Math.max(0.0f, Math.min(1.0f, intensity));
+    }
+    
+    public float getVoxelAOIntensity() {
+        return voxelAOIntensity;
     }
     
     public int getSSAOTexture() {

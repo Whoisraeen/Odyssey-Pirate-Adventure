@@ -1,10 +1,13 @@
 package com.odyssey.rendering;
 
 import com.odyssey.core.GameConfig;
+import com.odyssey.core.TimeOfDaySystem;
 import com.odyssey.ui.LoadGameMenu;
 import com.odyssey.ui.MainMenu;
 import com.odyssey.util.Logger;
 import com.odyssey.util.Timer;
+import com.odyssey.rendering.ComputeShaderManager;
+import com.odyssey.rendering.GraphicsSettings;
 
 import com.odyssey.world.World;
 import org.joml.Matrix4f;
@@ -54,8 +57,13 @@ public class Renderer {
     private Skybox skybox;
     private IBL ibl;
     private VolumetricFog volumetricFog;
+    private VolumetricClouds volumetricClouds;
     private CascadedShadowMap cascadedShadowMap;
     private DynamicSky dynamicSky;
+    private HosekWilkieSky hosekWilkieSky;
+    private TimeOfDaySystem timeOfDaySystem;
+    private GraphicsSettings graphicsSettings;
+    private ComputeShaderManager computeShaderManager;
 
     // Camera and matrices
     private Camera camera;
@@ -187,13 +195,97 @@ public class Renderer {
         skybox = new Skybox();
         ibl = new IBL();
         volumetricFog = new VolumetricFog();
+        volumetricFog.initialize();
+        volumetricClouds = new VolumetricClouds();
+        volumetricClouds.initialize();
         cascadedShadowMap = new CascadedShadowMap(2048, 3);
         dynamicSky = new DynamicSky();
+        hosekWilkieSky = new HosekWilkieSky();
+        timeOfDaySystem = new TimeOfDaySystem();
+        timeOfDaySystem.initialize();
+        graphicsSettings = new GraphicsSettings();
+        graphicsSettings.applyPreset(GraphicsSettings.QualityPreset.MEDIUM);
+        computeShaderManager = new ComputeShaderManager();
+        computeShaderManager.initialize();
 
         shaderManager.loadShader("opaque", "shaders/opaque.vert", "shaders/opaque.frag");
         shaderManager.loadShader("quad", "shaders/quad.vert", "shaders/quad.frag");
 
+        // Load PBR textures
+        loadPBRTextures();
+
         logger.info("Rendering components initialized");
+    }
+
+    /**
+     * Load PBR textures for physically-based rendering.
+     */
+    private void loadPBRTextures() {
+        logger.info("Loading PBR textures...");
+        
+        // Load default PBR textures - create fallback textures if files don't exist
+        try {
+            // Try to load actual texture files first
+            textureManager.loadTexture("albedoMap", "textures/pbr/default_albedo.png");
+        } catch (Exception e) {
+            // Create default white albedo texture
+            logger.warn("Could not load albedo texture, using default white texture");
+            textureManager.getWhiteTexture(); // This will be used as fallback
+        }
+        
+        try {
+            textureManager.loadTexture("normalMap", "textures/pbr/default_normal.png");
+        } catch (Exception e) {
+            // Create default normal map (flat normal pointing up)
+            logger.warn("Could not load normal texture, creating default normal map");
+            createDefaultNormalMap();
+        }
+        
+        try {
+            textureManager.loadTexture("metallicMap", "textures/pbr/default_metallic.png");
+        } catch (Exception e) {
+            // Create default metallic texture (non-metallic)
+            logger.warn("Could not load metallic texture, using default black texture");
+            textureManager.getBlackTexture();
+        }
+        
+        try {
+            textureManager.loadTexture("roughnessMap", "textures/pbr/default_roughness.png");
+        } catch (Exception e) {
+            // Create default roughness texture (medium roughness)
+            logger.warn("Could not load roughness texture, creating default roughness map");
+            createDefaultRoughnessMap();
+        }
+        
+        try {
+            textureManager.loadTexture("aoMap", "textures/pbr/default_ao.png");
+        } catch (Exception e) {
+            // Create default AO texture (no occlusion)
+            logger.warn("Could not load AO texture, using default white texture");
+            textureManager.getWhiteTexture();
+        }
+        
+        logger.info("PBR textures loaded successfully");
+    }
+    
+    /**
+     * Create a default normal map texture (flat normal pointing up).
+     */
+    private void createDefaultNormalMap() {
+        java.nio.ByteBuffer normalData = java.nio.ByteBuffer.allocateDirect(4);
+        normalData.put((byte) 128).put((byte) 128).put((byte) 255).put((byte) 255); // Normal pointing up (0.5, 0.5, 1.0)
+        normalData.flip();
+        textureManager.createTexture("normalMap", 1, 1, GL_RGBA, normalData);
+    }
+    
+    /**
+     * Create a default roughness map texture (medium roughness).
+     */
+    private void createDefaultRoughnessMap() {
+        java.nio.ByteBuffer roughnessData = java.nio.ByteBuffer.allocateDirect(4);
+        roughnessData.put((byte) 128).put((byte) 128).put((byte) 128).put((byte) 255); // Medium roughness (0.5)
+        roughnessData.flip();
+        textureManager.createTexture("roughnessMap", 1, 1, GL_RGBA, roughnessData);
     }
 
     /**
@@ -414,8 +506,6 @@ public class Renderer {
             return;
         }
 
-        renderShadowMap(world);
-
         // If a camera is provided, use it. Otherwise, use the renderer's internal camera.
         Camera currentCamera = (camera != null) ? camera : this.camera;
 
@@ -423,61 +513,104 @@ public class Renderer {
         currentCamera.updateViewMatrix(viewMatrix);
         viewProjectionMatrix.set(projectionMatrix).mul(viewMatrix);
 
+        // Calculate light direction (for now, use a fixed directional light)
+        Vector3f lightDirection = new Vector3f(-0.3f, -0.7f, -0.2f).normalize();
+
+        // Render shadow maps first
+        renderShadowMap(world, currentCamera, projectionMatrix, viewMatrix, lightDirection);
+
         // Bind scene framebuffer
         framebufferManager.getFramebuffer("scene").bind();
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // Render world chunks
-        shaderManager.getShader("pbr").bind();
-        shaderManager.getShader("pbr").setUniform("projection", projectionMatrix);
-        shaderManager.getShader("pbr").setUniform("view", viewMatrix);
-        shaderManager.getShader("pbr").setUniform("camPos", camera.getPosition());
+        // Render world chunks with CSM PBR shader
+        Shader csmPbrShader = shaderManager.getShader("csm_pbr");
+        if (csmPbrShader == null) {
+            // Fallback to regular PBR shader if CSM PBR is not available
+            csmPbrShader = shaderManager.getShader("pbr");
+        }
+        
+        csmPbrShader.bind();
+        csmPbrShader.setUniform("projection", projectionMatrix);
+        csmPbrShader.setUniform("view", viewMatrix);
+        csmPbrShader.setUniform("camPos", currentCamera.getPosition());
 
         // Set light uniforms
         for (int i = 0; i < 4; i++) {
-            shaderManager.getShader("pbr").setUniform("lightPositions[" + i + "]", new Vector3f(0.0f, 10.0f, 0.0f));
-            shaderManager.getShader("pbr").setUniform("lightColors[" + i + "]", new Vector3f(1.0f, 1.0f, 1.0f));
+            csmPbrShader.setUniform("lightPositions[" + i + "]", new Vector3f(0.0f, 10.0f, 0.0f));
+            csmPbrShader.setUniform("lightColors[" + i + "]", new Vector3f(1.0f, 1.0f, 1.0f));
+        }
+
+        // Set CSM uniforms
+        csmPbrShader.setUniform("numCascades", cascadedShadowMap.getNumCascades());
+        csmPbrShader.setUniform("enablePCF", cascadedShadowMap.isEnablePCF());
+        csmPbrShader.setUniform("pcfSamples", cascadedShadowMap.getPcfSamples());
+        csmPbrShader.setUniform("pcfRadius", cascadedShadowMap.getPcfRadius());
+        csmPbrShader.setUniform("shadowBias", 0.005f);
+        
+        // Set cascade splits and light space matrices
+        float[] cascadeSplits = cascadedShadowMap.getCascadeSplits();
+        Matrix4f[] lightSpaceMatrices = cascadedShadowMap.getLightSpaceMatrices();
+        
+        for (int i = 0; i < cascadedShadowMap.getNumCascades(); i++) {
+            csmPbrShader.setUniform("cascadeSplits[" + i + "]", cascadeSplits[i]);
+            csmPbrShader.setUniform("lightSpaceMatrices[" + i + "]", lightSpaceMatrices[i]);
         }
 
         // Bind PBR textures
         glActiveTexture(GL_TEXTURE0);
         textureManager.getTexture("albedoMap").bind();
+        csmPbrShader.setUniform("albedoMap", 0);
+        
         glActiveTexture(GL_TEXTURE1);
         textureManager.getTexture("normalMap").bind();
+        csmPbrShader.setUniform("normalMap", 1);
+        
         glActiveTexture(GL_TEXTURE2);
         textureManager.getTexture("metallicMap").bind();
+        csmPbrShader.setUniform("metallicMap", 2);
+        
         glActiveTexture(GL_TEXTURE3);
         textureManager.getTexture("roughnessMap").bind();
+        csmPbrShader.setUniform("roughnessMap", 3);
+        
         glActiveTexture(GL_TEXTURE4);
         textureManager.getTexture("aoMap").bind();
+        csmPbrShader.setUniform("aoMap", 4);
 
         // Bind IBL textures
         glActiveTexture(GL_TEXTURE5);
-        glBindTexture(GL_TEXTURE_2D, ibl.getIrradianceMap());
+        glBindTexture(GL_TEXTURE_CUBE_MAP, ibl.getIrradianceMap());
+        csmPbrShader.setUniform("irradianceMap", 5);
+        
         glActiveTexture(GL_TEXTURE6);
-        glBindTexture(GL_TEXTURE_2D, ibl.getPrefilterMap());
+        glBindTexture(GL_TEXTURE_CUBE_MAP, ibl.getPrefilterMap());
+        csmPbrShader.setUniform("prefilterMap", 6);
+        
         glActiveTexture(GL_TEXTURE7);
         glBindTexture(GL_TEXTURE_2D, ibl.getBrdfLUTTexture());
+        csmPbrShader.setUniform("brdfLUT", 7);
 
         // Bind shadow map textures
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < cascadedShadowMap.getNumCascades(); i++) {
             glActiveTexture(GL_TEXTURE8 + i);
             glBindTexture(GL_TEXTURE_2D, cascadedShadowMap.getShadowMap(i));
+            csmPbrShader.setUniform("shadowMaps[" + i + "]", 8 + i);
         }
 
         java.util.Collection<com.odyssey.world.Chunk> chunks = world.getChunks();
         for (com.odyssey.world.Chunk chunk : chunks) {
             if (chunk.getMesh() != null) {
-                shaderManager.getShader("pbr").setUniform("model", chunk.getModelMatrix());
+                csmPbrShader.setUniform("model", chunk.getModelMatrix());
                 chunk.getMesh().render();
             }
         }
 
-        if (waterRenderingEnabled) {
+        if (graphicsSettings.isWaterRenderingEnabled()) {
             waterRenderer.render(currentCamera, projectionMatrix, viewMatrix, new Vector3f(-1, -1, -1));
         }
 
-        if (ambientOcclusionEnabled) {
+        if (graphicsSettings.isAmbientOcclusionEnabled()) {
             // Render G-Buffer for SSAO
             aoRenderer.renderGBuffer(currentCamera, projectionMatrix, viewMatrix, opaqueQueue);
 
@@ -488,43 +621,74 @@ public class Renderer {
         // Unbind scene framebuffer
         framebufferManager.getFramebuffer("scene").unbind();
 
-        // Render skybox
-        skybox.render(camera, projectionMatrix);
+        // Render skybox (fallback)
+        if (graphicsSettings.isSkyRenderingEnabled()) {
+            skybox.render(camera, projectionMatrix);
+        }
 
         // Render volumetric fog
-        volumetricFog.render(camera, projectionMatrix, framebufferManager.getFramebuffer("scene").getDepthTexture());
+        if (graphicsSettings.isVolumetricFogEnabled()) {
+            volumetricFog.render(camera, projectionMatrix, framebufferManager.getFramebuffer("scene").getDepthTexture());
+        }
 
-        // Render dynamic sky
-        dynamicSky.render(camera, projectionMatrix, new Vector3f(0.0f, 1.0f, 0.0f));
+        // Render volumetric clouds
+        if (graphicsSettings.isVolumetricCloudsEnabled()) {
+            Vector3f lightDirection = new Vector3f(0.0f, -1.0f, 0.0f).normalize();
+            Vector3f lightColor = new Vector3f(1.0f, 0.9f, 0.8f);
+            Vector3f sunColor = new Vector3f(1.0f, 0.95f, 0.8f);
+            volumetricClouds.render(camera, projectionMatrix, viewMatrix, lightDirection, lightColor, sunColor,
+                                   framebufferManager.getFramebuffer("scene").getDepthTexture(),
+                                   framebufferManager.getFramebuffer("scene").getColorTexture(),
+                                   Timer.getDeltaTime());
+        }
+
+        // Update time of day system
+        timeOfDaySystem.update(Timer.getDeltaTime());
+         
+        // Render Hosek-Wilkie sky
+        if (graphicsSettings.isSkyRenderingEnabled()) {
+            Vector3f sunDirection = timeOfDaySystem.getSunDirection();
+            hosekWilkieSky.setSunDirection(sunDirection);
+            hosekWilkieSky.setTurbidity(timeOfDaySystem.getTurbidity());
+            hosekWilkieSky.setGroundAlbedo(timeOfDaySystem.getAlbedo());
+            hosekWilkieSky.render(camera, projectionMatrix);
+         
+            // Render dynamic sky as fallback
+            dynamicSky.render(camera, projectionMatrix, sunDirection);
+        }
     }
 
-    private void renderShadowMap(World world) {
-        Shader shadowShader = shaderManager.getShader("shadow");
+    private void renderShadowMap(World world, Camera camera, Matrix4f projectionMatrix, Matrix4f viewMatrix, Vector3f lightDirection) {
+        // Update CSM light space matrices based on camera frustum
+        cascadedShadowMap.updateLightSpaceMatrices(camera, projectionMatrix, viewMatrix, lightDirection);
+        
+        Shader shadowShader = shaderManager.getShader("csm_shadow");
+        if (shadowShader == null) {
+            shadowShader = shaderManager.getShader("shadow"); // Fallback to old shader
+        }
         shadowShader.bind();
 
-        for (int i = 0; i < 3; i++) {
+        // Render each cascade
+        for (int i = 0; i < cascadedShadowMap.getNumCascades(); i++) {
             cascadedShadowMap.bind(i);
             glClear(GL_DEPTH_BUFFER_BIT);
 
-            // Create light space matrix for each cascade
-            Matrix4f lightProjection = new Matrix4f().ortho(-10, 10, -10, 10, 1.0f, 7.5f);
-            Matrix4f lightView = new Matrix4f().lookAt(new Vector3f(-2.0f, 4.0f, -1.0f),
-                    new Vector3f(0.0f, 0.0f, 0.0f),
-                    new Vector3f(0.0f, 1.0f, 0.0f));
-            Matrix4f lightSpaceMatrix = lightProjection.mul(lightView);
-            shadowShader.setUniform("lightSpaceMatrix", lightSpaceMatrix);
+            // Set light space matrix for current cascade
+            Matrix4f lightSpaceMatrix = cascadedShadowMap.getLightSpaceMatrix(i);
+            shadowShader.setUniform("u_LightSpaceMatrix", lightSpaceMatrix);
 
+            // Render world chunks
             java.util.Collection<com.odyssey.world.Chunk> chunks = world.getChunks();
             for (com.odyssey.world.Chunk chunk : chunks) {
                 if (chunk.getMesh() != null) {
-                    shadowShader.setUniform("model", chunk.getModelMatrix());
+                    shadowShader.setUniform("u_ModelMatrix", chunk.getModelMatrix());
                     chunk.getMesh().render();
                 }
             }
         }
 
         cascadedShadowMap.unbind();
-        shaderManager.getShader("shadow").unbind();
+        shadowShader.unbind();
     }
 
     /**
@@ -917,8 +1081,44 @@ public class Renderer {
         if (textRenderer != null) {
             textRenderer.cleanup();
         }
+        
+        if (hosekWilkieSky != null) {
+            hosekWilkieSky.cleanup();
+        }
+        
+        if (timeOfDaySystem != null) {
+            timeOfDaySystem.cleanup();
+        }
+        
+        if (computeShaderManager != null) {
+            computeShaderManager.cleanup();
+        }
 
         initialized = false;
         logger.info("Renderer cleanup complete");
     }
+
+    /**
+     * Gets the graphics settings instance for configuration
+     * @return The graphics settings instance
+     */
+    public GraphicsSettings getGraphicsSettings() {
+        return graphicsSettings;
+    }
+
+    /**
+     * Updates graphics settings and applies changes
+     * @param settings The new graphics settings
+     */
+    public void setGraphicsSettings(GraphicsSettings settings) {
+        this.graphicsSettings = settings;
+        // Apply any immediate changes that require renderer updates
+        logger.info("Graphics settings updated");
+    /**
+      * Gets the compute shader manager for GPU-accelerated effects
+      * @return The compute shader manager instance
+      */
+     public ComputeShaderManager getComputeShaderManager() {
+         return computeShaderManager;
+     }
 }

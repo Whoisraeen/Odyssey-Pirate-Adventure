@@ -1,0 +1,67 @@
+#version 430
+
+// Work group size
+layout(local_size_x = 16, local_size_y = 16, local_size_z = 1) in;
+
+// Input texture
+layout(binding = 0, rgba16f) uniform readonly image2D inputTexture;
+
+// Histogram buffer (256 bins)
+layout(std430, binding = 1) restrict buffer HistogramBuffer {
+    uint histogram[256];
+};
+
+// Uniforms
+uniform float minLogLuminance = -10.0;
+uniform float maxLogLuminance = 2.0;
+uniform float deltaLogLuminance = 12.0; // maxLogLuminance - minLogLuminance
+
+// Shared memory for local histogram
+shared uint localHistogram[256];
+
+// Convert RGB to luminance
+float getLuminance(vec3 color) {
+    return dot(color, vec3(0.299, 0.587, 0.114));
+}
+
+// Convert luminance to histogram bin
+uint luminanceToBin(float luminance) {
+    if (luminance < 0.005) {
+        return 0;
+    }
+    
+    float logLuminance = clamp(log2(luminance), minLogLuminance, maxLogLuminance);
+    float normalizedLuminance = (logLuminance - minLogLuminance) / deltaLogLuminance;
+    
+    return uint(normalizedLuminance * 254.0 + 1.0);
+}
+
+void main() {
+    // Initialize local histogram
+    uint localInvocationIndex = gl_LocalInvocationIndex;
+    if (localInvocationIndex < 256) {
+        localHistogram[localInvocationIndex] = 0;
+    }
+    
+    barrier();
+    
+    ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 imageSize = imageSize(inputTexture);
+    
+    // Process pixel if within bounds
+    if (coord.x < imageSize.x && coord.y < imageSize.y) {
+        vec3 color = imageLoad(inputTexture, coord).rgb;
+        float luminance = getLuminance(color);
+        uint bin = luminanceToBin(luminance);
+        
+        // Increment local histogram
+        atomicAdd(localHistogram[bin], 1);
+    }
+    
+    barrier();
+    
+    // Merge local histogram into global histogram
+    if (localInvocationIndex < 256) {
+        atomicAdd(histogram[localInvocationIndex], localHistogram[localInvocationIndex]);
+    }
+}

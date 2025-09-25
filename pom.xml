@@ -224,7 +224,6 @@
                 <configuration>
                     <release>25</release>
                     <compilerArgs>
-                        <arg>--enable-preview</arg>
                         <arg>-Xlint:all</arg>
                         <arg>-Xlint:-processing</arg>
                     </compilerArgs>

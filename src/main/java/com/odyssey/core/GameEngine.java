@@ -326,6 +326,9 @@ public class GameEngine {
         previousState = currentState;
         currentState = newState;
         
+        // Update input context based on new game state
+        inputManager.updateInputContext(newState);
+        
         // Handle state entry logic
         switch (newState) {
             case MAIN_MENU -> enterMainMenuState();

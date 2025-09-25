@@ -249,6 +249,43 @@ public enum GameAction {
      */
     TOGGLE_HITBOXES("toggle_hitboxes", "Toggle Hitboxes"),
     
+    // === MENU NAVIGATION ACTIONS ===
+    /**
+     * Navigate up in menus and interfaces.
+     * Minecraft mappings: W key, Up arrow, D-pad up, Left stick up
+     */
+    MENU_UP("menu_up", "Menu Up"),
+    
+    /**
+     * Navigate down in menus and interfaces.
+     * Minecraft mappings: S key, Down arrow, D-pad down, Left stick down
+     */
+    MENU_DOWN("menu_down", "Menu Down"),
+    
+    /**
+     * Navigate left in menus and interfaces.
+     * Minecraft mappings: A key, Left arrow, D-pad left, Left stick left
+     */
+    MENU_LEFT("menu_left", "Menu Left"),
+    
+    /**
+     * Navigate right in menus and interfaces.
+     * Minecraft mappings: D key, Right arrow, D-pad right, Left stick right
+     */
+    MENU_RIGHT("menu_right", "Menu Right"),
+    
+    /**
+     * Select/confirm action in menus and interfaces.
+     * Minecraft mappings: Enter key, Space key, A button (Xbox), X button (PlayStation)
+     */
+    MENU_SELECT("menu_select", "Menu Select"),
+    
+    /**
+     * Back/cancel action in menus and interfaces.
+     * Minecraft mappings: Escape key, Backspace key, B button (Xbox), Circle button (PlayStation)
+     */
+    MENU_BACK("menu_back", "Menu Back"),
+    
     // === GAME-SPECIFIC ACTIONS ===
     /**
      * Open or close the map interface.

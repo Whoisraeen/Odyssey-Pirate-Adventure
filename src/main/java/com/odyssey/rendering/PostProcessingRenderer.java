@@ -103,9 +103,9 @@ public class PostProcessingRenderer {
     
     // Effect settings
     private boolean bloomEnabled = true;
-    private float bloomThreshold = 1.0f;
+    private float bloomThreshold = 0.8f;
     private float bloomIntensity = 0.8f;
-    private int bloomPasses = 5;
+    private int bloomPasses = 8;
     
     private boolean toneMappingEnabled = true;
     private ToneMappingType toneMappingType = ToneMappingType.ACES;
@@ -126,7 +126,7 @@ public class PostProcessingRenderer {
     private boolean motionBlurEnabled = false;
     private float motionBlurStrength = 0.5f;
     
-    private boolean ssrEnabled = false;
+    private boolean ssrEnabled = true;
     private float ssrIntensity = 0.5f;
     private int ssrSteps = 32;
     
@@ -537,6 +537,10 @@ public class PostProcessingRenderer {
         if (motionBlurEnabled) {
             currentTexture = applyMotionBlur(currentTexture);
         }
+
+        if (ssrEnabled) {
+            currentTexture = applySSR(currentTexture, depthTexture);
+        }
         
         if (chromaticAberrationEnabled) {
             currentTexture = applyChromaticAberration(currentTexture);
@@ -695,6 +699,30 @@ public class PostProcessingRenderer {
     private int applyMotionBlur(int inputTexture) {
         // Placeholder implementation
         return inputTexture;
+    }
+
+    private int applySSR(int inputTexture, int depthTexture) {
+        tempBuffer.bind();
+        glViewport(0, 0, screenWidth, screenHeight);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        ssrShader.bind();
+        ssrShader.setUniform("gPosition", 0);
+        ssrShader.setUniform("gNormal", 1);
+        ssrShader.setUniform("gAlbedoSpec", 2);
+        ssrShader.setUniform("projection", new Matrix4f());
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, sceneBuffer.getDepthTexture());
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, sceneBuffer.getColorTexture(1));
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, sceneBuffer.getColorTexture(0));
+
+        renderFullscreenQuad();
+        Framebuffer.unbind();
+
+        return tempBuffer.getColorTexture(0);
     }
     
     /**

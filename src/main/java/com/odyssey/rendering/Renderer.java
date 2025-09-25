@@ -51,6 +51,11 @@ public class Renderer {
     private PostProcessingRenderer postProcessingRenderer;
     private TextRenderer textRenderer;
     private ShadowMap shadowMap;
+    private Skybox skybox;
+    private IBL ibl;
+    private VolumetricFog volumetricFog;
+    private CascadedShadowMap cascadedShadowMap;
+    private DynamicSky dynamicSky;
 
     // Camera and matrices
     private Camera camera;
@@ -179,6 +184,11 @@ public class Renderer {
         postProcessingRenderer.initialize(windowWidth, windowHeight);
         textRenderer.initialize();
         shadowMap = new ShadowMap(2048, 2048);
+        skybox = new Skybox();
+        ibl = new IBL();
+        volumetricFog = new VolumetricFog();
+        cascadedShadowMap = new CascadedShadowMap(2048, 3);
+        dynamicSky = new DynamicSky();
 
         shaderManager.loadShader("opaque", "shaders/opaque.vert", "shaders/opaque.frag");
         shaderManager.loadShader("quad", "shaders/quad.vert", "shaders/quad.frag");
@@ -317,12 +327,9 @@ public class Renderer {
      * Execute a single render command.
      */
     private void executeRenderCommand(RenderCommand command) {
-        // Bind shader
+        // Set common uniforms
         Shader shader = command.getShader();
         if (shader != null) {
-            shader.bind();
-
-            // Set common uniforms
             shader.setUniform("u_ViewMatrix", viewMatrix);
             shader.setUniform("u_ProjectionMatrix", projectionMatrix);
             shader.setUniform("u_ViewProjectionMatrix", viewProjectionMatrix);
@@ -357,11 +364,6 @@ public class Renderer {
             mesh.render();
             drawCalls++;
             verticesRendered += mesh.getVertexCount();
-        }
-
-        // Unbind shader
-        if (shader != null) {
-            shader.unbind();
         }
     }
 
@@ -426,16 +428,48 @@ public class Renderer {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // Render world chunks
+        shaderManager.getShader("pbr").bind();
+        shaderManager.getShader("pbr").setUniform("projection", projectionMatrix);
+        shaderManager.getShader("pbr").setUniform("view", viewMatrix);
+        shaderManager.getShader("pbr").setUniform("camPos", camera.getPosition());
+
+        // Set light uniforms
+        for (int i = 0; i < 4; i++) {
+            shaderManager.getShader("pbr").setUniform("lightPositions[" + i + "]", new Vector3f(0.0f, 10.0f, 0.0f));
+            shaderManager.getShader("pbr").setUniform("lightColors[" + i + "]", new Vector3f(1.0f, 1.0f, 1.0f));
+        }
+
+        // Bind PBR textures
+        glActiveTexture(GL_TEXTURE0);
+        textureManager.getTexture("albedoMap").bind();
+        glActiveTexture(GL_TEXTURE1);
+        textureManager.getTexture("normalMap").bind();
+        glActiveTexture(GL_TEXTURE2);
+        textureManager.getTexture("metallicMap").bind();
+        glActiveTexture(GL_TEXTURE3);
+        textureManager.getTexture("roughnessMap").bind();
+        glActiveTexture(GL_TEXTURE4);
+        textureManager.getTexture("aoMap").bind();
+
+        // Bind IBL textures
+        glActiveTexture(GL_TEXTURE5);
+        glBindTexture(GL_TEXTURE_2D, ibl.getIrradianceMap());
+        glActiveTexture(GL_TEXTURE6);
+        glBindTexture(GL_TEXTURE_2D, ibl.getPrefilterMap());
+        glActiveTexture(GL_TEXTURE7);
+        glBindTexture(GL_TEXTURE_2D, ibl.getBrdfLUTTexture());
+
+        // Bind shadow map textures
+        for (int i = 0; i < 3; i++) {
+            glActiveTexture(GL_TEXTURE8 + i);
+            glBindTexture(GL_TEXTURE_2D, cascadedShadowMap.getShadowMap(i));
+        }
+
         java.util.Collection<com.odyssey.world.Chunk> chunks = world.getChunks();
         for (com.odyssey.world.Chunk chunk : chunks) {
             if (chunk.getMesh() != null) {
-                RenderCommand command = new RenderCommand(
-                        chunk.getMesh(),
-                        shaderManager.getShader("opaque"),
-                        chunk.getModelMatrix()
-                );
-                command.setRenderQueue(RenderCommand.RenderQueue.OPAQUE);
-                submit(command);
+                shaderManager.getShader("pbr").setUniform("model", chunk.getModelMatrix());
+                chunk.getMesh().render();
             }
         }
 
@@ -453,30 +487,43 @@ public class Renderer {
 
         // Unbind scene framebuffer
         framebufferManager.getFramebuffer("scene").unbind();
+
+        // Render skybox
+        skybox.render(camera, projectionMatrix);
+
+        // Render volumetric fog
+        volumetricFog.render(camera, projectionMatrix, framebufferManager.getFramebuffer("scene").getDepthTexture());
+
+        // Render dynamic sky
+        dynamicSky.render(camera, projectionMatrix, new Vector3f(0.0f, 1.0f, 0.0f));
     }
 
     private void renderShadowMap(World world) {
-        shadowMap.bind();
         Shader shadowShader = shaderManager.getShader("shadow");
         shadowShader.bind();
 
-        // Create light space matrix
-        Matrix4f lightProjection = new Matrix4f().ortho(-10, 10, -10, 10, 1.0f, 7.5f);
-        Matrix4f lightView = new Matrix4f().lookAt(new Vector3f(-2.0f, 4.0f, -1.0f),
-                new Vector3f(0.0f, 0.0f, 0.0f),
-                new Vector3f(0.0f, 1.0f, 0.0f));
-        Matrix4f lightSpaceMatrix = lightProjection.mul(lightView);
-        shadowShader.setUniform("lightSpaceMatrix", lightSpaceMatrix);
+        for (int i = 0; i < 3; i++) {
+            cascadedShadowMap.bind(i);
+            glClear(GL_DEPTH_BUFFER_BIT);
 
-        java.util.Collection<com.odyssey.world.Chunk> chunks = world.getChunks();
-        for (com.odyssey.world.Chunk chunk : chunks) {
-            if (chunk.getMesh() != null) {
-                shadowShader.setUniform("model", chunk.getModelMatrix());
-                chunk.getMesh().render();
+            // Create light space matrix for each cascade
+            Matrix4f lightProjection = new Matrix4f().ortho(-10, 10, -10, 10, 1.0f, 7.5f);
+            Matrix4f lightView = new Matrix4f().lookAt(new Vector3f(-2.0f, 4.0f, -1.0f),
+                    new Vector3f(0.0f, 0.0f, 0.0f),
+                    new Vector3f(0.0f, 1.0f, 0.0f));
+            Matrix4f lightSpaceMatrix = lightProjection.mul(lightView);
+            shadowShader.setUniform("lightSpaceMatrix", lightSpaceMatrix);
+
+            java.util.Collection<com.odyssey.world.Chunk> chunks = world.getChunks();
+            for (com.odyssey.world.Chunk chunk : chunks) {
+                if (chunk.getMesh() != null) {
+                    shadowShader.setUniform("model", chunk.getModelMatrix());
+                    chunk.getMesh().render();
+                }
             }
         }
 
-        shadowMap.unbind();
+        cascadedShadowMap.unbind();
         shaderManager.getShader("shadow").unbind();
     }
 

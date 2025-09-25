@@ -53,6 +53,8 @@ public class WaterRenderer {
     private float foamThreshold = 0.5f;
     private float reflectionStrength = 0.7f;
     private float refractionStrength = 0.3f;
+
+    private List<GerstnerWave> waves = new ArrayList<>();
     
     // Rendering parameters
     private int waterResolution = 256;
@@ -103,10 +105,13 @@ public class WaterRenderer {
         loadTextures();
         
         // Generate water mesh
-        generateWaterMesh();
+                generateWaterMesh();
         
-        logger.info("Water renderer initialized successfully");
-    }
+                waves.add(new GerstnerWave(0.1f, 1.0f, 0.5f, new Vector2f(1.0f, 0.0f)));
+                waves.add(new GerstnerWave(0.05f, 2.0f, 1.0f, new Vector2f(0.0f, 1.0f)));
+                waves.add(new GerstnerWave(0.025f, 4.0f, 1.5f, new Vector2f(1.0f, 1.0f)));
+        
+                logger.info("Water renderer initialized successfully");    }
     
     /**
      * Loads water rendering shaders.
@@ -277,13 +282,13 @@ public class WaterRenderer {
         waterShader.setUniform("u_Time", animationTime);
         waterShader.setUniform("u_NormalMapOffset", normalMapOffset);
         waterShader.setUniform("u_NormalMapScale", normalMapScale);
-        
+
         // Set wave system data
-        if (waveSystem != null && enableWaveNormals) {
-            // Pass wave data to shader for realistic wave normals
-            waterShader.setUniform("u_EnableWaveNormals", true);
-        } else {
-            waterShader.setUniform("u_EnableWaveNormals", false);
+        for (int i = 0; i < waves.size(); i++) {
+            waterShader.setUniform("waves[" + i + "].amplitude", waves.get(i).amplitude);
+            waterShader.setUniform("waves[" + i + "].frequency", waves.get(i).frequency);
+            waterShader.setUniform("waves[" + i + "].phase", waves.get(i).phase);
+            waterShader.setUniform("waves[" + i + "].direction", waves.get(i).direction);
         }
         
         // Bind textures

@@ -115,6 +115,7 @@ public class ShaderManager {
         
         // Post-processing shader
         createPostProcessShader();
+        loadShader("pbr", "src/main/resources/shaders/pbr.vert", "src/main/resources/shaders/pbr.frag");
     }
     
     /**

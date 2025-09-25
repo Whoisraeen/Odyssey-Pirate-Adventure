@@ -357,6 +357,22 @@ public class GameConfig {
     public int getInt(String key, int defaultValue) {
         return getIntProperty(key, defaultValue);
     }
+
+    public boolean isVolumetricEffectsEnabled() {
+        return getBoolean("graphics.volumetricEffects", true);
+    }
+
+    public boolean isSsrEnabled() {
+        return getBoolean("graphics.ssr", true);
+    }
+
+    public boolean isDofEnabled() {
+        return getBoolean("graphics.dof", true);
+    }
+
+    public int getSssaoKernelSize() {
+        return getInt("graphics.ssao.kernelSize", 64);
+    }
     
     public boolean getBoolean(String key) {
         return getBooleanProperty(key, false);

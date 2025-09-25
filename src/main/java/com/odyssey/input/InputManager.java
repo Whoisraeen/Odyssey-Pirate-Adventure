@@ -1,20 +1,16 @@
 package com.odyssey.input;
 
-import static org.lwjgl.glfw.GLFW.*;
-
-import java.util.EnumMap;
-import java.util.EnumSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-
-import org.joml.Vector2f;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import com.odyssey.core.GameConfig;
+import com.odyssey.util.Logger;
 import com.studiohartman.jamepad.ControllerManager;
 import com.studiohartman.jamepad.ControllerState;
-import com.odyssey.core.GameConfig;
+import org.lwjgl.glfw.GLFW;
+import org.joml.Vector2f;
+
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+
+import static org.lwjgl.glfw.GLFW.*;
 
 /**
  * Comprehensive input management system for the Odyssey Pirate Adventure.
@@ -36,7 +32,7 @@ import com.odyssey.core.GameConfig;
  */
 public class InputManager {
     
-    private static final Logger logger = LoggerFactory.getLogger(InputManager.class);
+    private static final Logger logger = Logger.getLogger(InputManager.class);
     
     // Input thresholds
     private float controllerDeadzone;
@@ -55,7 +51,14 @@ public class InputManager {
     private DeviceType activeDevice = DeviceType.KEYBOARD;
     private long lastInputTime = 0;
     
-    // Action mappings
+    // Input context management
+    private InputContext currentContext = InputContext.GAMEPLAY;
+    private final Map<InputContext, Map<GameAction, Set<Integer>>> contextKeyboardMappings = new EnumMap<>(InputContext.class);
+    private final Map<InputContext, Map<GameAction, Set<Integer>>> contextMouseMappings = new EnumMap<>(InputContext.class);
+    private final Map<InputContext, Map<GameAction, Set<ControllerButton>>> contextGamepadButtonMappings = new EnumMap<>(InputContext.class);
+    private final Map<InputContext, Map<GameAction, ControllerAxis>> contextGamepadAxisMappings = new EnumMap<>(InputContext.class);
+    
+    // Action mappings (current context)
     private final Map<GameAction, Set<Integer>> keyboardMappings = new EnumMap<>(GameAction.class);
     private final Map<GameAction, Set<Integer>> mouseMappings = new EnumMap<>(GameAction.class);
     private final Map<GameAction, Set<ControllerButton>> gamepadButtonMappings = new EnumMap<>(GameAction.class);
@@ -111,6 +114,7 @@ public class InputManager {
         this.controllerSensitivity = config.getControllerSensitivity();
         this.invertControllerY = config.isInvertControllerY();
         
+        initializeContextMappings();
         initializeDefaultMappings();
     }
     
@@ -267,9 +271,9 @@ public class InputManager {
         // === MINECRAFT JAVA EDITION MOUSE MAPPINGS ===
         
         // Primary actions
-        addMouseMapping(GameAction.ATTACK, GLFW_MOUSE_BUTTON_LEFT);
-        addMouseMapping(GameAction.USE_ITEM, GLFW_MOUSE_BUTTON_RIGHT);
-        addMouseMapping(GameAction.PICK_BLOCK, GLFW_MOUSE_BUTTON_MIDDLE);
+        addMouseMapping(GameAction.ATTACK, GLFW.GLFW_MOUSE_BUTTON_LEFT);
+        addMouseMapping(GameAction.USE_ITEM, GLFW.GLFW_MOUSE_BUTTON_RIGHT);
+        addMouseMapping(GameAction.PICK_BLOCK, GLFW.GLFW_MOUSE_BUTTON_MIDDLE);
         
         // === MINECRAFT BEDROCK EDITION CONTROLLER MAPPINGS ===
         
@@ -286,8 +290,8 @@ public class InputManager {
         addGamepadButtonMapping(GameAction.HOTBAR_6, ControllerButton.RIGHT_BUMPER);  // RB/R1
         
         // Triggers
-        addGamepadButtonMapping(GameAction.USE_ITEM, ControllerButton.LEFT_TRIGGER);  // LT/L2
-        addGamepadButtonMapping(GameAction.ATTACK, ControllerButton.RIGHT_TRIGGER);   // RT/R2
+        addGamepadAxisMapping(GameAction.USE_ITEM, ControllerAxis.LEFT_TRIGGER);  // LT/L2
+        addGamepadAxisMapping(GameAction.ATTACK, ControllerAxis.RIGHT_TRIGGER);   // RT/R2
         
         // D-pad for hotbar
         addGamepadButtonMapping(GameAction.HOTBAR_1, ControllerButton.DPAD_UP);
@@ -355,10 +359,15 @@ public class InputManager {
         mouseDelta.set(0, 0);
         
         // Poll GLFW events
-        glfwPollEvents();
+        GLFW.glfwPollEvents();
         
-        // Process keyboard actions
-        for (var entry : keyboardMappings.entrySet()) {
+        // Process keyboard actions - use context-specific mappings
+        Map<GameAction, Set<Integer>> contextKeyboardMappings = this.contextKeyboardMappings.get(currentContext);
+        if (contextKeyboardMappings == null) {
+            contextKeyboardMappings = keyboardMappings; // Fallback to default mappings
+        }
+        
+        for (var entry : contextKeyboardMappings.entrySet()) {
             var action = entry.getKey();
             var keys = entry.getValue();
             
@@ -369,8 +378,13 @@ public class InputManager {
             updateActionState(action, isActive, wasPressed, wasReleased, DeviceType.KEYBOARD);
         }
         
-        // Process mouse actions
-        for (var entry : mouseMappings.entrySet()) {
+        // Process mouse actions - use context-specific mappings
+        Map<GameAction, Set<Integer>> contextMouseMappings = this.contextMouseMappings.get(currentContext);
+        if (contextMouseMappings == null) {
+            contextMouseMappings = mouseMappings; // Fallback to default mappings
+        }
+        
+        for (var entry : contextMouseMappings.entrySet()) {
             var action = entry.getKey();
             var buttons = entry.getValue();
             
@@ -416,8 +430,13 @@ public class InputManager {
         var currentTime = System.currentTimeMillis();
         boolean hasInput = false;
         
-        // Process button actions
-        for (var entry : gamepadButtonMappings.entrySet()) {
+        // Process button actions - use context-specific mappings
+        Map<GameAction, Set<ControllerButton>> contextButtonMappings = contextGamepadButtonMappings.get(currentContext);
+        if (contextButtonMappings == null) {
+            contextButtonMappings = gamepadButtonMappings; // Fallback to default mappings
+        }
+        
+        for (var entry : contextButtonMappings.entrySet()) {
             var action = entry.getKey();
             var buttons = entry.getValue();
             
@@ -433,8 +452,13 @@ public class InputManager {
             }
         }
         
-        // Process axis actions
-        for (var entry : gamepadAxisMappings.entrySet()) {
+        // Process axis actions - use context-specific mappings
+        Map<GameAction, ControllerAxis> contextAxisMappings = contextGamepadAxisMappings.get(currentContext);
+        if (contextAxisMappings == null) {
+            contextAxisMappings = gamepadAxisMappings; // Fallback to default mappings
+        }
+        
+        for (var entry : contextAxisMappings.entrySet()) {
             var action = entry.getKey();
             var axis = entry.getValue();
             
@@ -736,6 +760,16 @@ public class InputManager {
     }
     
     /**
+     * Adds a gamepad axis mapping for a game action.
+     * 
+     * @param action The game action
+     * @param axis The controller axis
+     */
+    public void addGamepadAxisMapping(GameAction action, ControllerAxis axis) {
+        gamepadAxisMappings.put(action, axis);
+    }
+    
+    /**
      * Removes all mappings for a game action.
      * 
      * @param action The game action to clear mappings for
@@ -848,5 +882,290 @@ public class InputManager {
             case RIGHT_TRIGGER -> { return state.rightTrigger; }
             default -> { return 0.0f; }
         }
+    }
+    
+    /**
+     * Initializes context-specific input mappings for all input contexts.
+     * This method sets up different control schemes for different game states.
+     */
+    private void initializeContextMappings() {
+        // Initialize mapping containers for each context
+        for (InputContext context : InputContext.values()) {
+            contextKeyboardMappings.put(context, new EnumMap<>(GameAction.class));
+            contextMouseMappings.put(context, new EnumMap<>(GameAction.class));
+            contextGamepadButtonMappings.put(context, new EnumMap<>(GameAction.class));
+            contextGamepadAxisMappings.put(context, new EnumMap<>(GameAction.class));
+        }
+        
+        // Initialize gameplay context (default Minecraft-style controls)
+        initializeGameplayContext();
+        
+        // Initialize menu context (menu navigation)
+        initializeMenuContext();
+        
+        // Initialize inventory context (inventory management)
+        initializeInventoryContext();
+        
+        // Initialize ship builder context (building controls)
+        initializeShipBuilderContext();
+        
+        // Initialize other contexts with basic navigation
+        initializeOtherContexts();
+    }
+    
+    /**
+     * Initializes gameplay context mappings (standard Minecraft-style controls).
+     */
+    private void initializeGameplayContext() {
+        Map<GameAction, Set<Integer>> keyMap = contextKeyboardMappings.get(InputContext.GAMEPLAY);
+        Map<GameAction, Set<Integer>> mouseMap = contextMouseMappings.get(InputContext.GAMEPLAY);
+        Map<GameAction, Set<ControllerButton>> buttonMap = contextGamepadButtonMappings.get(InputContext.GAMEPLAY);
+        Map<GameAction, ControllerAxis> axisMap = contextGamepadAxisMappings.get(InputContext.GAMEPLAY);
+        
+        // Movement (WASD + Arrow keys)
+        keyMap.put(GameAction.MOVE_FORWARD, Set.of(GLFW.GLFW_KEY_W, GLFW.GLFW_KEY_UP));
+        keyMap.put(GameAction.MOVE_BACKWARD, Set.of(GLFW.GLFW_KEY_S, GLFW.GLFW_KEY_DOWN));
+        keyMap.put(GameAction.STRAFE_LEFT, Set.of(GLFW.GLFW_KEY_A, GLFW.GLFW_KEY_LEFT));
+        keyMap.put(GameAction.STRAFE_RIGHT, Set.of(GLFW.GLFW_KEY_D, GLFW.GLFW_KEY_RIGHT));
+        keyMap.put(GameAction.JUMP, Set.of(GLFW.GLFW_KEY_SPACE));
+        keyMap.put(GameAction.SNEAK, Set.of(GLFW.GLFW_KEY_LEFT_SHIFT));
+        keyMap.put(GameAction.SPRINT, Set.of(GLFW.GLFW_KEY_LEFT_CONTROL));
+        
+        // Actions
+        keyMap.put(GameAction.ATTACK, Set.of(GLFW.GLFW_KEY_LEFT_ALT));
+        keyMap.put(GameAction.USE_ITEM, Set.of(GLFW.GLFW_KEY_RIGHT_ALT));
+        keyMap.put(GameAction.INTERACT, Set.of(GLFW.GLFW_KEY_E));
+        keyMap.put(GameAction.DROP_ITEM, Set.of(GLFW.GLFW_KEY_Q));
+        
+        // Mouse actions
+        mouseMap.put(GameAction.ATTACK, Set.of(GLFW.GLFW_MOUSE_BUTTON_LEFT));
+        mouseMap.put(GameAction.USE_ITEM, Set.of(GLFW.GLFW_MOUSE_BUTTON_RIGHT));
+        mouseMap.put(GameAction.PICK_BLOCK, Set.of(GLFW.GLFW_MOUSE_BUTTON_MIDDLE));
+        
+        // Controller mappings (Minecraft Bedrock style)
+        buttonMap.put(GameAction.JUMP, Set.of(ControllerButton.A));
+        buttonMap.put(GameAction.SNEAK, Set.of(ControllerButton.B));
+        buttonMap.put(GameAction.INTERACT, Set.of(ControllerButton.X));
+        buttonMap.put(GameAction.INVENTORY, Set.of(ControllerButton.Y));
+        buttonMap.put(GameAction.SPRINT, Set.of(ControllerButton.LEFT_STICK));
+        
+        // Controller axes
+        axisMap.put(GameAction.MOVE_FORWARD, ControllerAxis.LEFT_Y);
+        axisMap.put(GameAction.STRAFE_RIGHT, ControllerAxis.LEFT_X);
+        axisMap.put(GameAction.LOOK_UP, ControllerAxis.RIGHT_Y);
+        axisMap.put(GameAction.LOOK_RIGHT, ControllerAxis.RIGHT_X);
+        axisMap.put(GameAction.ATTACK, ControllerAxis.RIGHT_TRIGGER);
+        axisMap.put(GameAction.USE_ITEM, ControllerAxis.LEFT_TRIGGER);
+    }
+    
+    /**
+     * Initializes menu context mappings (menu navigation).
+     */
+    private void initializeMenuContext() {
+        Map<GameAction, Set<Integer>> keyMap = contextKeyboardMappings.get(InputContext.MENU);
+        Map<GameAction, Set<ControllerButton>> buttonMap = contextGamepadButtonMappings.get(InputContext.MENU);
+        
+        // Menu navigation
+        keyMap.put(GameAction.MENU_UP, Set.of(GLFW.GLFW_KEY_W, GLFW.GLFW_KEY_UP));
+        keyMap.put(GameAction.MENU_DOWN, Set.of(GLFW.GLFW_KEY_S, GLFW.GLFW_KEY_DOWN));
+        keyMap.put(GameAction.MENU_LEFT, Set.of(GLFW.GLFW_KEY_A, GLFW.GLFW_KEY_LEFT));
+        keyMap.put(GameAction.MENU_RIGHT, Set.of(GLFW.GLFW_KEY_D, GLFW.GLFW_KEY_RIGHT));
+        keyMap.put(GameAction.MENU_SELECT, Set.of(GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_SPACE));
+        keyMap.put(GameAction.MENU_BACK, Set.of(GLFW.GLFW_KEY_ESCAPE, GLFW.GLFW_KEY_BACKSPACE));
+        
+        // Controller menu navigation
+        buttonMap.put(GameAction.MENU_UP, Set.of(ControllerButton.DPAD_UP));
+        buttonMap.put(GameAction.MENU_DOWN, Set.of(ControllerButton.DPAD_DOWN));
+        buttonMap.put(GameAction.MENU_LEFT, Set.of(ControllerButton.DPAD_LEFT));
+        buttonMap.put(GameAction.MENU_RIGHT, Set.of(ControllerButton.DPAD_RIGHT));
+        buttonMap.put(GameAction.MENU_SELECT, Set.of(ControllerButton.A));
+        buttonMap.put(GameAction.MENU_BACK, Set.of(ControllerButton.B));
+    }
+    
+    /**
+     * Initializes inventory context mappings (inventory management).
+     */
+    private void initializeInventoryContext() {
+        Map<GameAction, Set<Integer>> keyMap = contextKeyboardMappings.get(InputContext.INVENTORY);
+        Map<GameAction, Set<ControllerButton>> buttonMap = contextGamepadButtonMappings.get(InputContext.INVENTORY);
+        
+        // Inventory navigation (similar to menu but with inventory-specific actions)
+        keyMap.put(GameAction.MENU_UP, Set.of(GLFW.GLFW_KEY_W, GLFW.GLFW_KEY_UP));
+        keyMap.put(GameAction.MENU_DOWN, Set.of(GLFW.GLFW_KEY_S, GLFW.GLFW_KEY_DOWN));
+        keyMap.put(GameAction.MENU_LEFT, Set.of(GLFW.GLFW_KEY_A, GLFW.GLFW_KEY_LEFT));
+        keyMap.put(GameAction.MENU_RIGHT, Set.of(GLFW.GLFW_KEY_D, GLFW.GLFW_KEY_RIGHT));
+        keyMap.put(GameAction.MENU_SELECT, Set.of(GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_SPACE));
+        keyMap.put(GameAction.MENU_BACK, Set.of(GLFW.GLFW_KEY_ESCAPE, GLFW.GLFW_KEY_I));
+        
+        // Inventory-specific actions
+        keyMap.put(GameAction.DROP_ITEM, Set.of(GLFW.GLFW_KEY_Q));
+        keyMap.put(GameAction.SWAP_HANDS, Set.of(GLFW.GLFW_KEY_LEFT_SHIFT));
+        
+        // Controller inventory navigation
+        buttonMap.put(GameAction.MENU_UP, Set.of(ControllerButton.DPAD_UP));
+        buttonMap.put(GameAction.MENU_DOWN, Set.of(ControllerButton.DPAD_DOWN));
+        buttonMap.put(GameAction.MENU_LEFT, Set.of(ControllerButton.DPAD_LEFT));
+        buttonMap.put(GameAction.MENU_RIGHT, Set.of(ControllerButton.DPAD_RIGHT));
+        buttonMap.put(GameAction.MENU_SELECT, Set.of(ControllerButton.A));
+        buttonMap.put(GameAction.MENU_BACK, Set.of(ControllerButton.B, ControllerButton.Y));
+        buttonMap.put(GameAction.DROP_ITEM, Set.of(ControllerButton.X));
+    }
+    
+    /**
+     * Initializes ship builder context mappings (building controls).
+     */
+    private void initializeShipBuilderContext() {
+        Map<GameAction, Set<Integer>> keyMap = contextKeyboardMappings.get(InputContext.SHIP_BUILDER);
+        Map<GameAction, Set<Integer>> mouseMap = contextMouseMappings.get(InputContext.SHIP_BUILDER);
+        Map<GameAction, Set<ControllerButton>> buttonMap = contextGamepadButtonMappings.get(InputContext.SHIP_BUILDER);
+        
+        // Movement (same as gameplay)
+        keyMap.put(GameAction.MOVE_FORWARD, Set.of(GLFW.GLFW_KEY_W, GLFW.GLFW_KEY_UP));
+        keyMap.put(GameAction.MOVE_BACKWARD, Set.of(GLFW.GLFW_KEY_S, GLFW.GLFW_KEY_DOWN));
+        keyMap.put(GameAction.STRAFE_LEFT, Set.of(GLFW.GLFW_KEY_A, GLFW.GLFW_KEY_LEFT));
+        keyMap.put(GameAction.STRAFE_RIGHT, Set.of(GLFW.GLFW_KEY_D, GLFW.GLFW_KEY_RIGHT));
+        keyMap.put(GameAction.JUMP, Set.of(GLFW.GLFW_KEY_SPACE));
+        keyMap.put(GameAction.SNEAK, Set.of(GLFW.GLFW_KEY_LEFT_SHIFT));
+        
+        // Building actions
+        keyMap.put(GameAction.USE_ITEM, Set.of(GLFW.GLFW_KEY_E));
+        keyMap.put(GameAction.ATTACK, Set.of(GLFW.GLFW_KEY_Q));
+        keyMap.put(GameAction.PICK_BLOCK, Set.of(GLFW.GLFW_KEY_F));
+        
+        // Mouse building actions
+        mouseMap.put(GameAction.USE_ITEM, Set.of(GLFW.GLFW_MOUSE_BUTTON_RIGHT));
+        mouseMap.put(GameAction.ATTACK, Set.of(GLFW.GLFW_MOUSE_BUTTON_LEFT));
+        mouseMap.put(GameAction.PICK_BLOCK, Set.of(GLFW.GLFW_MOUSE_BUTTON_MIDDLE));
+        
+        // Controller building
+        buttonMap.put(GameAction.USE_ITEM, Set.of(ControllerButton.A));
+        buttonMap.put(GameAction.ATTACK, Set.of(ControllerButton.X));
+        buttonMap.put(GameAction.MENU_BACK, Set.of(ControllerButton.B));
+    }
+    
+    /**
+     * Initializes other contexts with basic navigation controls.
+     */
+    private void initializeOtherContexts() {
+        // Map, Combat, Dialogue, Trading, Settings contexts use menu-like navigation
+        InputContext[] menuLikeContexts = {
+            InputContext.MAP, InputContext.COMBAT, InputContext.DIALOGUE, 
+            InputContext.TRADING, InputContext.SETTINGS
+        };
+        
+        for (InputContext context : menuLikeContexts) {
+            Map<GameAction, Set<Integer>> keyMap = contextKeyboardMappings.get(context);
+            Map<GameAction, Set<ControllerButton>> buttonMap = contextGamepadButtonMappings.get(context);
+            
+            // Basic navigation
+            keyMap.put(GameAction.MENU_UP, Set.of(GLFW.GLFW_KEY_W, GLFW.GLFW_KEY_UP));
+            keyMap.put(GameAction.MENU_DOWN, Set.of(GLFW.GLFW_KEY_S, GLFW.GLFW_KEY_DOWN));
+            keyMap.put(GameAction.MENU_LEFT, Set.of(GLFW.GLFW_KEY_A, GLFW.GLFW_KEY_LEFT));
+            keyMap.put(GameAction.MENU_RIGHT, Set.of(GLFW.GLFW_KEY_D, GLFW.GLFW_KEY_RIGHT));
+            keyMap.put(GameAction.MENU_SELECT, Set.of(GLFW.GLFW_KEY_ENTER, GLFW.GLFW_KEY_SPACE));
+            keyMap.put(GameAction.MENU_BACK, Set.of(GLFW.GLFW_KEY_ESCAPE));
+            
+            // Controller navigation
+            buttonMap.put(GameAction.MENU_UP, Set.of(ControllerButton.DPAD_UP));
+            buttonMap.put(GameAction.MENU_DOWN, Set.of(ControllerButton.DPAD_DOWN));
+            buttonMap.put(GameAction.MENU_LEFT, Set.of(ControllerButton.DPAD_LEFT));
+            buttonMap.put(GameAction.MENU_RIGHT, Set.of(ControllerButton.DPAD_RIGHT));
+            buttonMap.put(GameAction.MENU_SELECT, Set.of(ControllerButton.A));
+            buttonMap.put(GameAction.MENU_BACK, Set.of(ControllerButton.B));
+        }
+    }
+    
+    /**
+     * Sets the current input context and updates active mappings.
+     * 
+     * @param context The new input context
+     */
+    public void setInputContext(InputContext context) {
+        if (context == null || context == currentContext) {
+            return;
+        }
+        
+        logger.debug("Switching input context from {} to {}", currentContext, context);
+        currentContext = context;
+        
+        // Clear current mappings
+        keyboardMappings.clear();
+        mouseMappings.clear();
+        gamepadButtonMappings.clear();
+        gamepadAxisMappings.clear();
+        
+        // Load context-specific mappings
+        Map<GameAction, Set<Integer>> contextKeyMap = contextKeyboardMappings.get(context);
+        Map<GameAction, Set<Integer>> contextMouseMap = contextMouseMappings.get(context);
+        Map<GameAction, Set<ControllerButton>> contextButtonMap = contextGamepadButtonMappings.get(context);
+        Map<GameAction, ControllerAxis> contextAxisMap = contextGamepadAxisMappings.get(context);
+        
+        // Copy context mappings to active mappings
+        for (Map.Entry<GameAction, Set<Integer>> entry : contextKeyMap.entrySet()) {
+            keyboardMappings.put(entry.getKey(), new HashSet<>(entry.getValue()));
+        }
+        
+        for (Map.Entry<GameAction, Set<Integer>> entry : contextMouseMap.entrySet()) {
+            mouseMappings.put(entry.getKey(), new HashSet<>(entry.getValue()));
+        }
+        
+        for (Map.Entry<GameAction, Set<ControllerButton>> entry : contextButtonMap.entrySet()) {
+            gamepadButtonMappings.put(entry.getKey(), new HashSet<>(entry.getValue()));
+        }
+        
+        gamepadAxisMappings.putAll(contextAxisMap);
+        
+        logger.info("Input context switched to: {}", context.getDisplayName());
+    }
+    
+    /**
+     * Gets the current input context.
+     * 
+     * @return The current input context
+     */
+    public InputContext getCurrentContext() {
+        return currentContext;
+    }
+    
+    /**
+     * Updates the input context based on the current game state.
+     * 
+     * @param gameState The current game state
+     */
+    public void updateContextFromGameState(com.odyssey.core.GameState gameState) {
+        InputContext newContext = InputContext.fromGameState(gameState);
+        setInputContext(newContext);
+    }
+    
+    /**
+     * Updates the input context based on the current game state.
+     * This method should be called whenever the game state changes.
+     * 
+     * @param gameState The current game state
+     */
+    public void updateInputContext(com.odyssey.core.GameState gameState) {
+        InputContext newContext = InputContext.fromGameState(gameState);
+        if (newContext != currentContext) {
+            setInputContext(newContext);
+        }
+    }
+    
+    /**
+     * Checks if an action is available in the current input context.
+     * This can be used to filter UI elements or provide context-sensitive help.
+     * 
+     * @param action The action to check
+     * @return true if the action is available in the current context
+     */
+    public boolean isActionAvailable(GameAction action) {
+        Map<GameAction, Set<Integer>> keyboardMap = contextKeyboardMappings.get(currentContext);
+        Map<GameAction, Set<Integer>> mouseMap = contextMouseMappings.get(currentContext);
+        Map<GameAction, Set<ControllerButton>> gamepadButtonMap = contextGamepadButtonMappings.get(currentContext);
+        Map<GameAction, ControllerAxis> gamepadAxisMap = contextGamepadAxisMappings.get(currentContext);
+        
+        return (keyboardMap != null && keyboardMap.containsKey(action)) ||
+               (mouseMap != null && mouseMap.containsKey(action)) ||
+               (gamepadButtonMap != null && gamepadButtonMap.containsKey(action)) ||
+               (gamepadAxisMap != null && gamepadAxisMap.containsKey(action));
     }
 }

@@ -36,7 +36,7 @@ public class AmbientOcclusionRenderer {
     private static final Logger logger = Logger.getLogger(AmbientOcclusionRenderer.class);
     
     // SSAO parameters
-    private static final int SSAO_KERNEL_SIZE = 64;
+    private static final int SSAO_KERNEL_SIZE = 128;
     private static final int SSAO_NOISE_SIZE = 4;
     private static final float SSAO_RADIUS = 0.5f;
     private static final float SSAO_BIAS = 0.025f;
@@ -184,7 +184,7 @@ public class AmbientOcclusionRenderer {
      */
     private void generateSSAOKernel() {
         ssaoKernel = BufferUtils.createFloatBuffer(SSAO_KERNEL_SIZE * 3);
-        
+
         for (int i = 0; i < SSAO_KERNEL_SIZE; i++) {
             // Generate random hemisphere sample
             Vector3f sample = new Vector3f(
@@ -193,17 +193,18 @@ public class AmbientOcclusionRenderer {
                 random.nextFloat()
             );
             sample.normalize();
-            
+            sample.mul(random.nextFloat());
+
             // Scale samples to be more distributed close to origin
             float scale = (float) i / SSAO_KERNEL_SIZE;
             scale = lerp(0.1f, 1.0f, scale * scale);
             sample.mul(scale);
-            
+
             ssaoKernel.put(sample.x);
             ssaoKernel.put(sample.y);
             ssaoKernel.put(sample.z);
         }
-        
+
         ssaoKernel.flip();
         logger.debug("Generated SSAO kernel with {} samples", SSAO_KERNEL_SIZE);
     }
@@ -345,22 +346,26 @@ public class AmbientOcclusionRenderer {
         if (ssaoBlurShader == null || ssaoBlurBuffer == null) {
             return;
         }
-        
+
         // Bind blur buffer
         ssaoBlurBuffer.bind();
         glClear(GL_COLOR_BUFFER_BIT);
-        
+
         // Bind blur shader
         ssaoBlurShader.bind();
-        
+
         // Bind SSAO texture
         glActiveTexture(GL_TEXTURE0);
         ssaoBuffer.bindColorTexture(0, 0);
         ssaoBlurShader.setUniform("u_SSAOTexture", 0);
-        
+
+        glActiveTexture(GL_TEXTURE1);
+        gBuffer.bindColorTexture(0, 1);
+        ssaoBlurShader.setUniform("u_PositionTexture", 1);
+
         // Render fullscreen quad
         renderFullscreenQuad();
-        
+
         // Unbind shader and buffer
         ssaoBlurShader.unbind();
         Framebuffer.unbind();
@@ -664,21 +669,28 @@ public class AmbientOcclusionRenderer {
                 "in vec2 v_TexCoord;\n" +
                 "\n" +
                 "uniform sampler2D u_SSAOTexture;\n" +
+                "uniform sampler2D u_PositionTexture;\n" +
                 "\n" +
                 "out float FragColor;\n" +
                 "\n" +
                 "void main() {\n" +
                 "    vec2 texelSize = 1.0 / textureSize(u_SSAOTexture, 0);\n" +
                 "    float result = 0.0;\n" +
+                "    float totalWeight = 0.0;\n" +
+                "    vec3 centerPos = texture(u_PositionTexture, v_TexCoord).xyz;\n" +
                 "    \n" +
                 "    for (int x = -2; x < 2; ++x) {\n" +
                 "        for (int y = -2; y < 2; ++y) {\n" +
                 "            vec2 offset = vec2(float(x), float(y)) * texelSize;\n" +
-                "            result += texture(u_SSAOTexture, v_TexCoord + offset).r;\n" +
+                "            vec3 samplePos = texture(u_PositionTexture, v_TexCoord + offset).xyz;\n" +
+                "            float depthDiff = abs(centerPos.z - samplePos.z);\n" +
+                "            float weight = exp(-depthDiff * 10.0);\n" +
+                "            result += texture(u_SSAOTexture, v_TexCoord + offset).r * weight;\n" +
+                "            totalWeight += weight;\n" +
                 "        }\n" +
                 "    }\n" +
                 "    \n" +
-                "    FragColor = result / 16.0;\n" +
+                "    FragColor = result / totalWeight;\n" +
                 "}";
     }
     

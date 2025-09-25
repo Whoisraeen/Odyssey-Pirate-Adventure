@@ -6,6 +6,8 @@ import com.odyssey.ui.LoadGameMenu;
 import com.odyssey.ui.MainMenu;
 import com.odyssey.util.Logger;
 import com.odyssey.util.Timer;
+import com.odyssey.rendering.AdaptiveQualityManager;
+import com.odyssey.util.PerformanceProfiler;
 import com.odyssey.rendering.ComputeShaderManager;
 import com.odyssey.rendering.GraphicsSettings;
 
@@ -64,6 +66,8 @@ public class Renderer {
     private TimeOfDaySystem timeOfDaySystem;
     private GraphicsSettings graphicsSettings;
     private ComputeShaderManager computeShaderManager;
+    private PerformanceProfiler performanceProfiler;
+    private AdaptiveQualityManager adaptiveQualityManager;
 
     // Camera and matrices
     private Camera camera;
@@ -207,6 +211,13 @@ public class Renderer {
         graphicsSettings.applyPreset(GraphicsSettings.QualityPreset.MEDIUM);
         computeShaderManager = new ComputeShaderManager();
         computeShaderManager.initialize();
+        
+        // Initialize performance monitoring and adaptive quality
+        performanceProfiler = PerformanceProfiler.getInstance();
+        performanceProfiler.setProfilingEnabled(true);
+        performanceProfiler.setTargetFPS(60.0f);
+        adaptiveQualityManager = new AdaptiveQualityManager(graphicsSettings);
+        adaptiveQualityManager.setAdaptiveQualityEnabled(true);
 
         shaderManager.loadShader("opaque", "shaders/opaque.vert", "shaders/opaque.frag");
         shaderManager.loadShader("quad", "shaders/quad.vert", "shaders/quad.frag");
@@ -506,6 +517,9 @@ public class Renderer {
             return;
         }
 
+        // Start frame profiling
+        performanceProfiler.startFrame();
+
         // If a camera is provided, use it. Otherwise, use the renderer's internal camera.
         Camera currentCamera = (camera != null) ? camera : this.camera;
 
@@ -517,13 +531,16 @@ public class Renderer {
         Vector3f lightDirection = new Vector3f(-0.3f, -0.7f, -0.2f).normalize();
 
         // Render shadow maps first
+        performanceProfiler.startSection("Shadow Mapping");
         renderShadowMap(world, currentCamera, projectionMatrix, viewMatrix, lightDirection);
+        performanceProfiler.endSection("Shadow Mapping");
 
         // Bind scene framebuffer
         framebufferManager.getFramebuffer("scene").bind();
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         // Render world chunks with CSM PBR shader
+        performanceProfiler.startSection("World Rendering");
         Shader csmPbrShader = shaderManager.getShader("csm_pbr");
         if (csmPbrShader == null) {
             // Fallback to regular PBR shader if CSM PBR is not available
@@ -605,17 +622,22 @@ public class Renderer {
                 chunk.getMesh().render();
             }
         }
+        performanceProfiler.endSection("World Rendering");
 
         if (graphicsSettings.isWaterRenderingEnabled()) {
+            performanceProfiler.startSection("Water Rendering");
             waterRenderer.render(currentCamera, projectionMatrix, viewMatrix, new Vector3f(-1, -1, -1));
+            performanceProfiler.endSection("Water Rendering");
         }
 
         if (graphicsSettings.isAmbientOcclusionEnabled()) {
+            performanceProfiler.startSection("Ambient Occlusion");
             // Render G-Buffer for SSAO
             aoRenderer.renderGBuffer(currentCamera, projectionMatrix, viewMatrix, opaqueQueue);
 
             // Render SSAO
             aoRenderer.renderSSAO(projectionMatrix);
+            performanceProfiler.endSection("Ambient Occlusion");
         }
 
         // Unbind scene framebuffer
@@ -623,16 +645,20 @@ public class Renderer {
 
         // Render skybox (fallback)
         if (graphicsSettings.isSkyRenderingEnabled()) {
+            performanceProfiler.startSection("Sky Rendering");
             skybox.render(camera, projectionMatrix);
         }
 
         // Render volumetric fog
         if (graphicsSettings.isVolumetricFogEnabled()) {
+            performanceProfiler.startSection("Volumetric Fog");
             volumetricFog.render(camera, projectionMatrix, framebufferManager.getFramebuffer("scene").getDepthTexture());
+            performanceProfiler.endSection("Volumetric Fog");
         }
 
         // Render volumetric clouds
         if (graphicsSettings.isVolumetricCloudsEnabled()) {
+            performanceProfiler.startSection("Volumetric Clouds");
             Vector3f lightDirection = new Vector3f(0.0f, -1.0f, 0.0f).normalize();
             Vector3f lightColor = new Vector3f(1.0f, 0.9f, 0.8f);
             Vector3f sunColor = new Vector3f(1.0f, 0.95f, 0.8f);
@@ -640,6 +666,7 @@ public class Renderer {
                                    framebufferManager.getFramebuffer("scene").getDepthTexture(),
                                    framebufferManager.getFramebuffer("scene").getColorTexture(),
                                    Timer.getDeltaTime());
+            performanceProfiler.endSection("Volumetric Clouds");
         }
 
         // Update time of day system
@@ -655,7 +682,12 @@ public class Renderer {
          
             // Render dynamic sky as fallback
             dynamicSky.render(camera, projectionMatrix, sunDirection);
+            performanceProfiler.endSection("Sky Rendering");
         }
+        
+        // End frame profiling and update adaptive quality
+        performanceProfiler.endFrame();
+        adaptiveQualityManager.updateQuality(performanceProfiler.getCurrentFPS());
     }
 
     private void renderShadowMap(World world, Camera camera, Matrix4f projectionMatrix, Matrix4f viewMatrix, Vector3f lightDirection) {
@@ -1093,6 +1125,15 @@ public class Renderer {
         if (computeShaderManager != null) {
             computeShaderManager.cleanup();
         }
+        
+        // Cleanup performance monitoring components
+        if (performanceProfiler != null) {
+            performanceProfiler.cleanup();
+        }
+        
+        if (adaptiveQualityManager != null) {
+            adaptiveQualityManager.cleanup();
+        }
 
         initialized = false;
         logger.info("Renderer cleanup complete");
@@ -1114,11 +1155,29 @@ public class Renderer {
         this.graphicsSettings = settings;
         // Apply any immediate changes that require renderer updates
         logger.info("Graphics settings updated");
+    }
+
     /**
-      * Gets the compute shader manager for GPU-accelerated effects
-      * @return The compute shader manager instance
-      */
-     public ComputeShaderManager getComputeShaderManager() {
-         return computeShaderManager;
-     }
+     * Gets the compute shader manager for GPU-accelerated effects
+     * @return The compute shader manager instance
+     */
+    public ComputeShaderManager getComputeShaderManager() {
+        return computeShaderManager;
+    }
+    
+    /**
+     * Gets the performance profiler for monitoring rendering performance
+     * @return The performance profiler instance
+     */
+    public PerformanceProfiler getPerformanceProfiler() {
+        return performanceProfiler;
+    }
+    
+    /**
+     * Gets the adaptive quality manager for automatic quality scaling
+     * @return The adaptive quality manager instance
+     */
+    public AdaptiveQualityManager getAdaptiveQualityManager() {
+        return adaptiveQualityManager;
+    }
 }

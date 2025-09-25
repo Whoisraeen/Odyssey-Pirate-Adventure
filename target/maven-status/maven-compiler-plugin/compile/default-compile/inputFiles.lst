@@ -17,6 +17,7 @@ C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\core
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\core\GameState.java
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\core\ResourceManager.java
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\core\StateManager.java
+C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\core\TimeOfDaySystem.java
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\economy\Currency.java
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\faction\FactionEvent.java
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\faction\FactionManager.java
@@ -47,13 +48,17 @@ C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\ques
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\quest\QuestManager.java
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\quest\QuestObjective.java
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\render\Window.java
+C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\rendering\AdaptiveQualityManager.java
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\rendering\AmbientOcclusionRenderer.java
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\rendering\Camera.java
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\rendering\CascadedShadowMap.java
+C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\rendering\ComputeShaderManager.java
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\rendering\DynamicSky.java
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\rendering\Framebuffer.java
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\rendering\FramebufferManager.java
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\rendering\GerstnerWave.java
+C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\rendering\GraphicsSettings.java
+C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\rendering\HosekWilkieSky.java
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\rendering\IBL.java
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\rendering\Material.java
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\rendering\Mesh.java
@@ -93,6 +98,7 @@ C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\ui\M
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\util\Logger.java
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\util\MathUtils.java
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\util\NoiseGenerator.java
+C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\util\PerformanceProfiler.java
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\util\Timer.java
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\world\BiomeType.java
 C:\Users\woisr\Documents\Odyssey Pirate Adventure\src\main\java\com\odyssey\world\Block.java

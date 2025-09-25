@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 
 import com.studiohartman.jamepad.ControllerManager;
 import com.studiohartman.jamepad.ControllerState;
+import com.odyssey.core.GameConfig;
 
 /**
  * Comprehensive input management system for the Odyssey Pirate Adventure.
@@ -38,7 +39,9 @@ public class InputManager {
     private static final Logger logger = LoggerFactory.getLogger(InputManager.class);
     
     // Input thresholds
-    private static final float CONTROLLER_DEADZONE = 0.15f;
+    private float controllerDeadzone;
+    private float controllerSensitivity;
+    private boolean invertControllerY;
     private static final float CONTROLLER_TRIGGER_THRESHOLD = 0.5f; // Reserved for future trigger-based actions
     
     // Window handle for GLFW
@@ -101,6 +104,13 @@ public class InputManager {
      */
     public InputManager(long windowHandle) {
         this.windowHandle = windowHandle;
+        
+        // Load controller settings from GameConfig
+        GameConfig config = GameConfig.getInstance();
+        this.controllerDeadzone = config.getControllerDeadzone();
+        this.controllerSensitivity = config.getControllerSensitivity();
+        this.invertControllerY = config.isInvertControllerY();
+        
         initializeDefaultMappings();
     }
     
@@ -196,32 +206,123 @@ public class InputManager {
     }
     
     /**
-     * Sets up default control mappings for keyboard and gamepad.
+     * Sets up default control mappings for keyboard, mouse, and gamepad.
+     * Follows Minecraft Java Edition and Bedrock Edition control schemes.
      */
     private void initializeDefaultMappings() {
-        // Keyboard mappings
+        // === MINECRAFT JAVA EDITION KEYBOARD MAPPINGS ===
+        
+        // Movement (WASD)
         addKeyboardMapping(GameAction.MOVE_FORWARD, GLFW_KEY_W);
         addKeyboardMapping(GameAction.MOVE_BACKWARD, GLFW_KEY_S);
+        addKeyboardMapping(GameAction.STRAFE_LEFT, GLFW_KEY_A);
+        addKeyboardMapping(GameAction.STRAFE_RIGHT, GLFW_KEY_D);
+        
+        // Jump and movement modifiers
+        addKeyboardMapping(GameAction.JUMP, GLFW_KEY_SPACE);
+        addKeyboardMapping(GameAction.SWIM_UP, GLFW_KEY_SPACE);
+        addKeyboardMapping(GameAction.SNEAK, GLFW_KEY_LEFT_SHIFT);
+        addKeyboardMapping(GameAction.SWIM_DOWN, GLFW_KEY_LEFT_SHIFT);
+        addKeyboardMapping(GameAction.SPRINT, GLFW_KEY_LEFT_CONTROL);
+        
+        // Inventory and items
+        addKeyboardMapping(GameAction.INVENTORY, GLFW_KEY_E);
+        addKeyboardMapping(GameAction.DROP_ITEM, GLFW_KEY_Q);
+        addKeyboardMapping(GameAction.SWAP_HANDS, GLFW_KEY_F);
+        
+        // Hotbar slots (1-9)
+        addKeyboardMapping(GameAction.HOTBAR_1, GLFW_KEY_1);
+        addKeyboardMapping(GameAction.HOTBAR_2, GLFW_KEY_2);
+        addKeyboardMapping(GameAction.HOTBAR_3, GLFW_KEY_3);
+        addKeyboardMapping(GameAction.HOTBAR_4, GLFW_KEY_4);
+        addKeyboardMapping(GameAction.HOTBAR_5, GLFW_KEY_5);
+        addKeyboardMapping(GameAction.HOTBAR_6, GLFW_KEY_6);
+        addKeyboardMapping(GameAction.HOTBAR_7, GLFW_KEY_7);
+        addKeyboardMapping(GameAction.HOTBAR_8, GLFW_KEY_8);
+        addKeyboardMapping(GameAction.HOTBAR_9, GLFW_KEY_9);
+        
+        // Interface actions
+        addKeyboardMapping(GameAction.MENU, GLFW_KEY_ESCAPE);
+        addKeyboardMapping(GameAction.CHAT, GLFW_KEY_T);
+        addKeyboardMapping(GameAction.COMMAND, GLFW_KEY_SLASH);
+        addKeyboardMapping(GameAction.SCREENSHOT, GLFW_KEY_F2);
+        addKeyboardMapping(GameAction.TOGGLE_FULLSCREEN, GLFW_KEY_F11);
+        addKeyboardMapping(GameAction.TOGGLE_PERSPECTIVE, GLFW_KEY_F5);
+        
+        // Debug actions
+        addKeyboardMapping(GameAction.DEBUG_TOGGLE, GLFW_KEY_F3);
+        
+        // Game-specific actions
+        addKeyboardMapping(GameAction.MAP, GLFW_KEY_M);
+        addKeyboardMapping(GameAction.SHIP_BUILDER, GLFW_KEY_B);
+        addKeyboardMapping(GameAction.QUICK_SAVE, GLFW_KEY_F5);
+        
+        // Legacy mappings for backward compatibility
         addKeyboardMapping(GameAction.TURN_LEFT, GLFW_KEY_A);
         addKeyboardMapping(GameAction.TURN_RIGHT, GLFW_KEY_D);
-        addKeyboardMapping(GameAction.JUMP, GLFW_KEY_SPACE);
+        addKeyboardMapping(GameAction.PRIMARY_ACTION, GLFW_KEY_ENTER);
         addKeyboardMapping(GameAction.INTERACT, GLFW_KEY_E);
-        addKeyboardMapping(GameAction.INVENTORY, GLFW_KEY_I);
-        addKeyboardMapping(GameAction.MENU, GLFW_KEY_ESCAPE);
+        addKeyboardMapping(GameAction.SETTINGS, GLFW_KEY_ESCAPE);
         
-        // Mouse mappings
+        // === MINECRAFT JAVA EDITION MOUSE MAPPINGS ===
+        
+        // Primary actions
         addMouseMapping(GameAction.ATTACK, GLFW_MOUSE_BUTTON_LEFT);
+        addMouseMapping(GameAction.USE_ITEM, GLFW_MOUSE_BUTTON_RIGHT);
+        addMouseMapping(GameAction.PICK_BLOCK, GLFW_MOUSE_BUTTON_MIDDLE);
         
-        // Gamepad button mappings
-        addGamepadButtonMapping(GameAction.JUMP, ControllerButton.A);
-        addGamepadButtonMapping(GameAction.ATTACK, ControllerButton.X);
+        // === MINECRAFT BEDROCK EDITION CONTROLLER MAPPINGS ===
+        
+        // Face buttons (Xbox layout)
+        addGamepadButtonMapping(GameAction.JUMP, ControllerButton.A);           // A button
+        addGamepadButtonMapping(GameAction.SWIM_UP, ControllerButton.A);
+        addGamepadButtonMapping(GameAction.DROP_ITEM, ControllerButton.B);      // B button
+        addGamepadButtonMapping(GameAction.SWAP_HANDS, ControllerButton.X);     // X button
+        addGamepadButtonMapping(GameAction.INVENTORY, ControllerButton.Y);      // Y button
         addGamepadButtonMapping(GameAction.INTERACT, ControllerButton.Y);
-        addGamepadButtonMapping(GameAction.INVENTORY, ControllerButton.BACK);
-        addGamepadButtonMapping(GameAction.MENU, ControllerButton.START);
         
-        // Gamepad axis mappings (for movement)
+        // Shoulder buttons
+        addGamepadButtonMapping(GameAction.HOTBAR_5, ControllerButton.LEFT_BUMPER);   // LB/L1
+        addGamepadButtonMapping(GameAction.HOTBAR_6, ControllerButton.RIGHT_BUMPER);  // RB/R1
+        
+        // Triggers
+        addGamepadButtonMapping(GameAction.USE_ITEM, ControllerButton.LEFT_TRIGGER);  // LT/L2
+        addGamepadButtonMapping(GameAction.ATTACK, ControllerButton.RIGHT_TRIGGER);   // RT/R2
+        
+        // D-pad for hotbar
+        addGamepadButtonMapping(GameAction.HOTBAR_1, ControllerButton.DPAD_UP);
+        addGamepadButtonMapping(GameAction.HOTBAR_2, ControllerButton.DPAD_RIGHT);
+        addGamepadButtonMapping(GameAction.HOTBAR_3, ControllerButton.DPAD_DOWN);
+        addGamepadButtonMapping(GameAction.HOTBAR_4, ControllerButton.DPAD_LEFT);
+        
+        // Menu buttons
+        addGamepadButtonMapping(GameAction.MENU, ControllerButton.START);       // Start/Menu button
+        addGamepadButtonMapping(GameAction.MAP, ControllerButton.BACK);         // Back/Select button
+        
+        // Stick clicks
+        addGamepadButtonMapping(GameAction.SPRINT, ControllerButton.LEFT_STICK);     // L3
+        addGamepadButtonMapping(GameAction.SNEAK, ControllerButton.RIGHT_STICK);    // R3
+        addGamepadButtonMapping(GameAction.SWIM_DOWN, ControllerButton.RIGHT_STICK);
+        
+        // === CONTROLLER AXIS MAPPINGS ===
+        
+        // Left stick for movement (Minecraft Bedrock style)
         gamepadAxisMappings.put(GameAction.MOVE_FORWARD, ControllerAxis.LEFT_Y);
         gamepadAxisMappings.put(GameAction.MOVE_BACKWARD, ControllerAxis.LEFT_Y);
+        gamepadAxisMappings.put(GameAction.STRAFE_LEFT, ControllerAxis.LEFT_X);
+        gamepadAxisMappings.put(GameAction.STRAFE_RIGHT, ControllerAxis.LEFT_X);
+        
+        // Right stick for camera/look (Minecraft Bedrock style)
+        gamepadAxisMappings.put(GameAction.LOOK_UP, ControllerAxis.RIGHT_Y);
+        gamepadAxisMappings.put(GameAction.LOOK_DOWN, ControllerAxis.RIGHT_Y);
+        gamepadAxisMappings.put(GameAction.LOOK_LEFT, ControllerAxis.RIGHT_X);
+        gamepadAxisMappings.put(GameAction.LOOK_RIGHT, ControllerAxis.RIGHT_X);
+        
+        // Triggers for actions (Minecraft Bedrock style)
+        gamepadAxisMappings.put(GameAction.ATTACK, ControllerAxis.RIGHT_TRIGGER);    // RT/R2 for attack
+        gamepadAxisMappings.put(GameAction.USE_ITEM, ControllerAxis.LEFT_TRIGGER);   // LT/L2 for use/place
+        
+        // Legacy axis mappings for backward compatibility
         gamepadAxisMappings.put(GameAction.TURN_LEFT, ControllerAxis.LEFT_X);
         gamepadAxisMappings.put(GameAction.TURN_RIGHT, ControllerAxis.LEFT_X);
     }
@@ -338,7 +439,14 @@ public class InputManager {
             var axis = entry.getValue();
             
             float axisValue = getAxisState(controllerState, axis);
-            boolean isActive = Math.abs(axisValue) > CONTROLLER_DEADZONE;
+            
+            // Apply controller sensitivity and invert Y axis if needed
+            if (axis == ControllerAxis.RIGHT_Y && invertControllerY) {
+                axisValue = -axisValue;
+            }
+            axisValue *= controllerSensitivity;
+            
+            boolean isActive = Math.abs(axisValue) > controllerDeadzone;
             
             if (isActive) {
                 hasInput = true;
@@ -346,27 +454,63 @@ public class InputManager {
                 // Handle directional axes
                 switch (action) {
                     case MOVE_FORWARD -> {
-                        if (axisValue < -CONTROLLER_DEADZONE) {
+                        if (axisValue < -controllerDeadzone) {
                             updateActionState(action, true, false, false, DeviceType.GAMEPAD);
                         }
                     }
                     case MOVE_BACKWARD -> {
-                        if (axisValue > CONTROLLER_DEADZONE) {
+                        if (axisValue > controllerDeadzone) {
+                            updateActionState(action, true, false, false, DeviceType.GAMEPAD);
+                        }
+                    }
+                    case STRAFE_LEFT -> {
+                        if (axisValue < -controllerDeadzone) {
+                            updateActionState(action, true, false, false, DeviceType.GAMEPAD);
+                        }
+                    }
+                    case STRAFE_RIGHT -> {
+                        if (axisValue > controllerDeadzone) {
+                            updateActionState(action, true, false, false, DeviceType.GAMEPAD);
+                        }
+                    }
+                    case LOOK_LEFT -> {
+                        if (axisValue < -controllerDeadzone) {
+                            updateActionState(action, true, false, false, DeviceType.GAMEPAD);
+                        }
+                    }
+                    case LOOK_RIGHT -> {
+                        if (axisValue > controllerDeadzone) {
+                            updateActionState(action, true, false, false, DeviceType.GAMEPAD);
+                        }
+                    }
+                    case LOOK_UP -> {
+                        if (axisValue < -controllerDeadzone) {
+                            updateActionState(action, true, false, false, DeviceType.GAMEPAD);
+                        }
+                    }
+                    case LOOK_DOWN -> {
+                        if (axisValue > controllerDeadzone) {
                             updateActionState(action, true, false, false, DeviceType.GAMEPAD);
                         }
                     }
                     case TURN_LEFT -> {
-                        if (axisValue < -CONTROLLER_DEADZONE) {
+                        if (axisValue < -controllerDeadzone) {
                             updateActionState(action, true, false, false, DeviceType.GAMEPAD);
                         }
                     }
                     case TURN_RIGHT -> {
-                        if (axisValue > CONTROLLER_DEADZONE) {
+                        if (axisValue > controllerDeadzone) {
                             updateActionState(action, true, false, false, DeviceType.GAMEPAD);
                         }
                     }
                     case ATTACK -> {
-                        // Attack can be mapped to triggers
+                        // Attack mapped to right trigger (RT/R2) - Minecraft Bedrock style
+                        if (Math.abs(axisValue) > CONTROLLER_TRIGGER_THRESHOLD) {
+                            updateActionState(action, true, false, false, DeviceType.GAMEPAD);
+                        }
+                    }
+                    case USE_ITEM -> {
+                        // Use item mapped to left trigger (LT/L2) - Minecraft Bedrock style
                         if (Math.abs(axisValue) > CONTROLLER_TRIGGER_THRESHOLD) {
                             updateActionState(action, true, false, false, DeviceType.GAMEPAD);
                         }

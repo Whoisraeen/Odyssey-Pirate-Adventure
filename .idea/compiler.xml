@@ -12,7 +12,7 @@
   </component>
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
-      <module name="the-odyssey" options="--enable-preview" />
+      <module name="the-odyssey" options="--enable-preview -Xlint:all -Xlint:-processing" />
     </option>
   </component>
 </project>

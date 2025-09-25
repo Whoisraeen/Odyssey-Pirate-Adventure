@@ -125,35 +125,67 @@ public class ShipPhysics {
     }
     
     /**
-     * Calculates buoyancy force and stability
+     * Calculates buoyancy force and stability with improved accuracy
      */
     private void calculateBuoyancy() {
-        // Get water level at ship position
-        float waterLevel = oceanPhysics.getWaterHeight(position.x, position.z);
-        float submersion = Math.max(0, waterLevel - (position.y - draft));
+        // Sample water level at multiple points along the hull for better accuracy
+        int samplePoints = 7;
+        float totalBuoyancy = 0.0f;
+        Vector3f buoyancyCenter = new Vector3f();
+        float totalSubmersion = 0.0f;
         
-        if (submersion <= 0) {
-            buoyantForce = 0;
-            return;
+        for (int i = 0; i < samplePoints; i++) {
+            for (int j = 0; j < samplePoints; j++) {
+                // Sample points across the ship's hull
+                float x = position.x + (i - samplePoints/2) * length / samplePoints;
+                float z = position.z + (j - samplePoints/2) * width / samplePoints;
+                
+                float waterLevel = oceanPhysics.getWaterHeight(x, z);
+                float hullBottom = position.y - draft;
+                float submersion = Math.max(0, waterLevel - hullBottom);
+                
+                if (submersion > 0) {
+                    // Calculate local displaced volume
+                    float localVolume = (length / samplePoints) * (width / samplePoints) * submersion;
+                    float localBuoyancy = localVolume * WATER_DENSITY * GRAVITY;
+                    
+                    totalBuoyancy += localBuoyancy;
+                    totalSubmersion += submersion;
+                    
+                    // Accumulate buoyancy center
+                    buoyancyCenter.add(x * localBuoyancy, waterLevel * localBuoyancy, z * localBuoyancy);
+                }
+            }
         }
         
-        // Calculate displaced volume based on ship shape and submersion
-        float submersionRatio = Math.min(1.0f, submersion / height);
-        displacedVolume = calculateDisplacedVolume(submersionRatio);
-        
-        // Buoyant force = weight of displaced water
-        buoyantForce = displacedVolume * WATER_DENSITY * GRAVITY;
-        
-        // Apply buoyant force upward at center of buoyancy
-        Vector3f buoyancyForce = new Vector3f(0, buoyantForce, 0);
-        totalForce.add(buoyancyForce);
-        
-        // Calculate stability (metacentric height)
-        calculateStability(submersionRatio);
-        
-        // Apply restoring torque for stability
-        Vector3f restoring = calculateRestoringTorque();
-        totalTorque.add(restoring);
+        if (totalBuoyancy > 0) {
+            buoyantForce = totalBuoyancy / (samplePoints * samplePoints);
+            buoyancyCenter.div(totalBuoyancy);
+            centerOfBuoyancy.set(buoyancyCenter);
+            
+            // Apply buoyant force at the calculated center of buoyancy
+            Vector3f buoyancyForce = new Vector3f(0, buoyantForce, 0);
+            totalForce.add(buoyancyForce);
+            
+            // Calculate displaced volume for stability calculations
+            float avgSubmersion = totalSubmersion / (samplePoints * samplePoints);
+            float submersionRatio = Math.min(1.0f, avgSubmersion / height);
+            displacedVolume = calculateDisplacedVolume(submersionRatio);
+            
+            // Enhanced stability calculation
+            calculateStability(submersionRatio);
+            
+            // Apply restoring torque for stability
+            Vector3f restoring = calculateRestoringTorque();
+            totalTorque.add(restoring);
+            
+            // Add dynamic stability based on ship motion
+            addDynamicStabilityForces();
+        } else {
+            buoyantForce = 0;
+            displacedVolume = 0;
+            stability = 0;
+        }
     }
     
     /**
@@ -227,34 +259,59 @@ public class ShipPhysics {
     }
     
     /**
-     * Calculates wave forces and motion
+     * Calculates wave forces and motion with enhanced accuracy
      */
     private void calculateWaves() {
         waveForce.set(0, 0, 0);
         
         if (waveSystem == null) return;
         
-        // Sample wave forces at multiple points along the hull
-        int samplePoints = 5;
+        // Sample wave forces at multiple points along the hull for better accuracy
+        int samplePoints = 7;
+        Vector3f totalWaveForce = new Vector3f();
+        Vector3f totalWaveTorque = new Vector3f();
+        
         for (int i = 0; i < samplePoints; i++) {
-            float x = position.x + (i - samplePoints/2) * length / samplePoints;
-            float z = position.z;
-            
-            // Get wave height and velocity at this point
-            float waveHeight = waveSystem.getWaveHeight(x, z);
-            Vector3f waveVel = waveSystem.getWaveVelocity(x, z);
-            
-            // Calculate force from wave interaction
-            Vector3f pointForce = calculateWaveForceAtPoint(x, z, waveHeight, waveVel);
-            waveForce.add(pointForce);
+            for (int j = 0; j < samplePoints; j++) {
+                // Sample points across the ship's hull
+                float x = position.x + (i - samplePoints/2) * length / samplePoints;
+                float z = position.z + (j - samplePoints/2) * width / samplePoints;
+                
+                // Get wave properties at this point
+                float waveHeight = waveSystem.getWaveHeight(x, z);
+                Vector3f waveVelocity = waveSystem.getWaveVelocity(x, z);
+                
+                // Calculate local wave force based on hull interaction
+                Vector3f localForce = calculateWaveForceAtPoint(x, z, waveHeight, waveVelocity);
+                totalWaveForce.add(localForce);
+                
+                // Calculate torque from this force
+                Vector3f leverArm = new Vector3f(x - position.x, 0, z - position.z);
+                Vector3f localTorque = new Vector3f();
+                leverArm.cross(localForce, localTorque);
+                totalWaveTorque.add(localTorque);
+            }
         }
         
-        waveForce.div(samplePoints); // Average the forces
+        // Average the forces and apply them
+        totalWaveForce.div(samplePoints * samplePoints);
+        totalWaveTorque.div(samplePoints * samplePoints);
+        
+        // Apply wave forces with damping based on ship size and stability
+        float waveDamping = Math.max(0.1f, stability * 0.5f);
+        totalWaveForce.mul(waveDamping);
+        totalWaveTorque.mul(waveDamping);
+        
+        waveForce.set(totalWaveForce);
         totalForce.add(waveForce);
         
-        // Wave-induced rolling and pitching
+        // Enhanced wave-induced rolling and pitching
         Vector3f waveTorque = calculateWaveTorque();
+        waveTorque.add(totalWaveTorque);
         totalTorque.add(waveTorque);
+        
+        // Add dynamic wave response based on ship motion
+        addWaveInducedMotion(totalWaveForce, waveTorque);
     }
     
     /**
@@ -327,7 +384,7 @@ public class ShipPhysics {
         centerOfMass.set(0, 0, 0);
         
         // Sum up component masses and calculate center of mass
-        List<ShipComponent> components = ship.getComponents();
+        List<ShipComponent> components = ship.getAllComponents();
         for (ShipComponent component : components) {
             float componentMass = component.getMass();
             mass += componentMass;
@@ -398,7 +455,7 @@ public class ShipPhysics {
         Vector3f wind = oceanPhysics.getWindVelocity(position);
         
         // Get sail components
-        for (ShipComponent component : ship.getComponents()) {
+        for (ShipComponent component : ship.getAllComponents()) {
             if (component instanceof SailComponent) {
                 SailComponent sail = (SailComponent) component;
                 if (sail.getCurrentDeployment() > 0 && !sail.isDestroyed()) {
@@ -425,7 +482,7 @@ public class ShipPhysics {
         Vector3f thrust = new Vector3f();
         
         // Get engine components
-        for (ShipComponent component : ship.getComponents()) {
+        for (ShipComponent component : ship.getAllComponents()) {
             if (component instanceof EngineComponent) {
                 EngineComponent engine = (EngineComponent) component;
                 if (engine.isRunning() && !engine.isDestroyed()) {
@@ -528,6 +585,52 @@ public class ShipPhysics {
         return torque;
     }
     
+    /**
+     * Adds dynamic stability forces based on ship motion and current state
+     */
+    private void addDynamicStabilityForces() {
+        // Add damping forces that oppose angular motion for stability
+        Vector3f dampingTorque = new Vector3f(angularVelocity).mul(-stability * 0.5f);
+        totalTorque.add(dampingTorque);
+        
+        // Add restoring forces when ship is tilted
+        Vector3f up = new Vector3f(0, 1, 0);
+        Vector3f shipUp = new Vector3f();
+        orientation.transform(up, shipUp);
+        
+        // Calculate tilt angle and apply restoring torque
+        float tiltAngle = (float) Math.acos(Math.max(-1, Math.min(1, shipUp.dot(up))));
+        if (tiltAngle > 0.1f) {
+            Vector3f restoring = new Vector3f();
+            shipUp.cross(up, restoring);
+            restoring.mul(tiltAngle * stability * mass * GRAVITY * 0.1f);
+            totalTorque.add(restoring);
+        }
+    }
+    
+    /**
+     * Adds wave-induced motion effects like heaving, rolling, and pitching
+     */
+    private void addWaveInducedMotion(Vector3f waveForce, Vector3f waveTorque) {
+        // Add heaving motion (vertical oscillation)
+        float waveFrequency = 0.5f; // Typical ocean wave frequency
+        float time = System.currentTimeMillis() * 0.001f;
+        float heaveAmplitude = waveForce.length() * 0.01f;
+        float heaveMotion = (float) (heaveAmplitude * Math.sin(waveFrequency * time));
+        
+        Vector3f heaveForce = new Vector3f(0, heaveMotion * mass, 0);
+        totalForce.add(heaveForce);
+        
+        // Add rolling motion damping to prevent excessive rolling
+        float rollDamping = Math.max(0.1f, stability);
+        Vector3f rollDampingTorque = new Vector3f(angularVelocity.x * -rollDamping, 0, 0);
+        totalTorque.add(rollDampingTorque);
+        
+        // Add pitching motion damping
+        Vector3f pitchDampingTorque = new Vector3f(0, 0, angularVelocity.z * -rollDamping);
+        totalTorque.add(pitchDampingTorque);
+    }
+    
     private void updatePerformanceMetrics() {
         // Speed in knots (1 m/s ≈ 1.944 knots)
         speed = velocity.length() * 1.944f;
@@ -567,4 +670,12 @@ public class ShipPhysics {
     public Vector3f getDragForce() { return new Vector3f(dragForce); }
     public Vector3f getWindForce() { return new Vector3f(windForce); }
     public Vector3f getWaveForce() { return new Vector3f(waveForce); }
+    
+    /**
+     * Applies an external force to the ship
+     * @param force The force vector to apply
+     */
+    public void applyExternalForce(Vector3f force) {
+        totalForce.add(force);
+    }
 }

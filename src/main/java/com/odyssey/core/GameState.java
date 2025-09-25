@@ -26,6 +26,11 @@ public enum GameState {
     LOADING,
     
     /**
+     * Load game menu state - selecting which save game to load.
+     */
+    LOAD_GAME,
+    
+    /**
      * Active gameplay state - player is sailing the seas, building ships, exploring.
      */
     IN_GAME,
@@ -138,6 +143,7 @@ public enum GameState {
             case INITIALIZING -> "Initializing game systems";
             case MAIN_MENU -> "Main Menu";
             case LOADING -> "Loading world";
+            case LOAD_GAME -> "Loading saved game";
             case IN_GAME -> "Sailing the seven seas";
             case PAUSED -> "Game Paused";
             case SETTINGS -> "Game Settings";

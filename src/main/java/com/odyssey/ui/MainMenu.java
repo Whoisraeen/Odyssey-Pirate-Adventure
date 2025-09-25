@@ -1,8 +1,9 @@
 package com.odyssey.ui;
 
+import com.odyssey.core.GameEngine;
+import com.odyssey.core.GameState;
 import com.odyssey.rendering.TextRenderer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.odyssey.util.Logger;
 
 /**
  * Main menu UI for The Odyssey.
@@ -10,9 +11,10 @@ import org.slf4j.LoggerFactory;
  */
 public class MainMenu {
     
-    private static final Logger LOGGER = LoggerFactory.getLogger(MainMenu.class);
+    private static final Logger LOGGER = Logger.getLogger(MainMenu.class);
     
     private TextRenderer textRenderer;
+    private GameEngine gameEngine;
     private int selectedOption = 0;
     private String[] menuOptions = {
         "Start New Adventure",
@@ -23,6 +25,31 @@ public class MainMenu {
     };
     
     private boolean initialized = false;
+    
+    /**
+     * Constructor for MainMenu.
+     * 
+     * @param gameEngine The game engine instance for state transitions
+     */
+    public MainMenu(GameEngine gameEngine) {
+        this.gameEngine = gameEngine;
+    }
+    
+    /**
+     * Default constructor for backward compatibility.
+     */
+    public MainMenu() {
+        this.gameEngine = null;
+    }
+    
+    /**
+     * Set the game engine reference.
+     * 
+     * @param gameEngine The game engine instance
+     */
+    public void setGameEngine(GameEngine gameEngine) {
+        this.gameEngine = gameEngine;
+    }
     
     /**
      * Initialize the main menu.
@@ -43,51 +70,52 @@ public class MainMenu {
     }
     
     /**
-     * Render the main menu.
+     * Render the main menu UI.
+     * 
+     * @param width  The screen width
+     * @param height The screen height
      */
-    public void render(int windowWidth, int windowHeight) {
-        if (!initialized) return;
+    public void render(int width, int height) {
+        LOGGER.info("MainMenu.render() called with dimensions: " + width + "x" + height);
         
-        // Render game title
-        float[] titleColor = {1.0f, 1.0f, 1.0f}; // White
-        float titleX = windowWidth / 2.0f - 200.0f; // Center horizontally
-        float titleY = windowHeight / 2.0f + 150.0f; // Upper portion
-        textRenderer.renderText("THE ODYSSEY", titleX, titleY, 2.0f, titleColor, windowWidth, windowHeight);
-        
-        // Render subtitle
-        float[] subtitleColor = {0.8f, 0.8f, 0.8f}; // Light gray
-        float subtitleX = windowWidth / 2.0f - 180.0f;
-        float subtitleY = titleY - 50.0f;
-        textRenderer.renderText("Pirate Adventure", subtitleX, subtitleY, 1.0f, subtitleColor, windowWidth, windowHeight);
-        
-        // Render menu options
-        float menuStartY = windowHeight / 2.0f - 50.0f;
-        float menuSpacing = 40.0f;
-        
-        for (int i = 0; i < menuOptions.length; i++) {
-            float[] optionColor;
-            float scale;
-            
-            if (i == selectedOption) {
-                // Highlight selected option
-                optionColor = new float[]{1.0f, 0.8f, 0.2f}; // Golden yellow
-                scale = 1.2f;
-            } else {
-                optionColor = new float[]{0.9f, 0.9f, 0.9f}; // Light gray
-                scale = 1.0f;
-            }
-            
-            float optionX = windowWidth / 2.0f - 120.0f;
-            float optionY = menuStartY - (i * menuSpacing);
-            
-            textRenderer.renderText(menuOptions[i], optionX, optionY, scale, optionColor, windowWidth, windowHeight);
+        if (textRenderer == null) {
+            LOGGER.warn("TextRenderer is null in MainMenu.render()");
+            return;
         }
         
-        // Render instructions
-        float[] instructionColor = {0.6f, 0.6f, 0.6f}; // Dark gray
-        float instructionX = windowWidth / 2.0f - 150.0f;
-        float instructionY = 100.0f;
-        textRenderer.renderText("Use ARROW KEYS to navigate, ENTER to select", instructionX, instructionY, 0.7f, instructionColor, windowWidth, windowHeight);
+        try {
+            // Render main menu title
+            textRenderer.renderText("THE ODYSSEY", 
+                                  width / 2 - 120, height / 2 + 100, 
+                                  2.0f, new float[]{1.0f, 1.0f, 1.0f}, 
+                                  width, height);
+            
+            // Render menu options
+            textRenderer.renderText("New Game", 
+                                  width / 2 - 60, height / 2 + 20, 
+                                  1.0f, new float[]{0.8f, 0.8f, 0.8f}, 
+                                  width, height);
+            
+            textRenderer.renderText("Load Game", 
+                                  width / 2 - 60, height / 2 - 20, 
+                                  1.0f, new float[]{0.8f, 0.8f, 0.8f}, 
+                                  width, height);
+            
+            textRenderer.renderText("Settings", 
+                                  width / 2 - 60, height / 2 - 60, 
+                                  1.0f, new float[]{0.8f, 0.8f, 0.8f}, 
+                                  width, height);
+            
+            textRenderer.renderText("Exit", 
+                                  width / 2 - 60, height / 2 - 100, 
+                                  1.0f, new float[]{0.8f, 0.8f, 0.8f}, 
+                                  width, height);
+            
+            LOGGER.info("MainMenu text rendering completed successfully");
+            
+        } catch (Exception e) {
+            LOGGER.error("Error rendering main menu: " + e.getMessage());
+        }
     }
     
     /**
@@ -114,26 +142,31 @@ public class MainMenu {
      * Handle menu selection.
      */
     private void handleMenuSelection() {
+        if (gameEngine == null) {
+            LOGGER.warn("GameEngine reference is null, cannot handle menu selection");
+            return;
+        }
+        
         switch (selectedOption) {
             case 0: // Start New Adventure
                 LOGGER.info("Starting new adventure...");
-                // TODO: Transition to game state
+                gameEngine.setState(GameState.LOADING);
                 break;
             case 1: // Load Game
                 LOGGER.info("Loading game...");
-                // TODO: Show load game screen
+                gameEngine.setState(GameState.LOAD_GAME);
                 break;
             case 2: // Multiplayer
                 LOGGER.info("Opening multiplayer...");
-                // TODO: Show multiplayer lobby
+                gameEngine.setState(GameState.MULTIPLAYER_LOBBY);
                 break;
             case 3: // Settings
                 LOGGER.info("Opening settings...");
-                // TODO: Show settings screen
+                gameEngine.setState(GameState.SETTINGS);
                 break;
             case 4: // Exit
                 LOGGER.info("Exiting game...");
-                // TODO: Exit game
+                gameEngine.setState(GameState.EXITING);
                 break;
         }
     }

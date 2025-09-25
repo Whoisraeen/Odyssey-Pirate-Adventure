@@ -454,6 +454,8 @@ public class ShipBuilder {
                 return new EngineComponent(name, position, EngineComponent.EngineType.MEDIUM_STEAM);
             case CANNON:
                 return new CannonComponent(name, position, CannonComponent.CannonType.MEDIUM_CANNON);
+            case RUDDER:
+                return new RudderComponent(name, position, RudderComponent.RudderType.BALANCED_RUDDER);
             // TODO: Add other component types
             default:
                 logger.debug(Logger.WORLD, "Component type {} not implemented yet", componentType.getName());
@@ -550,16 +552,20 @@ public class ShipBuilder {
         float totalSailArea = 0.0f;
         float totalEnginePower = 0.0f;
         
-        List<SailComponent> sails = (List<SailComponent>) (List<?>) 
-            componentsByType.getOrDefault(ComponentType.SAIL, new ArrayList<>());
-        for (SailComponent sail : sails) {
-            totalSailArea += sail.getSailArea();
+        List<ShipComponent> sailComponents = componentsByType.getOrDefault(ComponentType.SAIL, new ArrayList<>());
+        for (ShipComponent component : sailComponents) {
+            if (component instanceof SailComponent) {
+                SailComponent sail = (SailComponent) component;
+                totalSailArea += sail.getSailArea();
+            }
         }
         
-        List<EngineComponent> engines = (List<EngineComponent>) (List<?>) 
-            componentsByType.getOrDefault(ComponentType.ENGINE, new ArrayList<>());
-        for (EngineComponent engine : engines) {
-            totalEnginePower += engine.getMaxPower();
+        List<ShipComponent> engineComponents = componentsByType.getOrDefault(ComponentType.ENGINE, new ArrayList<>());
+        for (ShipComponent component : engineComponents) {
+            if (component instanceof EngineComponent) {
+                EngineComponent engine = (EngineComponent) component;
+                totalEnginePower += engine.getMaxPower();
+            }
         }
         
         // Check if ship has enough propulsion for its mass

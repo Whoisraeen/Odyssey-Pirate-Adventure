@@ -4,7 +4,10 @@ import com.odyssey.core.GameConfig;
 import com.odyssey.util.Logger;
 import com.odyssey.rendering.Camera;
 import com.odyssey.rendering.RenderCommand;
+import com.odyssey.player.PlayerManager;
+import com.odyssey.player.Player;
 import org.joml.Vector2i;
+import org.joml.Vector2f;
 import org.joml.Vector3f;
 import org.joml.Vector3i;
 
@@ -65,9 +68,9 @@ public class World {
         // Initialize thread pools
         int threadCount = Math.max(2, Runtime.getRuntime().availableProcessors() / 2);
         this.chunkLoadingExecutor = Executors.newFixedThreadPool(threadCount, 
-            r -> new Thread(r, "ChunkLoader-" + Thread.currentThread().getId()));
+            r -> new Thread(r, "ChunkLoader-" + Thread.currentThread().threadId()));
         this.meshBuildingExecutor = Executors.newFixedThreadPool(threadCount,
-            r -> new Thread(r, "MeshBuilder-" + Thread.currentThread().getId()));
+            r -> new Thread(r, "MeshBuilder-" + Thread.currentThread().threadId()));
         
         Logger.world("Created world '{}' with seed {} (render distance: {}, threads: {})", 
                    worldName, worldSeed, renderDistance, threadCount);
@@ -77,9 +80,18 @@ public class World {
      * Updates the world, handling chunk loading/unloading and mesh building
      */
     public void update(Camera camera) {
-        // Update player position
-        Vector3f cameraPos = camera.getPosition();
-        playerPosition.set(cameraPos);
+        // Update player position from PlayerManager if available, otherwise use camera
+        PlayerManager playerManager = PlayerManager.getInstance();
+        Player player = playerManager.getCurrentPlayer();
+        
+        if (player != null) {
+            // Use actual player position
+            playerPosition.set(player.getPosition());
+        } else {
+            // Fallback to camera position for backwards compatibility
+            Vector3f cameraPos = camera.getPosition();
+            playerPosition.set(cameraPos);
+        }
         
         // Calculate current chunk
         Vector2i newChunk = new Vector2i(
@@ -199,7 +211,7 @@ public class World {
     /**
      * Loads a chunk at the specified position
      */
-    private void loadChunk(Vector2i chunkPos) {
+    public void loadChunk(Vector2i chunkPos) {
         if (loadedChunks.containsKey(chunkPos)) {
             return;
         }
@@ -213,8 +225,10 @@ public class World {
                 // Get the world chunk from the generator
                 WorldChunk worldChunk = worldGenerator.getChunk(chunkPos.x, chunkPos.y);
                 
-                // TODO: Convert WorldChunk data to Chunk format
-                // For now, just calculate lighting on the empty chunk
+                // Convert WorldChunk data to Chunk format
+                convertWorldChunkToChunk(worldChunk, chunk);
+                
+                // Calculate lighting on the generated chunk
                 chunk.calculateLighting();
                 
                 // Set up neighbors
@@ -230,7 +244,7 @@ public class World {
     /**
      * Unloads a chunk at the specified position
      */
-    private void unloadChunk(Vector2i chunkPos) {
+    public void unloadChunk(Vector2i chunkPos) {
         Chunk chunk = loadedChunks.remove(chunkPos);
         if (chunk != null) {
             chunk.cleanup();
@@ -347,7 +361,17 @@ public class World {
     public List<RenderCommand> getRenderCommands(Camera camera) {
         List<RenderCommand> commands = new ArrayList<>();
         
-        Vector3f cameraPos = camera.getPosition();
+        // Use player position for distance calculations if available, otherwise camera
+        Vector3f referencePos;
+        PlayerManager playerManager = PlayerManager.getInstance();
+        Player player = playerManager.getCurrentPlayer();
+        
+        if (player != null) {
+            referencePos = player.getPosition();
+        } else {
+            referencePos = camera.getPosition();
+        }
+        
         float renderDistanceSquared = renderDistance * Chunk.CHUNK_SIZE * renderDistance * Chunk.CHUNK_SIZE;
         
         for (Chunk chunk : loadedChunks.values()) {
@@ -357,9 +381,9 @@ public class World {
             
             // Distance culling
             Vector3i chunkWorldPos = chunk.getWorldPosition();
-            float distanceSquared = cameraPos.distanceSquared(
+            float distanceSquared = referencePos.distanceSquared(
                 chunkWorldPos.x + Chunk.CHUNK_SIZE / 2.0f,
-                cameraPos.y,
+                referencePos.y,
                 chunkWorldPos.z + Chunk.CHUNK_SIZE / 2.0f
             );
             
@@ -465,6 +489,20 @@ public class World {
     }
     
     /**
+     * Gets all loaded chunks as a map for saving/serialization
+     */
+    public Map<String, Object> getLoadedChunks() {
+        Map<String, Object> chunkData = new HashMap<>();
+        for (Map.Entry<Vector2i, Chunk> entry : loadedChunks.entrySet()) {
+            Vector2i pos = entry.getKey();
+            Chunk chunk = entry.getValue();
+            String key = pos.x + "," + pos.y;
+            chunkData.put(key, chunk);
+        }
+        return chunkData;
+    }
+    
+    /**
      * Gets all loaded chunks for rendering
      */
     public java.util.Collection<Chunk> getChunks() {
@@ -484,5 +522,210 @@ public class World {
         stats.put("renderDistance", renderDistance);
         stats.put("playerChunk", currentChunk.toString());
         return stats;
+    }
+    
+    /**
+     * Converts WorldChunk terrain and biome data to Chunk block format
+     */
+    private void convertWorldChunkToChunk(WorldChunk worldChunk, Chunk chunk) {
+        int chunkSize = worldChunk.getChunkSize();
+        
+        // Convert terrain data to blocks
+        for (int x = 0; x < chunkSize && x < Chunk.CHUNK_SIZE; x++) {
+            for (int z = 0; z < chunkSize && z < Chunk.CHUNK_SIZE; z++) {
+                float height = worldChunk.getHeightAt(x, z);
+                BiomeType biome = worldChunk.getBiomeAt(x, z);
+                
+                // Generate terrain column
+                generateTerrainColumn(chunk, x, z, height, biome);
+            }
+        }
+        
+        // Add islands from WorldChunk
+        for (Island island : worldChunk.getIslands()) {
+            generateIslandBlocks(chunk, island, worldChunk);
+        }
+        
+        Logger.world("Converted WorldChunk to Chunk format for chunk ({}, {})", 
+                    worldChunk.getChunkX(), worldChunk.getChunkZ());
+    }
+    
+    /**
+     * Generates a terrain column based on height and biome
+     */
+    private void generateTerrainColumn(Chunk chunk, int x, int z, float height, BiomeType biome) {
+        int terrainHeight = (int) Math.floor(height);
+        int seaLevel = 64; // Standard sea level
+        
+        // Generate bedrock layer
+        chunk.setBlock(x, 0, z, Block.BlockType.STONE);
+        
+        // Generate stone layers
+        for (int y = 1; y < Math.max(terrainHeight - 3, 1); y++) {
+            chunk.setBlock(x, y, z, Block.BlockType.STONE);
+        }
+        
+        // Generate subsurface layers based on biome
+        Block.BlockType subsurfaceBlock = getSubsurfaceBlockForBiome(biome);
+        for (int y = Math.max(terrainHeight - 3, 1); y < terrainHeight; y++) {
+            if (y > 0 && y < Chunk.CHUNK_HEIGHT) {
+                chunk.setBlock(x, y, z, subsurfaceBlock);
+            }
+        }
+        
+        // Generate surface block
+        if (terrainHeight > 0 && terrainHeight < Chunk.CHUNK_HEIGHT) {
+            Block.BlockType surfaceBlock = getSurfaceBlockForBiome(biome, terrainHeight, seaLevel);
+            chunk.setBlock(x, terrainHeight, z, surfaceBlock);
+        }
+        
+        // Fill with water if below sea level
+        for (int y = terrainHeight + 1; y <= seaLevel && y < Chunk.CHUNK_HEIGHT; y++) {
+            chunk.setBlock(x, y, z, Block.BlockType.WATER);
+        }
+        
+        // Generate vegetation on surface
+        if (terrainHeight > seaLevel && terrainHeight + 1 < Chunk.CHUNK_HEIGHT) {
+            generateVegetation(chunk, x, terrainHeight + 1, z, biome);
+        }
+    }
+    
+    /**
+     * Gets the appropriate surface block for a biome
+     */
+    private Block.BlockType getSurfaceBlockForBiome(BiomeType biome, int height, int seaLevel) {
+        switch (biome) {
+            case DESERT:
+                return Block.BlockType.SAND;
+            case TROPICAL_FOREST:
+            case JUNGLE:
+            case FOREST:
+                return Block.BlockType.GRASS;
+            case OCEAN:
+                return height <= seaLevel ? Block.BlockType.SAND : Block.BlockType.GRASS;
+            case TUNDRA:
+                return Block.BlockType.STONE;
+            case PLAINS:
+            case GRASSLAND:
+            case SAVANNA:
+            default:
+                return Block.BlockType.GRASS;
+        }
+    }
+    
+    /**
+     * Gets the appropriate subsurface block for a biome
+     */
+    private Block.BlockType getSubsurfaceBlockForBiome(BiomeType biome) {
+        switch (biome) {
+            case DESERT:
+                return Block.BlockType.SAND;
+            case OCEAN:
+                return Block.BlockType.SAND;
+            default:
+                return Block.BlockType.DIRT;
+        }
+    }
+    
+    /**
+     * Generates vegetation based on biome
+     */
+    private void generateVegetation(Chunk chunk, int x, int y, int z, BiomeType biome) {
+        if (y >= Chunk.CHUNK_HEIGHT) return;
+        
+        // Simple vegetation generation based on biome
+        switch (biome) {
+            case TROPICAL_FOREST:
+            case JUNGLE:
+                if (Math.random() < 0.1) { // 10% chance for palm trees
+                    chunk.setBlock(x, y, z, Block.BlockType.PALM_WOOD);
+                    if (y + 1 < Chunk.CHUNK_HEIGHT) {
+                        chunk.setBlock(x, y + 1, z, Block.BlockType.PALM_LEAVES);
+                    }
+                }
+                break;
+            case FOREST:
+                if (Math.random() < 0.05) { // 5% chance for regular trees
+                    chunk.setBlock(x, y, z, Block.BlockType.WOOD);
+                    if (y + 1 < Chunk.CHUNK_HEIGHT) {
+                        chunk.setBlock(x, y + 1, z, Block.BlockType.LEAVES);
+                    }
+                }
+                break;
+            case PLAINS:
+            case GRASSLAND:
+                // No additional vegetation for now
+                break;
+        }
+    }
+    
+    /**
+     * Generates blocks for islands within the chunk
+     */
+    private void generateIslandBlocks(Chunk chunk, Island island, WorldChunk worldChunk) {
+        // Convert island world coordinates to local chunk coordinates
+        Vector2f islandCenter = new Vector2f(island.getCenterX(), island.getCenterZ());
+        Vector2f chunkWorldPos = worldChunk.localToWorld(0, 0);
+        
+        float localX = islandCenter.x - chunkWorldPos.x;
+        float localZ = islandCenter.y - chunkWorldPos.y;
+        
+        // Only generate if island center is within this chunk
+        if (localX >= 0 && localX < worldChunk.getChunkSize() && 
+            localZ >= 0 && localZ < worldChunk.getChunkSize()) {
+            
+            int centerX = (int) Math.floor(localX);
+            int centerZ = (int) Math.floor(localZ);
+            float radius = island.getSize();
+            
+            // Generate island terrain in a circular pattern
+            for (int x = Math.max(0, centerX - (int)radius); 
+                 x <= Math.min(Chunk.CHUNK_SIZE - 1, centerX + (int)radius); x++) {
+                for (int z = Math.max(0, centerZ - (int)radius); 
+                     z <= Math.min(Chunk.CHUNK_SIZE - 1, centerZ + (int)radius); z++) {
+                    
+                    float distance = (float) Math.sqrt((x - centerX) * (x - centerX) + (z - centerZ) * (z - centerZ));
+                    
+                    if (distance <= radius) {
+                        float worldX = worldChunk.localToWorld(x, z).x;
+                        float worldZ = worldChunk.localToWorld(x, z).y;
+                        
+                        // Get height and biome from island
+                        float baseHeight = island.getHeightAt(worldX, worldZ);
+                        BiomeType biome = island.getBiomeAt(worldX, worldZ);
+                        
+                        // Generate island terrain
+                        generateIslandTerrain(chunk, x, z, (int)baseHeight, biome);
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
+     * Generates terrain for a specific island location
+     */
+    private void generateIslandTerrain(Chunk chunk, int x, int z, int height, BiomeType biome) {
+        int seaLevel = 64;
+        int baseHeight = Math.max(seaLevel, height);
+        
+        // Generate island blocks from sea level up
+        for (int y = seaLevel; y <= baseHeight && y < Chunk.CHUNK_HEIGHT; y++) {
+            if (y == baseHeight) {
+                // Surface block
+                chunk.setBlock(x, y, z, getSurfaceBlockForBiome(biome, y, seaLevel));
+            } else if (y >= baseHeight - 2) {
+                // Subsurface
+                chunk.setBlock(x, y, z, getSubsurfaceBlockForBiome(biome));
+            } else {
+                // Core
+                chunk.setBlock(x, y, z, Block.BlockType.STONE);
+            }
+        }
+        
+        // Add vegetation on top
+        if (baseHeight + 1 < Chunk.CHUNK_HEIGHT) {
+            generateVegetation(chunk, x, baseHeight + 1, z, biome);
+        }
     }
 }

@@ -4,7 +4,6 @@ import com.odyssey.world.WorldChunk;
 import com.odyssey.world.WorldConfig;
 import com.odyssey.world.BiomeType;
 import com.odyssey.world.noise.SimplexNoise;
-import com.odyssey.util.Logger;
 import org.joml.Vector2f;
 import org.slf4j.LoggerFactory;
 
@@ -77,8 +76,7 @@ public class TerrainGenerator {
         this.ridgeNoise = new SimplexNoise(seed + 5000);
         this.caveNoise = new SimplexNoise(seed + 6000);
         
-        Logger.world("Initialized TerrainGenerator with Simplex noise (seed: {})", seed);
-        logger.info("Terrain generation initialized with seed: {}", seed);
+        logger.info("Initialized TerrainGenerator with Simplex noise (seed: {})", seed);
     }
     
     /**
@@ -116,7 +114,7 @@ public class TerrainGenerator {
         }
         
         chunk.setTerrainGenerated(true);
-        Logger.world("Generated terrain for chunk ({}, {})", chunk.getChunkX(), chunk.getChunkZ());
+        logger.debug("Generated terrain for chunk ({}, {})", chunk.getChunkX(), chunk.getChunkZ());
         logger.debug("Generated terrain chunk at ({}, {}) with {} height points", 
                     chunk.getChunkX(), chunk.getChunkZ(), chunkSize * chunkSize);
     }
@@ -430,7 +428,7 @@ public class TerrainGenerator {
      */
     public void clearCache() {
         heightCache.clear();
-        Logger.world("Cleared terrain height cache");
+        logger.info("Cleared terrain height cache");
     }
     
     /**

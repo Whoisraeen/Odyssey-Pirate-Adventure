@@ -108,8 +108,8 @@ public class TradeRoute {
                 );
                 
                 // Add some variation to avoid straight lines
-                waypoint.x += (Math.random() - 0.5) * 100.0f;
-                waypoint.y += (Math.random() - 0.5) * 100.0f;
+                waypoint.x += (float)((Math.random() - 0.5) * 100.0);
+                waypoint.y += (float)((Math.random() - 0.5) * 100.0);
                 
                 waypoints.add(waypoint);
             }

@@ -310,6 +310,30 @@ public class WeatherSystem {
         return globalWindStrength;
     }
     
+    /**
+     * Gets the current global wind speed
+     */
+    public float getWindSpeed() {
+        return globalWindStrength;
+    }
+    
+    /**
+     * Gets the current wave height based on wind conditions
+     */
+    public float getWaveHeight() {
+        // Calculate wave height based on wind strength and storm activity
+        float baseWaveHeight = globalWindStrength * 0.2f; // Base wave height from wind
+        
+        // Add storm influence
+        float stormWaveHeight = 0.0f;
+        for (Storm storm : activeStorms) {
+            float stormIntensity = storm.getIntensity();
+            stormWaveHeight = Math.max(stormWaveHeight, stormIntensity * 5.0f);
+        }
+        
+        return Math.max(0.5f, baseWaveHeight + stormWaveHeight);
+    }
+    
     public long getSeed() {
         return seed;
     }

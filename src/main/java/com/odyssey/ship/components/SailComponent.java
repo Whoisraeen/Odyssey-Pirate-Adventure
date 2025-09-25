@@ -190,6 +190,13 @@ public class SailComponent extends ShipComponent {
     }
     
     /**
+     * Sets wind conditions for this sail (alias for updateWind)
+     */
+    public void setWindConditions(Vector3f windDir, float windSpd) {
+        updateWind(windDir, windSpd);
+    }
+    
+    /**
      * Sets the sail angle relative to the wind
      */
     public void setSailAngle(float angle) {

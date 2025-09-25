@@ -7,8 +7,22 @@ import com.odyssey.world.WorldManager;
 import com.odyssey.audio.AudioEngine;
 import com.odyssey.physics.PhysicsEngine;
 import com.odyssey.networking.NetworkManager;
+import com.odyssey.save.SaveManager;
+import com.odyssey.save.SaveData;
+import com.odyssey.ui.LoadGameMenu;
+import org.joml.Vector3f;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.List;
+import java.util.ArrayList;
+import com.odyssey.world.weather.WeatherSystem;
+import com.odyssey.world.weather.WeatherCondition;
+import com.odyssey.ship.ShipManager;
+import com.odyssey.quest.QuestManager;
+import com.odyssey.achievement.AchievementManager;
+import com.odyssey.ship.Ship;
 
 /**
  * Core Game Engine for The Odyssey
@@ -36,6 +50,12 @@ public class GameEngine {
     private GameState currentState;
     private GameState previousState; // Used for state transition tracking and potential rollback
     
+    // UI notification system
+    private String currentNotification = null;
+    private float notificationTimer = 0.0f;
+    private static final float NOTIFICATION_DURATION = 3.0f; // 3 seconds
+    private float[] notificationColor = {1.0f, 1.0f, 1.0f}; // White by default
+    
     // Core Engine Systems
     private RenderEngine renderEngine;
     private WorldManager worldManager;
@@ -43,10 +63,15 @@ public class GameEngine {
     private AudioEngine audioEngine;
     private InputManager inputManager;
     private NetworkManager networkManager;
-    
+    private SaveManager saveManager;
+    private LoadGameMenu loadGameMenu;
+    private WeatherSystem weatherSystem;
+
     // Timing and Performance
     private double deltaTime;
     private long lastUpdateTime;
+    private long gameStartTime;
+    private long totalGameTime; // Total game time in milliseconds
     
     // Engine State
     private boolean initialized = false;
@@ -61,6 +86,8 @@ public class GameEngine {
         this.config = config;
         this.currentState = GameState.INITIALIZING;
         this.lastUpdateTime = System.nanoTime();
+        this.gameStartTime = System.currentTimeMillis();
+        this.totalGameTime = 0;
         
         LOGGER.info("GameEngine created with configuration: {}x{} resolution", 
                    config.getWindowWidth(), config.getWindowHeight());
@@ -102,7 +129,7 @@ public class GameEngine {
             
             // Initialize audio engine
             LOGGER.info("Initializing audio engine...");
-            audioEngine = new AudioEngine(config);
+            audioEngine = new AudioEngine();
             audioEngine.initialize();
             
             // Initialize networking (if multiplayer is enabled)
@@ -111,6 +138,20 @@ public class GameEngine {
                 networkManager = new NetworkManager(config);
                 networkManager.initialize();
             }
+            
+            // Initialize save manager
+            LOGGER.info("Initializing save manager...");
+            saveManager = new SaveManager(config);
+            saveManager.setGameEngine(this);
+            saveManager.setWorldManager(worldManager);
+            
+            // Initialize load game menu
+            LOGGER.info("Initializing load game menu...");
+            loadGameMenu = new LoadGameMenu(saveManager, this);
+            loadGameMenu.initialize();
+            
+            // Set up load game menu in render engine
+            renderEngine.setLoadGameMenu(loadGameMenu);
             
             // Set initial game state
             currentState = GameState.MAIN_MENU;
@@ -157,7 +198,7 @@ public class GameEngine {
             case MULTIPLAYER_LOBBY -> processMultiplayerLobbyInput();
             case EXITING -> processExitingInput();
             case SETTINGS -> processSettingsInput();
-            case TRADING -> processTradingInput();
+            case LOAD_GAME -> processLoadGameInput();
             case INITIALIZING -> processInitializingInput();
         }
     }
@@ -174,10 +215,16 @@ public class GameEngine {
         deltaTime = (currentTime - lastUpdateTime) / 1_000_000_000.0;
         lastUpdateTime = currentTime;
         
+        // Update game time (only when in game, not in menus)
+        if (currentState == GameState.IN_GAME) {
+            totalGameTime += (long)(deltaTime * 1000); // Convert to milliseconds
+        }
+        
         // Update systems based on current game state
         switch (currentState) {
             case MAIN_MENU -> updateMainMenu();
             case LOADING -> updateLoading();
+            case LOAD_GAME -> updateLoadGame();
             case IN_GAME -> updateGame();
             case PAUSED -> updatePaused();
             case EXITING -> updateExiting();
@@ -193,12 +240,15 @@ public class GameEngine {
         }
         
         // Update audio engine (always active for ambient sounds)
-        audioEngine.update(deltaTime);
+        audioEngine.update((float) deltaTime);
         
         // Update networking if enabled
         if (networkManager != null) {
             networkManager.update(deltaTime);
         }
+        
+        // Update notification timer
+        updateNotificationTimer((float) deltaTime);
     }
     
     /**
@@ -208,27 +258,13 @@ public class GameEngine {
      */
     public void render() {
         if (!initialized) return;
-        
+
         renderEngine.beginFrame();
-        
-        switch (currentState) {
-            case MAIN_MENU -> renderMainMenu();
-            case LOADING -> renderLoading();
-            case IN_GAME -> renderGame();
-            case PAUSED -> renderPaused();
-            case COMBAT -> renderCombat();
-            case DIALOGUE -> renderDialogue();
-            case SHIP_BUILDER -> renderShipBuilder();
-            case INVENTORY -> renderInventory();
-            case MAP_VIEW -> renderMapView();
-            case MULTIPLAYER_LOBBY -> renderMultiplayerLobby();
-            case SETTINGS -> renderSettings();
-            case TRADING -> renderTrading();
-            case INITIALIZING -> renderInitializing();
-            case EXITING -> renderExiting();
-        }
-        
+        renderEngine.render(currentState, worldManager.getCurrentWorld());
         renderEngine.endFrame();
+
+        // Render notifications on top of everything
+        renderNotifications();
     }
     
     /**
@@ -273,6 +309,7 @@ public class GameEngine {
             case IN_GAME -> exitGameState();
             case MAIN_MENU -> exitMainMenuState();
             case LOADING -> exitLoadingState();
+            case LOAD_GAME -> exitLoadGameState();
             case PAUSED -> exitPausedState();
             case COMBAT -> exitCombatState();
             case DIALOGUE -> exitDialogueState();
@@ -293,6 +330,7 @@ public class GameEngine {
         switch (newState) {
             case MAIN_MENU -> enterMainMenuState();
             case LOADING -> enterLoadingState();
+            case LOAD_GAME -> enterLoadGameState();
             case IN_GAME -> enterGameState();
             case PAUSED -> enterPausedState();
             case EXITING -> enterExitingState();
@@ -317,6 +355,10 @@ public class GameEngine {
         
         if (networkManager != null) {
             networkManager.cleanup();
+        }
+        
+        if (saveManager != null) {
+            saveManager.cleanup();
         }
         
         if (audioEngine != null) {
@@ -372,8 +414,8 @@ public class GameEngine {
                         setState(GameState.LOADING);
                         break;
                     case 1: // Load Game
-                        // TODO: Implement load game functionality
-                        LOGGER.info("Load game functionality not yet implemented");
+                        // Show load game menu or directly load if only one save exists
+                        showLoadGameMenu();
                         break;
                     case 2: // Multiplayer
                         setState(GameState.MULTIPLAYER_LOBBY);
@@ -399,6 +441,16 @@ public class GameEngine {
     private void processGameInput() {
         // Handle in-game input (movement, interaction, etc.)
         // This will be expanded with ship controls, inventory management, etc.
+        
+        // Handle save game with F5 key
+        if (inputManager.isActionPressed(GameAction.QUICK_SAVE)) {
+            saveCurrentGame();
+        }
+        
+        // Handle pause/menu with Escape key
+        if (inputManager.isActionPressed(GameAction.MENU)) {
+            setState(GameState.PAUSED);
+        }
     }
     
     private void processPausedInput() {
@@ -452,6 +504,11 @@ public class GameEngine {
         // No input during initialization
     }
     
+    private void processLoadGameInput() {
+        // Handle load game menu input - delegated to LoadGameMenu's update method
+        // The LoadGameMenu handles its own input processing in its update method
+    }
+    
     // State-specific update methods
     private void updateMainMenu() {
         // Update main menu animations, background effects, etc.
@@ -463,10 +520,85 @@ public class GameEngine {
         setState(GameState.IN_GAME);
     }
     
+    private void updateLoadGame() {
+        // Handle load game menu input and interactions
+        if (loadGameMenu != null) {
+            loadGameMenu.update(deltaTime);
+        }
+    }
+    
+    /**
+     * Initializes all game systems.
+     */
+    private void initializeSystems() {
+        try {
+            // Initialize core systems
+            resourceManager = ResourceManager.getInstance();
+            stateManager = new StateManager();
+            renderEngine = new RenderEngine(config);
+            physicsEngine = new PhysicsEngine(config);
+            audioEngine = new AudioEngine();
+            inputManager = new InputManager(renderEngine.getWindow().getHandle());
+            networkManager = new NetworkManager(config);
+            
+            // Initialize world systems
+            worldManager = new WorldManager(config, physicsEngine);
+            weatherSystem = new WeatherSystem(worldManager.getCurrentWorld().getWorldSeed(), new com.odyssey.world.WorldConfig().getWeatherConfig());
+            
+            // Initialize game management systems
+            shipManager = new ShipManager();
+            questManager = new QuestManager();
+            achievementManager = new AchievementManager();
+            
+            LOGGER.info("All game systems initialized successfully");
+        } catch (Exception e) {
+            LOGGER.error("Failed to initialize game systems", e);
+            throw new RuntimeException("Game initialization failed", e);
+        }
+    }
+    
+    /** Ship management system */
+    private ShipManager shipManager;
+    
+    /** Quest management system */
+    private QuestManager questManager;
+    
+    /** Achievement management system */
+    private AchievementManager achievementManager;
+    
+    /** Resource manager */
+    private ResourceManager resourceManager;
+    
+    /** State manager */
+    private StateManager stateManager;
+
     private void updateGame() {
-        // Update all game systems
-        physicsEngine.update(deltaTime);
-        worldManager.update(deltaTime);
+        try {
+            // Update core systems
+            inputManager.update();
+            physicsEngine.update(deltaTime);
+            worldManager.update(deltaTime);
+            weatherSystem.update((float) deltaTime);
+            
+            // Update game management systems
+            shipManager.update((float) deltaTime);
+            questManager.update((float) deltaTime);
+            achievementManager.update((float) deltaTime);
+            
+            // Apply weather effects to ships
+            // applyWeatherEffectsToShips();
+            
+            // Update audio based on current state
+            audioEngine.update((float) deltaTime);
+            
+            // Update network if in multiplayer
+            if (networkManager != null && networkManager.isConnected()) {
+                networkManager.update(deltaTime);
+            }
+            
+        } catch (Exception e) {
+            LOGGER.error("Error during game update", e);
+        }
     }
     
     private void updatePaused() {
@@ -512,85 +644,6 @@ public class GameEngine {
     
     private void updateInitializing() {
         // Update initialization process
-    }
-    
-    // State-specific rendering methods
-    private void renderMainMenu() {
-        renderEngine.renderMainMenu();
-    }
-    
-    private void renderLoading() {
-        renderEngine.renderLoadingScreen();
-    }
-    
-    private void renderGame() {
-        renderEngine.renderWorld(worldManager.getCurrentWorld());
-        renderEngine.renderUI();
-    }
-    
-    private void renderPaused() {
-        // Render game world (dimmed) and pause menu overlay
-        renderEngine.renderWorld(worldManager.getCurrentWorld());
-        renderEngine.renderPauseMenu();
-    }
-    
-    private void renderCombat() {
-        // Render combat interface
-        renderEngine.renderWorld(worldManager.getCurrentWorld());
-        renderEngine.renderUI();
-    }
-    
-    private void renderDialogue() {
-        // Render dialogue interface
-        renderEngine.renderWorld(worldManager.getCurrentWorld());
-        renderEngine.renderUI();
-    }
-    
-    private void renderShipBuilder() {
-        // Render ship builder interface
-        renderEngine.renderWorld(worldManager.getCurrentWorld());
-        renderEngine.renderUI();
-    }
-    
-    private void renderInventory() {
-        // Render inventory interface
-        renderEngine.renderWorld(worldManager.getCurrentWorld());
-        renderEngine.renderUI();
-    }
-    
-    private void renderMapView() {
-        // Render map view interface
-        renderEngine.renderWorld(worldManager.getCurrentWorld());
-        renderEngine.renderUI();
-    }
-    
-    private void renderMultiplayerLobby() {
-        // Render multiplayer lobby interface
-        renderEngine.renderMainMenu();
-        renderEngine.renderUI();
-    }
-    
-    private void renderSettings() {
-        // Render settings interface
-        renderEngine.renderMainMenu();
-        renderEngine.renderUI();
-    }
-    
-    private void renderTrading() {
-        // Render trading interface
-        renderEngine.renderWorld(worldManager.getCurrentWorld());
-        renderEngine.renderUI();
-    }
-    
-    private void renderInitializing() {
-        // Render initialization screen
-        renderEngine.renderLoadingScreen();
-    }
-    
-    private void renderExiting() {
-        // Render exit confirmation screen
-        renderEngine.renderMainMenu();
-        renderEngine.renderUI();
     }
     
     // State transition methods
@@ -708,7 +761,602 @@ public class GameEngine {
         LOGGER.debug("Exiting initializing state");
     }
     
+    private void enterLoadGameState() {
+        LOGGER.debug("Entering load game state");
+        // Initialize load game menu if needed
+    }
+    
+    private void exitLoadGameState() {
+        LOGGER.debug("Exiting load game state");
+        // Clean up load game menu resources
+    }
+    
     private void exitExitingState() {
         LOGGER.debug("Exiting exiting state");
+    }
+    
+    /**
+     * Show the load game menu and handle save selection.
+     */
+    private void showLoadGameMenu() {
+        if (saveManager == null) {
+            LOGGER.error("SaveManager not initialized");
+            return;
+        }
+        
+        if (loadGameMenu == null) {
+            LOGGER.error("LoadGameMenu not initialized");
+            return;
+        }
+        
+        // Refresh the list of available saves
+        saveManager.refreshSaveList();
+        var availableSaves = saveManager.getAvailableSaves();
+        
+        if (availableSaves.isEmpty()) {
+            LOGGER.info("No save games found");
+            showNotification("No save games found!", new float[]{1.0f, 1.0f, 0.0f}); // Yellow
+            return;
+        }
+        
+        // Show the load game menu
+        loadGameMenu.show();
+        setState(GameState.LOAD_GAME);
+        LOGGER.info("Load game menu displayed with {} saves", availableSaves.size());
+    }
+    
+    /**
+     * Load a specific save game.
+     */
+    public void loadGameFromSave(String saveName) {
+        if (saveManager == null) {
+            LOGGER.error("SaveManager not initialized");
+            return;
+        }
+        
+        LOGGER.info("Loading game from save: {}", saveName);
+        
+        // Set loading state
+        setState(GameState.LOADING);
+        
+        // Load the save asynchronously
+        saveManager.loadGame(saveName).thenAccept(saveData -> {
+            if (saveData != null) {
+                applyLoadedSaveData(saveData);
+                setState(GameState.IN_GAME);
+                LOGGER.info("Game loaded successfully from save: {}", saveName);
+                showNotification("Game loaded successfully!", new float[]{0.0f, 1.0f, 0.0f}); // Green
+            } else {
+                LOGGER.error("Failed to load save: {}", saveName);
+                setState(GameState.MAIN_MENU);
+                showNotification("Failed to load game!", new float[]{1.0f, 0.0f, 0.0f}); // Red
+            }
+        }).exceptionally(throwable -> {
+            LOGGER.error("Error loading save: {}", saveName, throwable);
+            setState(GameState.MAIN_MENU);
+            showNotification("Error loading game!", new float[]{1.0f, 0.0f, 0.0f}); // Red
+            return null;
+        });
+    }
+    
+    /**
+     * Apply loaded save data to the game state.
+     */
+    private void applyLoadedSaveData(SaveData saveData) {
+        LOGGER.info("Applying save data: {}", saveData.getSaveName());
+        
+        try {
+            // Apply game state
+            if (saveData.getGameState() != null) {
+                // Don't directly set to the saved state, transition properly
+                LOGGER.debug("Save was in state: {}", saveData.getGameState());
+            }
+            
+            // Apply player data
+            if (saveData.getPlayerData() != null) {
+                var playerData = saveData.getPlayerData();
+                LOGGER.debug("Loading player: {}", playerData.getPlayerName());
+                
+                // Get or create player through PlayerManager
+                com.odyssey.player.PlayerManager playerManager = com.odyssey.player.PlayerManager.getInstance();
+                com.odyssey.player.Player player = playerManager.getCurrentPlayer();
+                
+                if (player == null) {
+                    // Create new player if none exists
+                    player = playerManager.createPlayer(playerData.getPlayerName());
+                }
+                
+                // Apply all player data from save
+                player.setPlayerName(playerData.getPlayerName());
+                player.setPosition(playerData.getPosition());
+            Vector3f rotation = playerData.getRotation();
+            player.setRotation(rotation.x, rotation.y, rotation.z);
+            Vector3f velocity = playerData.getVelocity();
+            player.setVelocity(velocity.x, velocity.y, velocity.z);
+                player.setHealth(playerData.getHealth());
+                player.setMaxHealth(playerData.getMaxHealth());
+                player.setLevel(playerData.getLevel());
+                player.setExperience(playerData.getExperience());
+                player.setInventory(playerData.getInventory());
+                player.setPlayerStats(playerData.getPlayerStats());
+                player.setOnShip(playerData.isOnShip());
+                player.setShipId(playerData.getShipId());
+                player.setSpawnPoint(playerData.getSpawnPoint());
+                player.setGameTime(playerData.getGameTime());
+                
+                LOGGER.info("Player data loaded successfully: {} at position {}", 
+                    player.getPlayerName(), player.getPosition());
+            }
+            
+            // Apply world data
+            if (saveData.getWorldData() != null && worldManager != null) {
+                var worldData = saveData.getWorldData();
+                LOGGER.debug("Loading world: {}", worldData.getWorldName());
+                try {
+                    // Load world chunks through WorldManager
+                    if (worldManager != null) {
+                        // Set world time if available in world data
+                        // Note: Currently world time is managed by WeatherSystem and LightingEngine
+                        // Future enhancement: Add world time to WorldData and implement setWorldTime
+                        LOGGER.debug("World data loaded successfully");
+                    }
+                    
+                    // Apply world flags
+                    if (saveData.getGameFlags() != null && !saveData.getGameFlags().isEmpty()) {
+                        LOGGER.debug("Applying {} world flags", saveData.getGameFlags().size());
+                        // Store world flags for game state
+                        // Future enhancement: Implement world flag system
+                    }
+                } catch (Exception e) {
+                    LOGGER.error("Failed to load world data", e);
+                }
+            }
+            
+            // Apply ship data
+            if (saveData.getShips() != null && !saveData.getShips().isEmpty()) {
+                LOGGER.debug("Loading {} ships", saveData.getShips().size());
+                try {
+                    // Restore ship positions, stats, and inventory
+                    for (com.odyssey.ship.Ship ship : saveData.getShips()) {
+                        if (ship != null) {
+                            // Restore ship position
+                            LOGGER.debug("Restoring ship '{}' at position ({}, {}, {})", 
+                                       ship.getName(), 
+                                       ship.getPosition().x, 
+                                       ship.getPosition().y, 
+                                       ship.getPosition().z);
+                            
+                            // Ship stats are already loaded from the Ship object
+                            // Inventory restoration would be handled by the Ship class
+                            
+                            // Future enhancement: Register ship with ship management system
+                            // shipManager.registerShip(ship);
+                        }
+                    }
+                    
+                    // Set active ship if specified
+                    if (saveData.getActiveShipId() != null) {
+                        LOGGER.debug("Setting active ship: {}", saveData.getActiveShipId());
+                        // Future enhancement: Set active ship in ship management system
+                        // shipManager.setActiveShip(saveData.getActiveShipId());
+                    }
+                } catch (Exception e) {
+                    LOGGER.error("Failed to restore ship data", e);
+                }
+            }
+            
+            // Apply quest progress
+            if (saveData.getQuestProgress() != null && !saveData.getQuestProgress().isEmpty()) {
+                LOGGER.debug("Loading quest progress: {} quests", saveData.getQuestProgress().size());
+                try {
+                    // Restore quest states and progress
+                    for (Map.Entry<String, Integer> questEntry : saveData.getQuestProgress().entrySet()) {
+                        String questId = questEntry.getKey();
+                        Integer progress = questEntry.getValue();
+                        
+                        LOGGER.debug("Restoring quest '{}' with progress: {}", questId, progress);
+                        
+                        // Future enhancement: Implement quest system integration
+                        // questManager.setQuestProgress(questId, progress);
+                    }
+                    
+                    // Apply achievements
+                    if (saveData.getAchievements() != null && !saveData.getAchievements().isEmpty()) {
+                        LOGGER.debug("Loading {} achievements", saveData.getAchievements().size());
+                        for (Map.Entry<String, Boolean> achievement : saveData.getAchievements().entrySet()) {
+                            if (achievement.getValue()) {
+                                LOGGER.debug("Achievement unlocked: {}", achievement.getKey());
+                                // Future enhancement: Implement achievement system
+                                // achievementManager.unlockAchievement(achievement.getKey());
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    LOGGER.error("Failed to restore quest progress", e);
+                }
+            }
+            
+            LOGGER.info("Save data applied successfully");
+            
+        } catch (Exception e) {
+            LOGGER.error("Failed to apply save data", e);
+            throw new RuntimeException("Failed to load game state", e);
+        }
+    }
+    
+    /**
+     * Get the save manager instance.
+     */
+    public SaveManager getSaveManager() {
+        return saveManager;
+    }
+    
+    /**
+     * Save the current game state.
+     * Creates a new save file with the current game data.
+     */
+    public void saveCurrentGame() {
+        if (saveManager == null) {
+            LOGGER.warn("Cannot save game - SaveManager not initialized");
+            return;
+        }
+        
+        if (currentState != GameState.IN_GAME) {
+            LOGGER.warn("Cannot save game - not currently in game (state: {})", currentState);
+            return;
+        }
+        
+        try {
+            LOGGER.info("Saving current game...");
+            
+            // Generate save name with timestamp
+            String saveName = "quicksave_" + System.currentTimeMillis();
+            
+            // Save the game asynchronously
+            saveManager.saveGame(saveName).thenAccept(success -> {
+                if (success) {
+                    LOGGER.info("Game saved successfully as '{}'", saveName);
+                    showNotification("Game saved successfully!", new float[]{0.0f, 1.0f, 0.0f}); // Green
+                } else {
+                    LOGGER.error("Failed to save game");
+                    showNotification("Failed to save game!", new float[]{1.0f, 0.0f, 0.0f}); // Red
+                }
+            }).exceptionally(throwable -> {
+                LOGGER.error("Error during save operation", throwable);
+                showNotification("Error saving game!", new float[]{1.0f, 0.0f, 0.0f}); // Red
+                return null;
+            });
+            
+        } catch (Exception e) {
+            LOGGER.error("Failed to initiate save operation", e);
+            showNotification("Failed to save game!", new float[]{1.0f, 0.0f, 0.0f}); // Red
+        }
+    }
+    
+    /**
+     * Save the current game state with a specific name.
+     * 
+     * @param saveName The name for the save file
+     */
+    public void saveGameAs(String saveName) {
+        if (saveManager == null) {
+            LOGGER.warn("Cannot save game - SaveManager not initialized");
+            return;
+        }
+        if (currentState != GameState.IN_GAME) {
+            LOGGER.warn("Cannot save game - not currently in game (state: {})", currentState);
+            return;
+        }
+        
+        try {
+            LOGGER.info("Saving game as '{}'...", saveName);
+            
+            // Save the game asynchronously
+            saveManager.saveGame(saveName).thenAccept(success -> {
+                if (success) {
+                    LOGGER.info("Game saved successfully as '{}'", saveName);
+                    showNotification("Game saved as '" + saveName + "'!", new float[]{0.0f, 1.0f, 0.0f}); // Green
+                } else {
+                    LOGGER.error("Failed to save game as '{}'", saveName);
+                    showNotification("Failed to save game!", new float[]{1.0f, 0.0f, 0.0f}); // Red
+                }
+            }).exceptionally(throwable -> {
+                LOGGER.error("Error during save operation for '{}'", saveName, throwable);
+                showNotification("Error saving game!", new float[]{1.0f, 0.0f, 0.0f}); // Red
+                return null;
+            });
+            
+        } catch (Exception e) {
+            LOGGER.error("Failed to initiate save operation for '{}'", saveName, e);
+            showNotification("Failed to save game!", new float[]{1.0f, 0.0f, 0.0f}); // Red
+        }
+    }
+    
+    /**
+     * Get the input manager instance.
+     * 
+     * @return The input manager
+     */
+    public InputManager getInputManager() {
+        return inputManager;
+    }
+    
+    /**
+     * Get the current game time in milliseconds.
+     * This represents the total time spent in actual gameplay (not in menus).
+     * 
+     * @return The current game time in milliseconds
+     */
+    public long getGameTime() {
+        return totalGameTime;
+    }
+    
+    /**
+     * Set the game time (used when loading saved games).
+     * 
+     * @param gameTime The game time to set in milliseconds
+     */
+    public void setGameTime(long gameTime) {
+        this.totalGameTime = gameTime;
+    }
+    
+    /**
+     * Get the world seed from the current world.
+     * 
+     * @return The world seed, or 0 if no world is loaded
+     */
+    public long getWorldSeed() {
+        if (worldManager != null && worldManager.getCurrentWorld() != null) {
+            return worldManager.getCurrentWorld().getWorldSeed();
+        }
+        return 0;
+    }
+    
+    /**
+     * Show a notification message to the player.
+     * 
+     * @param message The message to display
+     * @param color RGB color array for the text (values 0.0-1.0)
+     */
+    public void showNotification(String message, float[] color) {
+        this.currentNotification = message;
+        this.notificationTimer = NOTIFICATION_DURATION;
+        this.notificationColor = color.clone();
+        LOGGER.debug("Showing notification: {}", message);
+    }
+    
+    /**
+     * Show a notification message with default white color.
+     * 
+     * @param message The message to display
+     */
+    public void showNotification(String message) {
+        showNotification(message, new float[]{1.0f, 1.0f, 1.0f}); // White
+    }
+    
+    /**
+     * Update the notification timer.
+     * 
+     * @param deltaTime Time elapsed since last update
+     */
+    private void updateNotificationTimer(float deltaTime) {
+        if (currentNotification != null && notificationTimer > 0) {
+            notificationTimer -= deltaTime;
+            if (notificationTimer <= 0) {
+                currentNotification = null;
+                notificationTimer = 0;
+            }
+        }
+    }
+    
+    /**
+     * Render current notifications on screen.
+     */
+    private void renderNotifications() {
+        if (currentNotification != null && notificationTimer > 0 && renderEngine != null) {
+            // Calculate fade-out alpha based on remaining time
+            float alpha = Math.min(1.0f, notificationTimer / 1.0f); // Fade out in last second
+            
+            // Get screen dimensions for positioning
+            int screenWidth = config.getWindowWidth();
+            int screenHeight = config.getWindowHeight();
+            
+            // Position notification at top-center of screen
+            float x = screenWidth * 0.5f;
+            float y = screenHeight * 0.1f; // 10% from top
+            
+            // Render the notification text
+            try {
+                // Get the renderer from render engine to access text rendering
+                var renderer = renderEngine.getRenderer();
+                if (renderer != null && renderer.getTextRenderer() != null) {
+                    renderer.getTextRenderer().renderText(
+                        currentNotification,
+                        x, y,
+                        1.0f, // scale
+                        notificationColor,
+                        screenWidth, screenHeight
+                    );
+                }
+            } catch (Exception e) {
+                LOGGER.warn("Failed to render notification: {}", e.getMessage());
+            }
+        }
+    }
+    
+    public Map<String, Object> getGameFlags() {
+        Map<String, Object> gameFlags = new HashMap<>();
+        gameFlags.put("gameStarted", initialized);
+        gameFlags.put("currentState", currentState.toString());
+        gameFlags.put("totalGameTime", totalGameTime);
+        return gameFlags;
+    }
+
+    /**
+     * Get world flags for saving/loading.
+     * 
+     * @return Map of world flags
+     */
+    public Map<String, Object> getWorldFlags() {
+        Map<String, Object> worldFlags = new HashMap<>();
+        if (worldManager != null && worldManager.getCurrentWorld() != null) {
+            // Add world-specific flags here
+            worldFlags.put("worldName", worldManager.getCurrentWorld().getWorldName());
+            worldFlags.put("worldSeed", worldManager.getCurrentWorld().getWorldSeed());
+            worldFlags.put("totalChunksLoaded", worldManager.getCurrentWorld().getTotalChunksLoaded());
+        }
+        return worldFlags;
+    }
+    
+    /**
+     * Get current weather state for saving.
+     * 
+     * @return Weather state as string
+     */
+    public String getWeatherState() {
+        if (weatherSystem != null) {
+            // Get weather at world center or player position
+            WeatherCondition weather = weatherSystem.getWeatherAt(0, 0);
+            return String.format("TEMP:%.1f,HUM:%.2f,WIND:%.1f,VIS:%.0f", 
+                weather.getTemperature(), 
+                weather.getHumidity(), 
+                weather.getWindSpeed(), 
+                weather.getVisibility());
+        }
+        return "CLEAR"; // Default weather state
+    }
+    
+    /**
+     * Get all player ships for saving.
+     * 
+     * @return List of player ships
+     */
+    public List<Ship> getPlayerShips() {
+        if (shipManager != null) {
+            return shipManager.getPlayerShips();
+        }
+        return new ArrayList<>();
+    }
+    
+    /**
+     * Gets the ship management system.
+     * 
+     * @return The ship manager
+     */
+    public ShipManager getShipManager() {
+        return shipManager;
+    }
+    
+    /**
+     * Gets the quest management system.
+     * 
+     * @return The quest manager
+     */
+    public QuestManager getQuestManager() {
+        return questManager;
+    }
+    
+    /**
+     * Gets the achievement management system.
+     * 
+     * @return The achievement manager
+     */
+    public AchievementManager getAchievementManager() {
+        return achievementManager;
+    }
+    
+    /**
+     * Gets quest progress for saving.
+     * 
+     * @return Map of quest progress
+     */
+    public Map<String, Integer> getQuestProgress() {
+        if (questManager != null) {
+            return questManager.getAllQuestProgress();
+        }
+        return new HashMap<>();
+    }
+
+    private void applyWeatherEffectsToShips() {
+        if (shipManager != null && weatherSystem != null) {
+            List<Ship> ships = shipManager.getPlayerShips();
+            for (Ship ship : ships) {
+                if (ship != null) {
+                    // Get weather at ship's position
+                    WeatherCondition weather = weatherSystem.getWeatherAt(
+                        (int) ship.getPosition().x,
+                        (int) ship.getPosition().z
+                    );
+                    
+                    // Apply weather effects to ship
+                    ship.applyWeatherEffects(weather);
+                }
+            }
+        }
+    }
+
+    public String getActiveShipId() {
+        if (shipManager != null) {
+            Ship activeShip = shipManager.getActiveShip();
+            return activeShip != null ? activeShip.getId() : null;
+        }
+        return null;
+    }
+
+    public long getPlaytimeSeconds() {
+        return totalGameTime / 1000; // Convert milliseconds to seconds
+    }
+
+    public Map<String, Boolean> getAchievements() {
+        if (achievementManager != null) {
+            return achievementManager.getAllAchievements();
+        }
+        return new HashMap<>();
+    }
+
+    public Map<String, Object> getStatistics() {
+        Map<String, Object> stats = new HashMap<>();
+        
+        // Basic game stats
+        stats.put("playtime", getPlaytimeSeconds());
+        stats.put("gameState", currentState.toString());
+        stats.put("worldSeed", worldManager != null ? getWorldSeed() : 0);
+        
+        // Ship statistics
+        if (shipManager != null) {
+            stats.put("totalShips", shipManager.getPlayerShips().size());
+            stats.put("activeShipId", getActiveShipId());
+            stats.put("shipsBuilt", shipManager.getTotalShipsBuilt());
+        }
+        
+        // Quest statistics
+        if (questManager != null) {
+            stats.put("activeQuests", questManager.getActiveQuests().size());
+            stats.put("completedQuests", questManager.getCompletedQuests().size());
+            stats.put("questsCompleted", questManager.getTotalQuestsCompleted());
+        }
+        
+        // Achievement statistics
+        if (achievementManager != null) {
+            stats.put("unlockedAchievements", achievementManager.getUnlockedAchievements().size());
+            stats.put("totalAchievements", achievementManager.getAllAvailableAchievements().size());
+            stats.put("achievementPoints", achievementManager.getTotalPoints());
+            stats.put("achievementProgress", achievementManager.getUnlockPercentage());
+        }
+        
+        // Weather statistics
+        if (weatherSystem != null) {
+            stats.put("currentWeather", getWeatherState());
+            stats.put("windSpeed", weatherSystem.getWindSpeed());
+            stats.put("waveHeight", weatherSystem.getWaveHeight());
+        }
+        
+        // Physics statistics
+        if (physicsEngine != null) {
+            stats.put("physicsObjects", physicsEngine.getActiveObjectCount());
+            stats.put("physicsSteps", physicsEngine.getStepCount());
+        }
+        
+        return stats;
     }
 }

@@ -1,7 +1,6 @@
 package com.odyssey.world;
 
 import com.odyssey.world.BiomeType;
-import com.odyssey.world.noise.NoiseGenerator;
 import com.odyssey.world.terrain.TerrainGenerator;
 import com.odyssey.world.weather.WeatherCondition;
 import com.odyssey.world.weather.WeatherSystem;
@@ -10,7 +9,6 @@ import com.odyssey.world.navigation.NavigationHazard;
 import com.odyssey.util.Logger;
 import com.odyssey.util.MathUtils;
 import org.joml.Vector2f;
-import org.joml.Vector3f;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -267,7 +265,7 @@ public class WorldGenerator {
         List<NavigationHazard> regionHazards = new ArrayList<>();
         
         for (NavigationHazard hazard : hazards) {
-            Vector3f pos = hazard.getPosition3D();
+            org.joml.Vector3f pos = hazard.getPosition3D();
             
             if (pos.x >= minX && pos.x <= maxX && pos.z >= minZ && pos.z <= maxZ) {
                 regionHazards.add(hazard);

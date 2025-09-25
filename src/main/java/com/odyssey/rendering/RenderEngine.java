@@ -1,14 +1,16 @@
 package com.odyssey.rendering;
 
 import com.odyssey.core.GameConfig;
+import com.odyssey.core.GameState;
 import com.odyssey.render.Window;
 import com.odyssey.world.World;
 import com.odyssey.ui.MainMenu;
+import com.odyssey.ui.LoadGameMenu;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static org.lwjgl.glfw.GLFW.*;
-import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.glfw.GLFW.glfwPollEvents;
+import static org.lwjgl.glfw.GLFW.glfwSwapBuffers;
 
 /**
  * Main rendering engine for The Odyssey.
@@ -21,8 +23,8 @@ public class RenderEngine {
     private final GameConfig config;
     private Window window;
     private Renderer renderer;
-    private World world;
     private MainMenu mainMenu;
+    private LoadGameMenu loadGameMenu;
     private boolean initialized = false;
     
     public RenderEngine(GameConfig config) {
@@ -57,6 +59,9 @@ public class RenderEngine {
         mainMenu = new MainMenu();
         mainMenu.initialize();
         
+        // Initialize load game menu (will be set up later with SaveManager)
+        loadGameMenu = null; // Will be initialized when SaveManager is available
+        
         initialized = true;
         LOGGER.info("RenderEngine initialized successfully");
             
@@ -86,69 +91,44 @@ public class RenderEngine {
         renderer.endFrame();
         glfwSwapBuffers(window.getHandle());
     }
-    
-    /**
-     * Render the main menu.
-     */
-    public void renderMainMenu() {
-        if (!initialized) {
-            LOGGER.warn("RenderEngine not initialized, cannot render main menu");
-            return;
-        }
-        
-        try {
-            // Clear the screen with ocean blue background
-            glClearColor(0.1f, 0.3f, 0.6f, 1.0f);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-            
-            // Get window dimensions
-            int[] width = new int[1];
-            int[] height = new int[1];
-            glfwGetWindowSize(window.getHandle(), width, height);
-            
-            // Render the main menu
-            mainMenu.render(width[0], height[0]);
-            
-            // Swap buffers
-            glfwSwapBuffers(window.getHandle());
-            
-        } catch (Exception e) {
-            LOGGER.error("Error rendering main menu", e);
+
+    public void render(GameState gameState, World world) {
+        if (!initialized) return;
+
+        switch (gameState) {
+            case MAIN_MENU -> renderer.renderMainMenu(mainMenu);
+            case LOAD_GAME -> renderer.renderLoadGameMenu(loadGameMenu);
+            case LOADING -> renderer.renderLoadingScreen("Loading...", 0.5f);
+            case PAUSED -> renderer.renderPauseMenu();
+            case IN_GAME -> renderer.render(world, null);
+            default -> {
+                // Render the world by default for most game states
+                if (world != null) {
+                    renderer.render(world, null);
+                } else {
+                    // Fallback to a clear screen if no world is available
+                    renderer.clearScreen();
+                }
+            }
         }
     }
-    
+
     /**
-     * Render the loading screen.
+     * Set the world reference for rendering.
+     * 
+     * @param world The world to render
      */
-    public void renderLoadingScreen() {
-        if (!initialized) return;
-        // TODO: Implement loading screen rendering
-        LOGGER.debug("Rendering loading screen");
+    public void setWorld(World world) {
+        renderer.setWorld(world);
     }
     
     /**
-     * Render the game world.
+     * Get the current world reference.
+     * 
+     * @return The current world, or null if not set
      */
-    public void renderWorld(World world) {
-        if (!initialized || world == null) return;
-        renderer.render(world, null);
-    }
-    
-    /**
-     * Render the UI.
-     */
-    public void renderUI() {
-        if (!initialized) return;
-        renderer.renderUI();
-    }
-    
-    /**
-     * Render the pause menu.
-     */
-    public void renderPauseMenu() {
-        if (!initialized) return;
-        // TODO: Implement pause menu rendering
-        LOGGER.debug("Rendering pause menu");
+    public World getWorld() {
+        return renderer.getWorld();
     }
     
     /**
@@ -173,6 +153,20 @@ public class RenderEngine {
     }
     
     /**
+     * Get the load game menu.
+     */
+    public LoadGameMenu getLoadGameMenu() {
+        return loadGameMenu;
+    }
+    
+    /**
+     * Set the load game menu.
+     */
+    public void setLoadGameMenu(LoadGameMenu loadGameMenu) {
+        this.loadGameMenu = loadGameMenu;
+    }
+    
+    /**
      * Check if the window should close.
      */
     public boolean shouldClose() {
@@ -191,6 +185,10 @@ public class RenderEngine {
         
         if (mainMenu != null) {
             mainMenu.cleanup();
+        }
+        
+        if (loadGameMenu != null) {
+            loadGameMenu.cleanup();
         }
         
         if (window != null) {

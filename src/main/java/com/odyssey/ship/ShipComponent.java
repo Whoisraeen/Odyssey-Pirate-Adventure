@@ -17,6 +17,9 @@ public abstract class ShipComponent {
     protected final String name;
     protected final int componentId;
     
+    // Parent ship reference
+    protected Ship parentShip;
+    
     // Position and orientation
     protected final Vector3f position;
     protected final Vector3f rotation;
@@ -277,6 +280,20 @@ public abstract class ShipComponent {
             isActive,
             isDestroyed
         );
+    }
+    
+    /**
+     * Sets the parent ship reference. This should be called when the component is added to a ship.
+     */
+    public void setParentShip(Ship ship) {
+        this.parentShip = ship;
+    }
+    
+    /**
+     * Gets the parent ship reference.
+     */
+    public Ship getParentShip() {
+        return parentShip;
     }
     
     // Getters

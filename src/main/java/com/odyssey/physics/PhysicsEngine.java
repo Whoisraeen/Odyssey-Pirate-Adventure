@@ -296,6 +296,297 @@ public class PhysicsEngine {
     }
     
     /**
+     * Handle collision response between two objects.
+     * This method applies damage, momentum transfer, and other collision effects.
+     */
+    public void handleCollisionResponse(Object objectA, Object objectB) {
+        if (!initialized) return;
+        
+        // Handle Ship-Ship collision response
+        if (objectA instanceof com.odyssey.ship.Ship && objectB instanceof com.odyssey.ship.Ship) {
+            handleShipShipCollision((com.odyssey.ship.Ship) objectA, (com.odyssey.ship.Ship) objectB);
+        }
+        
+        // Handle Ship-World collision response
+        else if (objectA instanceof com.odyssey.ship.Ship && objectB instanceof com.odyssey.world.Chunk) {
+            handleShipWorldCollision((com.odyssey.ship.Ship) objectA, (com.odyssey.world.Chunk) objectB);
+        }
+        
+        // Handle Entity-Entity collision response
+        else if (objectA instanceof com.odyssey.world.entities.Entity && objectB instanceof com.odyssey.world.entities.Entity) {
+            handleEntityEntityCollision((com.odyssey.world.entities.Entity) objectA, (com.odyssey.world.entities.Entity) objectB);
+        }
+    }
+    
+    /**
+     * Handle collision response between two ships.
+     * Applies ramming damage, momentum transfer, and collision effects.
+     */
+    private void handleShipShipCollision(com.odyssey.ship.Ship shipA, com.odyssey.ship.Ship shipB) {
+        org.joml.Vector3f posA = shipA.getPosition();
+        org.joml.Vector3f posB = shipB.getPosition();
+        org.joml.Vector3f velA = shipA.getVelocity();
+        org.joml.Vector3f velB = shipB.getVelocity();
+        
+        float massA = shipA.getMass();
+        float massB = shipB.getMass();
+        
+        // Calculate collision normal (from A to B)
+        org.joml.Vector3f collisionNormal = new org.joml.Vector3f(posB).sub(posA).normalize();
+        
+        // Calculate relative velocity
+        org.joml.Vector3f relativeVelocity = new org.joml.Vector3f(velA).sub(velB);
+        float relativeSpeed = relativeVelocity.dot(collisionNormal);
+        
+        // Don't resolve if objects are separating
+        if (relativeSpeed > 0) return;
+        
+        // Calculate collision impulse
+        float restitution = 0.3f; // Ships don't bounce much
+        float impulse = -(1 + restitution) * relativeSpeed / (1/massA + 1/massB);
+        
+        // Apply impulse to velocities
+        org.joml.Vector3f impulseVector = new org.joml.Vector3f(collisionNormal).mul(impulse);
+        velA.add(new org.joml.Vector3f(impulseVector).div(massA));
+        velB.sub(new org.joml.Vector3f(impulseVector).div(massB));
+        
+        shipA.setVelocity(velA);
+        shipB.setVelocity(velB);
+        
+        // Calculate damage based on collision energy
+        float collisionEnergy = 0.5f * (massA * massB) / (massA + massB) * relativeSpeed * relativeSpeed;
+        float damageA = collisionEnergy * 0.001f; // Scale damage appropriately
+        float damageB = collisionEnergy * 0.001f;
+        
+        // Apply ramming damage to both ships
+        org.joml.Vector3f localPosA = new org.joml.Vector3f(collisionNormal).mul(-shipA.getShipType().getLength() * 0.5f);
+        org.joml.Vector3f localPosB = new org.joml.Vector3f(collisionNormal).mul(shipB.getShipType().getLength() * 0.5f);
+        
+        shipA.takeDamage(localPosA, damageA, com.odyssey.ship.DamageType.RAMMING);
+        shipB.takeDamage(localPosB, damageB, com.odyssey.ship.DamageType.RAMMING);
+        
+        LOGGER.info("Ship collision: {} and {} collided with energy {}", 
+                   shipA.getName(), shipB.getName(), collisionEnergy);
+    }
+    
+    /**
+     * Handle collision response between ship and world chunk.
+     * Applies collision damage and stops the ship.
+     */
+    private void handleShipWorldCollision(com.odyssey.ship.Ship ship, com.odyssey.world.Chunk chunk) {
+        org.joml.Vector3f shipPos = ship.getPosition();
+        org.joml.Vector3f shipVel = ship.getVelocity();
+        
+        // Find collision point on ship
+        int chunkX = chunk.getChunkX();
+        int chunkZ = chunk.getChunkZ();
+        int chunkSize = 16;
+        
+        // Calculate collision normal based on which side of chunk was hit
+        org.joml.Vector3f chunkCenter = new org.joml.Vector3f(
+            chunkX * chunkSize + chunkSize * 0.5f,
+            0,
+            chunkZ * chunkSize + chunkSize * 0.5f
+        );
+        
+        org.joml.Vector3f collisionNormal = new org.joml.Vector3f(shipPos).sub(chunkCenter).normalize();
+        
+        // Calculate collision energy
+        float speed = shipVel.length();
+        float mass = ship.getMass();
+        float collisionEnergy = 0.5f * mass * speed * speed;
+        
+        // Apply collision damage based on speed and mass
+        float damage = collisionEnergy * 0.0005f; // Scale appropriately
+        
+        // Determine collision point on ship (bow, side, stern)
+        org.joml.Vector3f forward = ship.getForwardDirection();
+        float dotProduct = forward.dot(collisionNormal);
+        
+        org.joml.Vector3f localCollisionPoint;
+        com.odyssey.ship.DamageType damageType;
+        
+        if (dotProduct < -0.5f) {
+            // Head-on collision (bow)
+            localCollisionPoint = new org.joml.Vector3f(0, 0, ship.getShipType().getLength() * 0.5f);
+            damageType = com.odyssey.ship.DamageType.COLLISION;
+            damage *= 1.5f; // Bow takes more damage
+        } else if (Math.abs(dotProduct) < 0.5f) {
+            // Side collision
+            localCollisionPoint = new org.joml.Vector3f(
+                collisionNormal.x * ship.getShipType().getWidth() * 0.5f,
+                0,
+                0
+            );
+            damageType = com.odyssey.ship.DamageType.COLLISION;
+        } else {
+            // Rear collision (stern)
+            localCollisionPoint = new org.joml.Vector3f(0, 0, -ship.getShipType().getLength() * 0.5f);
+            damageType = com.odyssey.ship.DamageType.COLLISION;
+            damage *= 0.8f; // Stern takes less damage
+        }
+        
+        // Check if collision is with reef/rocks for different damage type
+        // This would require checking the chunk's block types
+        if (isReefCollision(chunk, shipPos)) {
+            damageType = com.odyssey.ship.DamageType.REEF;
+            damage *= 1.3f; // Reefs cause more damage
+        }
+        
+        // Apply damage to ship
+        ship.takeDamage(localCollisionPoint, damage, damageType);
+        
+        // Stop the ship or reduce velocity significantly
+        org.joml.Vector3f newVelocity = new org.joml.Vector3f(shipVel);
+        
+        // Reflect velocity off collision normal with energy loss
+        float normalComponent = newVelocity.dot(collisionNormal);
+        if (normalComponent < 0) {
+            org.joml.Vector3f reflection = new org.joml.Vector3f(collisionNormal).mul(normalComponent * 2);
+            newVelocity.sub(reflection);
+            newVelocity.mul(0.3f); // Lose most energy in collision
+        }
+        
+        ship.setVelocity(newVelocity);
+        
+        LOGGER.info("Ship {} collided with terrain, damage: {}, type: {}", 
+                   ship.getName(), damage, damageType);
+    }
+    
+    /**
+     * Handle collision response between two entities.
+     */
+    private void handleEntityEntityCollision(com.odyssey.world.entities.Entity entityA, com.odyssey.world.entities.Entity entityB) {
+        org.joml.Vector3f posA = entityA.getPosition();
+        org.joml.Vector3f posB = entityB.getPosition();
+        org.joml.Vector3f velA = entityA.getVelocity();
+        org.joml.Vector3f velB = entityB.getVelocity();
+        
+        float massA = entityA.getMass();
+        float massB = entityB.getMass();
+        
+        // Calculate collision normal
+        org.joml.Vector3f collisionNormal = new org.joml.Vector3f(posB).sub(posA).normalize();
+        
+        // Calculate relative velocity
+        org.joml.Vector3f relativeVelocity = new org.joml.Vector3f(velA).sub(velB);
+        float relativeSpeed = relativeVelocity.dot(collisionNormal);
+        
+        // Don't resolve if objects are separating
+        if (relativeSpeed > 0) return;
+        
+        // Calculate collision impulse
+        float restitution = 0.5f; // Entities bounce more than ships
+        float impulse = -(1 + restitution) * relativeSpeed / (1/massA + 1/massB);
+        
+        // Apply impulse to velocities
+        org.joml.Vector3f impulseVector = new org.joml.Vector3f(collisionNormal).mul(impulse);
+        velA.add(new org.joml.Vector3f(impulseVector).div(massA));
+        velB.sub(new org.joml.Vector3f(impulseVector).div(massB));
+        
+        entityA.setVelocity(velA);
+        entityB.setVelocity(velB);
+        
+        // Apply collision damage if entities support it
+        float collisionEnergy = 0.5f * (massA * massB) / (massA + massB) * relativeSpeed * relativeSpeed;
+        float damage = collisionEnergy * 0.01f;
+        
+        // Apply damage through force (entities handle this in applyForce method)
+        entityA.applyForce(new org.joml.Vector3f(collisionNormal).mul(-damage));
+        entityB.applyForce(new org.joml.Vector3f(collisionNormal).mul(damage));
+    }
+    
+    /**
+     * Check if collision with chunk involves reef/rocks.
+     * This is a simplified check - in a full implementation, 
+     * this would examine the chunk's block composition.
+     */
+    private boolean isReefCollision(com.odyssey.world.Chunk chunk, org.joml.Vector3f position) {
+        // Simplified reef detection - in reality would check chunk blocks
+        // For now, assume chunks near water surface with solid blocks are reefs
+        return position.y < 5.0f; // Shallow water collision likely reef
+    }
+    
+    /**
+     * Perform broad-phase collision detection to find potential collision pairs.
+     * This method should be called before detailed collision checking.
+     */
+    public java.util.List<CollisionPair> broadPhaseCollisionDetection(java.util.List<Object> objects) {
+        java.util.List<CollisionPair> potentialCollisions = new java.util.ArrayList<>();
+        
+        // Simple O(n²) broad phase - could be optimized with spatial partitioning
+        for (int i = 0; i < objects.size(); i++) {
+            for (int j = i + 1; j < objects.size(); j++) {
+                Object objA = objects.get(i);
+                Object objB = objects.get(j);
+                
+                if (couldCollide(objA, objB)) {
+                    potentialCollisions.add(new CollisionPair(objA, objB));
+                }
+            }
+        }
+        
+        return potentialCollisions;
+    }
+    
+    /**
+     * Quick check if two objects could potentially collide based on distance.
+     */
+    private boolean couldCollide(Object objA, Object objB) {
+        org.joml.Vector3f posA = getObjectPosition(objA);
+        org.joml.Vector3f posB = getObjectPosition(objB);
+        
+        if (posA == null || posB == null) return false;
+        
+        float radiusA = getObjectRadius(objA);
+        float radiusB = getObjectRadius(objB);
+        
+        float distance = posA.distance(posB);
+        float combinedRadius = radiusA + radiusB;
+        
+        // Add some margin for fast-moving objects
+        return distance < combinedRadius * 1.5f;
+    }
+    
+    /**
+     * Get position of any supported object type.
+     */
+    private org.joml.Vector3f getObjectPosition(Object obj) {
+        if (obj instanceof com.odyssey.ship.Ship) {
+            return ((com.odyssey.ship.Ship) obj).getPosition();
+        } else if (obj instanceof com.odyssey.world.entities.Entity) {
+            return ((com.odyssey.world.entities.Entity) obj).getPosition();
+        }
+        return null;
+    }
+    
+    /**
+     * Get bounding radius of any supported object type.
+     */
+    private float getObjectRadius(Object obj) {
+        if (obj instanceof com.odyssey.ship.Ship) {
+            com.odyssey.ship.Ship ship = (com.odyssey.ship.Ship) obj;
+            return Math.max(ship.getShipType().getLength(), ship.getShipType().getWidth()) * 0.5f;
+        } else if (obj instanceof com.odyssey.world.entities.Entity) {
+            return ((com.odyssey.world.entities.Entity) obj).getBoundingRadius();
+        }
+        return 1.0f; // Default radius
+    }
+    
+    /**
+     * Represents a potential collision pair for broad-phase detection.
+     */
+    public static class CollisionPair {
+        public final Object objectA;
+        public final Object objectB;
+        
+        public CollisionPair(Object objectA, Object objectB) {
+            this.objectA = objectA;
+            this.objectB = objectB;
+        }
+    }
+    
+    /**
      * Clean up resources.
      */
     public void cleanup() {
@@ -315,5 +606,23 @@ public class PhysicsEngine {
         
         initialized = false;
         LOGGER.info("PhysicsEngine cleanup complete");
+    }
+    
+    /**
+     * Gets the number of active physics objects being simulated
+     */
+    public int getActiveObjectCount() {
+        // For now, return a placeholder value
+        // In a full implementation, this would track all physics objects
+        return 0;
+    }
+    
+    /**
+     * Gets the total number of physics simulation steps performed
+     */
+    public long getStepCount() {
+        // For now, return a placeholder value
+        // In a full implementation, this would track simulation steps
+        return 0;
     }
 }

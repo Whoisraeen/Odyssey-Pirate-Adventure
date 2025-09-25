@@ -5,86 +5,62 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d108f4bf-3e08-4c61-ba9a-34aa8d8b54fa" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/compiler.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/compiler.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.vscode/settings.json" beforeDir="false" afterPath="$PROJECT_DIR$/.vscode/settings.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/dependency-reduced-pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/dependency-reduced-pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/pom.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/audio/AudioEngine.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/audio/AudioEngine.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/core/GameConfig.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/core/GameConfig.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/core/GameEngine.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/core/GameEngine.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/core/GameState.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/core/GameState.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/input/GameAction.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/input/GameAction.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/input/InputManager.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/input/InputManager.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/networking/NetworkManager.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/networking/NetworkManager.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/physics/OceanPhysics.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/physics/OceanPhysics.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/physics/PhysicsEngine.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/physics/PhysicsEngine.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/rendering/Camera.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/rendering/Camera.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/rendering/RenderEngine.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/rendering/RenderEngine.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/rendering/Renderer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/rendering/Renderer.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/rendering/ShaderManager.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/rendering/ShaderManager.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/rendering/TextRenderer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/rendering/TextRenderer.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/ship/Ship.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/ship/Ship.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/ship/ShipBuilder.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/ship/ShipBuilder.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/ship/ShipComponent.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/ship/ShipComponent.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/ship/ShipPhysics.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/ship/ShipPhysics.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/ship/components/CannonComponent.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/ship/components/CannonComponent.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/ship/components/SailComponent.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/ship/components/SailComponent.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/ui/MainMenu.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/ui/MainMenu.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/world/Chunk.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/world/Chunk.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/world/ChunkMeshBuilder.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/world/ChunkMeshBuilder.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/world/TradeRoute.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/world/TradeRoute.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/world/World.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/world/World.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/OdysseyGame.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/OdysseyGame.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/world/WorldGenerator.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/world/WorldGenerator.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/world/WorldManager.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/world/WorldManager.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/world/noise/NoiseGenerator.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/world/noise/NoiseGenerator.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/world/terrain/TerrainGenerator.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/world/terrain/TerrainGenerator.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/world/weather/WeatherSystem.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/world/weather/WeatherSystem.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/resources/config/default.properties" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/resources/config/default.properties" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/audio/AudioEngine.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/audio/AudioEngine.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/core/GameConfig.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/core/GameConfig.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/core/GameEngine$1.class" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/core/GameEngine.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/core/GameEngine.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/core/GameState.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/core/GameState.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/core/ResourceManager$ResourceStats.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/core/ResourceManager$ResourceStats.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/core/ResourceManager.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/core/ResourceManager.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/core/StateManager$1.class" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/core/StateManager.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/core/StateManager.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/economy/Currency.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/economy/Currency.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/input/ControllerAxis.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/input/ControllerAxis.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/input/ControllerButton.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/input/ControllerButton.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/input/DeviceType.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/input/DeviceType.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/input/GameAction.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/input/GameAction.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/input/InputManager$1.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/input/InputManager$InputDispatcher.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/input/InputManager$InputDispatcher.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/input/InputManager.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/input/InputManager.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/networking/NetworkManager.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/networking/NetworkManager.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/physics/FluidDynamics$FluidCell.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/physics/FluidDynamics$FluidCell.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/physics/FluidDynamics$FluidData.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/physics/FluidDynamics$FluidData.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/physics/FluidDynamics.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/physics/FluidDynamics.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/physics/OceanPhysics$ChunkCoordinate.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/physics/OceanPhysics$ChunkCoordinate.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/physics/OceanPhysics$WaterChunk.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/physics/OceanPhysics$WaterChunk.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/physics/OceanPhysics$WaveComponent.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/physics/OceanPhysics$WaveComponent.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/physics/OceanPhysics.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/physics/OceanPhysics.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/physics/PhysicsEngine.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/physics/PhysicsEngine.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/physics/WaveSystem$Wave.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/physics/WaveSystem$Wave.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/physics/WaveSystem$WaveType.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/physics/WaveSystem$WaveType.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/physics/WaveSystem.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/physics/WaveSystem.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/render/Window$WindowResizeCallback.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/render/Window$WindowResizeCallback.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/render/Window.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/render/Window.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Camera$CameraMode.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Camera$CameraMode.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Camera.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Camera.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Framebuffer$Builder.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Framebuffer$Builder.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Framebuffer$ColorAttachment.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Framebuffer$ColorAttachment.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Framebuffer$DepthAttachment$Type.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Framebuffer$DepthAttachment$Type.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Framebuffer$DepthAttachment.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Framebuffer$DepthAttachment.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Framebuffer$Presets.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Framebuffer$Presets.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Framebuffer.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Framebuffer.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/FramebufferManager.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/FramebufferManager.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Material$BlendMode.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Material$BlendMode.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Material$Builder.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Material$Builder.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Material$CullMode.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Material$CullMode.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Material$DepthTest.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Material$DepthTest.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Material$MaterialType.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Material$MaterialType.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Material$Presets.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Material$Presets.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Material.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Material.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Mesh$Builder.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Mesh$Builder.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Mesh$VertexAttribute.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Mesh$VertexAttribute.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Mesh.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Mesh.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/MeshManager.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/MeshManager.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/RenderCommand$Builder.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/RenderCommand$Builder.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/RenderCommand$RenderQueue.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/RenderCommand$RenderQueue.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/RenderCommand.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/RenderCommand.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/RenderEngine.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/RenderEngine.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Renderer$1.class" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Renderer.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Renderer.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Shader.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Shader.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/ShaderManager$ShaderSource.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/ShaderManager$ShaderSource.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/ShaderManager.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/ShaderManager.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Texture.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Texture.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/TextureManager.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/TextureManager.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/ComponentType$ComponentCategory.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/ship/ComponentType$ComponentCategory.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/ComponentType$ComponentSlot.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/ship/ComponentType$ComponentSlot.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/ComponentType.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/ship/ComponentType.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/DamageType$1.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/DamageType$DamageCategory.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/ship/DamageType$DamageCategory.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/DamageType.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/ship/DamageType.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/Ship$DamagePoint.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/ship/Ship$DamagePoint.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/Ship.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/ship/Ship.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/ShipBuilder$1.class" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/ShipBuilder$ComponentTemplate.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/ship/ShipBuilder$ComponentTemplate.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/ShipBuilder$ShipPreview.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/ship/ShipBuilder$ShipPreview.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/ShipBuilder$ShipTemplate.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/ship/ShipBuilder$ShipTemplate.class" afterDir="false" />
@@ -92,140 +68,26 @@
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/ShipComponent$ComponentInfo.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/ship/ShipComponent$ComponentInfo.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/ShipComponent.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/ship/ShipComponent.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/ShipPhysics.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/ship/ShipPhysics.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/ShipType$1.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/ShipType$ShipClass.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/ship/ShipType$ShipClass.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/ShipType.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/ship/ShipType.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/components/CannonComponent$1.class" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/components/CannonComponent$AmmoType.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/ship/components/CannonComponent$AmmoType.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/components/CannonComponent$CannonType.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/ship/components/CannonComponent$CannonType.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/components/CannonComponent.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/ship/components/CannonComponent.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/components/EngineComponent$1.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/components/EngineComponent$EngineType.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/ship/components/EngineComponent$EngineType.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/components/EngineComponent$FuelType.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/ship/components/EngineComponent$FuelType.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/components/EngineComponent.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/ship/components/EngineComponent.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/components/HullComponent$1.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/components/HullComponent$HullMaterial.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/ship/components/HullComponent$HullMaterial.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/components/HullComponent$HullSection.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/ship/components/HullComponent$HullSection.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/components/HullComponent$HullSectionType.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/ship/components/HullComponent$HullSectionType.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/components/HullComponent.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/ship/components/HullComponent.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/components/SailComponent$1.class" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/components/SailComponent$SailType.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/ship/components/SailComponent$SailType.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/ship/components/SailComponent.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/ship/components/SailComponent.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/util/Logger.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/util/Logger.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/util/MathUtils.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/util/MathUtils.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/util/NoiseGenerator.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/util/NoiseGenerator.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/util/Timer.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/util/Timer.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/BiomeType.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/BiomeType.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/Block$BlockType.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/Block$BlockType.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/Block.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/Block.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/Chunk.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/Chunk.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/ChunkMeshBuilder$MeshData.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/ChunkMeshBuilder$MeshData.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/ChunkMeshBuilder.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/ChunkMeshBuilder.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/FeatureType$FeatureCategory.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/FeatureType$FeatureCategory.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/FeatureType.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/FeatureType.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/Hazard$1.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/Hazard$DetectionMethod.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/Hazard$DetectionMethod.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/Hazard.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/Hazard.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/HazardSeverity$1.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/HazardSeverity$NewsPriority.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/HazardSeverity$NewsPriority.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/HazardSeverity.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/HazardSeverity.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/HazardType$FalloffPattern$1.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/HazardType$FalloffPattern$1.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/HazardType$FalloffPattern$2.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/HazardType$FalloffPattern$2.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/HazardType$FalloffPattern$3.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/HazardType$FalloffPattern$3.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/HazardType$FalloffPattern.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/HazardType$FalloffPattern.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/HazardType$HazardRarity.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/HazardType$HazardRarity.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/HazardType$IntensityPattern.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/HazardType$IntensityPattern.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/HazardType$ThreatLevel.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/HazardType$ThreatLevel.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/HazardType.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/HazardType.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/Island$1.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/Island$IslandBounds.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/Island$IslandBounds.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/Island.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/Island.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/IslandClimate.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/IslandClimate.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/IslandData.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/IslandData.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/IslandGenerator$1.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/IslandGenerator.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/IslandGenerator.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/IslandShape.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/IslandShape.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/IslandSize.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/IslandSize.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/IslandType.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/IslandType.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/LightingEngine$1.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/LightingEngine$BlockChange.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/LightingEngine$BlockChange.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/LightingEngine$ChunkCoordinate.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/LightingEngine$ChunkCoordinate.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/LightingEngine$LightNode.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/LightingEngine$LightNode.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/LightingEngine$LightUpdateTask.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/LightingEngine$LightUpdateTask.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/LightingEngine.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/LightingEngine.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/OreType$1.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/OreType$Rarity.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/OreType$Rarity.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/OreType.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/OreType.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/StructureType$DangerLevel.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/StructureType$DangerLevel.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/StructureType$StructureCategory.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/StructureType$StructureCategory.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/StructureType$StructureSize.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/StructureType$StructureSize.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/StructureType.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/StructureType.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/TradeEvent$1.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/TradeEvent.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/TradeEvent.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/TradeEventSeverity$1.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/TradeEventSeverity$NewsPriority.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/TradeEventSeverity$NewsPriority.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/TradeEventSeverity.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/TradeEventSeverity.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/TradeEventType$DangerLevel.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/TradeEventType$DangerLevel.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/TradeEventType$EconomicImpact.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/TradeEventType$EconomicImpact.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/TradeEventType$EventRarity.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/TradeEventType$EventRarity.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/TradeEventType$Season.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/TradeEventType$Season.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/TradeEventType.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/TradeEventType.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/TradeGood.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/TradeGood.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/TradeRoute.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/TradeRoute.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/TradeRouteStatus.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/TradeRouteStatus.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/TradeRouteType.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/TradeRouteType.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/VegetationType.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/VegetationType.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/World$RaycastResult.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/World$RaycastResult.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/World.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/World.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/WorldChunk.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/WorldChunk.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/WorldConfig$IslandConfig.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/WorldConfig$IslandConfig.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/WorldConfig$WeatherConfig.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/WorldConfig$WeatherConfig.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/WorldConfig.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/WorldConfig.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/WorldGenerator$1.class" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/WorldGenerator$GenerationStats.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/WorldGenerator$GenerationStats.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/WorldGenerator$NoiseGenerator.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/WorldGenerator$NoiseGenerator.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/WorldGenerator.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/WorldGenerator.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/WorldManager.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/WorldManager.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/feature/CaveFeature$CaveRoom$RoomType.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/feature/CaveFeature$CaveRoom$RoomType.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/feature/CaveFeature$CaveRoom.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/feature/CaveFeature$CaveRoom.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/feature/CaveFeature.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/feature/CaveFeature.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/feature/CoralReef$MarineLife.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/feature/CoralReef$MarineLife.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/feature/CoralReef$ReefType.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/feature/CoralReef$ReefType.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/feature/CoralReef.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/feature/CoralReef.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/feature/Feature.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/feature/Feature.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/feature/LavaTube$TubeType.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/feature/LavaTube$TubeType.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/feature/LavaTube.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/feature/LavaTube.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/feature/OreDeposit$DepositType.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/feature/OreDeposit$DepositType.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/feature/OreDeposit.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/feature/OreDeposit.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/feature/SpringFeature$SpringType.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/feature/SpringFeature$SpringType.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/feature/SpringFeature.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/feature/SpringFeature.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/feature/VolcanicCrater$ActivityLevel.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/feature/VolcanicCrater$ActivityLevel.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/feature/VolcanicCrater.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/feature/VolcanicCrater.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/navigation/NavigationHazard$1.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/navigation/NavigationHazard.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/navigation/NavigationHazard.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/noise/NoiseGenerator.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/noise/NoiseGenerator.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/noise/SimplexNoise.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/noise/SimplexNoise.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/structure/AncientRuins.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/structure/AncientRuins.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/structure/Cave.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/structure/Cave.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/structure/Lighthouse.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/structure/Lighthouse.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/structure/PirateCamp.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/structure/PirateCamp.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/structure/Shipwreck.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/structure/Shipwreck.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/structure/Structure.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/structure/Structure.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/structure/Temple.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/structure/Temple.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/structure/TreasureCave.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/structure/TreasureCave.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/structure/Watchtower.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/structure/Watchtower.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/terrain/TerrainGenerator.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/terrain/TerrainGenerator.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/weather/PrecipitationType.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/weather/PrecipitationType.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/weather/Storm.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/weather/Storm.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/weather/StormType.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/weather/StormType.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/weather/WeatherCell$1.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/weather/WeatherCell.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/weather/WeatherCell.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/weather/WeatherCellType.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/weather/WeatherCellType.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/weather/WeatherCondition.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/weather/WeatherCondition.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/weather/WeatherPattern$PatternType.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/weather/WeatherPattern$PatternType.class" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/weather/WeatherPattern.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/weather/WeatherPattern.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/world/weather/WeatherSystem.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/world/weather/WeatherSystem.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/config/default.properties" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/config/default.properties" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst" beforeDir="false" afterPath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/inputFiles.lst" beforeDir="false" afterPath="$PROJECT_DIR$/target/maven-status/maven-compiler-plugin/compile/default-compile/inputFiles.lst" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -234,6 +96,9 @@
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/pom.xml" root0="SKIP_INSPECTION" />
   </component>
   <component name="ProblemsViewState">
     <option name="selectedTabId" value="ProjectErrors" />
@@ -256,8 +121,12 @@
     "Maven.odyssey-pirate-adventure [org.codehaus.mojo:exec-maven-plugin:3.1.0:java].executor": "Run",
     "Maven.the-odyssey [clean].executor": "Run",
     "Maven.the-odyssey [compile].executor": "Run",
+    "Maven.the-odyssey [install].executor": "Run",
     "Maven.the-odyssey [org.apache.maven.plugins:maven-compiler-plugin:3.11.0:compile].executor": "Run",
+    "Maven.the-odyssey [org.apache.maven.plugins:maven-shade-plugin:3.5.1:help].executor": "Run",
+    "Maven.the-odyssey [org.apache.maven.plugins:maven-shade-plugin:3.5.1:shade].executor": "Run",
     "Maven.the-odyssey [org.codehaus.mojo:exec-maven-plugin:3.1.0:exec].executor": "Run",
+    "Maven.the-odyssey [org.codehaus.mojo:exec-maven-plugin:3.1.0:help].executor": "Run",
     "Maven.the-odyssey [org.codehaus.mojo:exec-maven-plugin:3.1.0:java].executor": "Run",
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",

@@ -68,6 +68,81 @@ public class Chunk {
     }
     
     /**
+     * Propagates block light from light sources throughout the chunk
+     */
+    private void propagateBlockLight() {
+        // Use a simple flood-fill algorithm to propagate light
+        boolean changed = true;
+        int iterations = 0;
+        final int MAX_ITERATIONS = 20; // Prevent infinite loops
+        
+        while (changed && iterations < MAX_ITERATIONS) {
+            changed = false;
+            iterations++;
+            
+            // Iterate through all blocks in the chunk
+            for (int x = 0; x < CHUNK_SIZE; x++) {
+                for (int y = 0; y < CHUNK_HEIGHT; y++) {
+                    for (int z = 0; z < CHUNK_SIZE; z++) {
+                        Block.BlockType block = getBlock(x, y, z);
+                        
+                        // Skip solid blocks that don't emit light
+                        if (block.isOpaque() && block.getLightLevel() == 0) {
+                            continue;
+                        }
+                        
+                        int currentBlockLight = getBlocklight(x, y, z);
+                        int maxNeighborLight = 0;
+                        
+                        // Check all 6 neighbors
+                        int[] dx = {-1, 1, 0, 0, 0, 0};
+                        int[] dy = {0, 0, -1, 1, 0, 0};
+                        int[] dz = {0, 0, 0, 0, -1, 1};
+                        
+                        for (int i = 0; i < 6; i++) {
+                            int nx = x + dx[i];
+                            int ny = y + dy[i];
+                            int nz = z + dz[i];
+                            
+                            // Check bounds
+                            if (nx < 0 || nx >= CHUNK_SIZE || 
+                                ny < 0 || ny >= CHUNK_HEIGHT || 
+                                nz < 0 || nz >= CHUNK_SIZE) {
+                                continue;
+                            }
+                            
+                            Block.BlockType neighborBlock = getBlock(nx, ny, nz);
+                            int neighborLight = getBlocklight(nx, ny, nz);
+                            
+                            // Calculate light reduction based on block opacity
+                            int lightReduction = Math.max(1, neighborBlock.getLightAbsorption());
+                            int propagatedLight = Math.max(0, neighborLight - lightReduction);
+                            
+                            maxNeighborLight = Math.max(maxNeighborLight, propagatedLight);
+                        }
+                        
+                        // Update light level if we found a brighter neighbor
+                        int newLight = Math.max(currentBlockLight, maxNeighborLight);
+                        
+                        // Also consider if this block emits light
+                        newLight = Math.max(newLight, block.getLightLevel());
+                        
+                        if (newLight != currentBlockLight) {
+                            setBlocklight(x, y, z, newLight);
+                            changed = true;
+                        }
+                    }
+                }
+            }
+        }
+        
+        if (iterations >= MAX_ITERATIONS) {
+            Logger.world("Block light propagation reached maximum iterations for chunk ({}, {})", 
+                        chunkX, chunkZ);
+        }
+    }
+
+    /**
      * Gets the block at the specified local coordinates (0-15, 0-255, 0-15)
      */
     public Block.BlockType getBlock(int x, int y, int z) {
@@ -382,7 +457,8 @@ public class Chunk {
             }
         }
         
-        // TODO: Implement block light propagation
+        // Implement block light propagation
+        propagateBlockLight();
         markForRebuild();
     }
     

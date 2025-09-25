@@ -222,11 +222,16 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.13.0</version>
                 <configuration>
-                    <source>25</source>
-                    <target>25</target>
+                    <release>25</release>
                     <compilerArgs>
                         <arg>--enable-preview</arg>
+                        <arg>-Xlint:all</arg>
+                        <arg>-Xlint:-processing</arg>
                     </compilerArgs>
+                    <fork>true</fork>
+                    <executable>C:\Program Files\Java\jdk-25\bin\javac</executable>
+                    <showWarnings>true</showWarnings>
+                    <showDeprecation>true</showDeprecation>
                 </configuration>
             </plugin>
             
@@ -245,10 +250,10 @@
                 <version>3.1.0</version>
                 <configuration>
                     <mainClass>com.odyssey.OdysseyGame</mainClass>
-                    <args>
-                        <arg>--enable-preview</arg>
-                        <arg>--enable-native-access=ALL-UNNAMED</arg>
-                    </args>
+                    <options>
+                        <option>--enable-preview</option>
+                        <option>--enable-native-access=ALL-UNNAMED</option>
+                    </options>
                 </configuration>
                 <executions>
                     <execution>

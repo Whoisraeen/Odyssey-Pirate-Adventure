@@ -1,11 +1,8 @@
 package com.odyssey.physics;
 
 import com.odyssey.util.Logger;
-import com.odyssey.util.Timer;
 import com.odyssey.util.MathUtils;
-import com.odyssey.world.World;
 import com.odyssey.world.Chunk;
-import com.odyssey.world.Block;
 import org.joml.Vector2f;
 import org.joml.Vector3f;
 
@@ -20,8 +17,6 @@ import java.util.ArrayList;
  */
 public class OceanPhysics {
     
-    private final World world;
-    private final Timer timer;
     private final Logger logger;
     
     // Wave system
@@ -53,8 +48,6 @@ public class OceanPhysics {
     private float lastUpdateTime;
     
     public OceanPhysics() {
-        this.world = null;
-        this.timer = null;
         this.logger = Logger.getLogger(OceanPhysics.class);
         this.waveComponents = new ArrayList<>();
         this.waterChunks = new ConcurrentHashMap<>();
@@ -101,18 +94,6 @@ public class OceanPhysics {
         
         // Update currents based on wind
         updateCurrents(dt);
-    }
-    
-    /**
-     * Updates the ocean physics simulation (legacy method)
-     */
-    public void update() {
-        if (timer != null) {
-            float currentTime = timer.getTime();
-            float deltaTime = currentTime - lastUpdateTime;
-            lastUpdateTime = currentTime;
-            update((double) deltaTime);
-        }
     }
     
     /**

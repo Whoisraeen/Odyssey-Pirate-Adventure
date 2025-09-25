@@ -70,6 +70,9 @@ public class GameConfig {
     // Gameplay settings
     private float mouseSensitivity;
     private boolean invertMouseY;
+    private float controllerSensitivity;
+    private boolean invertControllerY;
+    private float controllerDeadzone;
     private float gameSpeed;
     private boolean enableAutosave;
     private int autosaveInterval;
@@ -176,6 +179,9 @@ public class GameConfig {
         // Gameplay defaults
         properties.setProperty("gameplay.mouseSensitivity", "1.0");
         properties.setProperty("gameplay.invertMouseY", "false");
+        properties.setProperty("gameplay.controllerSensitivity", "0.8");
+        properties.setProperty("gameplay.invertControllerY", "false");
+        properties.setProperty("gameplay.controllerDeadzone", "0.15");
         properties.setProperty("gameplay.gameSpeed", "1.0");
         properties.setProperty("gameplay.enableAutosave", "true");
         properties.setProperty("gameplay.autosaveInterval", "300"); // 5 minutes
@@ -233,6 +239,9 @@ public class GameConfig {
         // Gameplay settings
         mouseSensitivity = getFloatProperty("gameplay.mouseSensitivity", 1.0f);
         invertMouseY = getBooleanProperty("gameplay.invertMouseY", false);
+        controllerSensitivity = getFloatProperty("gameplay.controllerSensitivity", 0.8f);
+        invertControllerY = getBooleanProperty("gameplay.invertControllerY", false);
+        controllerDeadzone = getFloatProperty("gameplay.controllerDeadzone", 0.15f);
         gameSpeed = getFloatProperty("gameplay.gameSpeed", 1.0f);
         enableAutosave = getBooleanProperty("gameplay.enableAutosave", true);
         autosaveInterval = getIntProperty("gameplay.autosaveInterval", 300);
@@ -312,6 +321,9 @@ public class GameConfig {
     
     public float getMouseSensitivity() { return mouseSensitivity; }
     public boolean isInvertMouseY() { return invertMouseY; }
+    public float getControllerSensitivity() { return controllerSensitivity; }
+    public boolean isInvertControllerY() { return invertControllerY; }
+    public float getControllerDeadzone() { return controllerDeadzone; }
     public float getGameSpeed() { return gameSpeed; }
     public boolean isEnableAutosave() { return enableAutosave; }
     public int getAutosaveInterval() { return autosaveInterval; }
@@ -415,6 +427,9 @@ public class GameConfig {
         
         properties.setProperty("gameplay.mouseSensitivity", String.valueOf(mouseSensitivity));
         properties.setProperty("gameplay.invertMouseY", String.valueOf(invertMouseY));
+        properties.setProperty("gameplay.controllerSensitivity", String.valueOf(controllerSensitivity));
+        properties.setProperty("gameplay.invertControllerY", String.valueOf(invertControllerY));
+        properties.setProperty("gameplay.controllerDeadzone", String.valueOf(controllerDeadzone));
         properties.setProperty("gameplay.gameSpeed", String.valueOf(gameSpeed));
         properties.setProperty("gameplay.enableAutosave", String.valueOf(enableAutosave));
         properties.setProperty("gameplay.autosaveInterval", String.valueOf(autosaveInterval));

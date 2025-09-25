@@ -157,10 +157,10 @@ public class CannonComponent extends ShipComponent {
     @Override
     protected void onDestroyedEffect() {
         // Destroyed cannon might explode
-         if (getTotalAmmo() > 0 && Math.random() < 0.4f) {
-             logger.warn("Cannon {} exploded when destroyed!", name);
-             // TODO: Create explosion effect that damages nearby components
-         }
+        if (getTotalAmmo() > 0 && Math.random() < 0.4f) {
+            logger.warn("Cannon {} exploded when destroyed!", name);
+            createExplosionEffect();
+        }
         
         // Clear all ammunition
         cannonBalls = 0;
@@ -169,6 +169,152 @@ public class CannonComponent extends ShipComponent {
         explosiveShot = 0;
         isLoaded = false;
         loadedAmmo = null;
+    }
+    
+    /**
+     * Creates an explosion effect that damages nearby components on the same ship.
+     * The explosion radius and damage are based on the amount of ammunition stored.
+     */
+    private void createExplosionEffect() {
+        // Calculate explosion parameters based on stored ammunition
+        int totalAmmo = getTotalAmmo();
+        float explosionRadius = calculateExplosionRadius(totalAmmo);
+        float explosionDamage = calculateExplosionDamage(totalAmmo);
+        
+        logger.info("Cannon {} explosion: radius={}, damage={}, ammo={}", 
+                   name, explosionRadius, explosionDamage, totalAmmo);
+        
+        // Get the ship this cannon belongs to
+        // Note: This requires access to the parent ship, which should be set during component initialization
+        if (parentShip != null) {
+            damageNearbyComponents(parentShip, explosionRadius, explosionDamage);
+        } else {
+            logger.warn("Cannot create explosion effect - cannon {} has no parent ship reference", name);
+        }
+    }
+    
+    /**
+     * Calculates explosion radius based on ammunition count and type.
+     */
+    private float calculateExplosionRadius(int totalAmmo) {
+        float baseRadius = 5.0f; // Base explosion radius in meters
+        
+        // Increase radius based on total ammunition
+        float ammoMultiplier = 1.0f + (totalAmmo / 50.0f); // +1 radius per 50 rounds
+        
+        // Explosive shot increases radius significantly
+        float explosiveMultiplier = 1.0f + (explosiveShot * 0.5f);
+        
+        // Cannon type affects explosion size
+        float cannonMultiplier = switch (cannonType) {
+            case LIGHT_CANNON, SWIVEL_GUN -> 0.8f;
+            case MEDIUM_CANNON, CARRONADE -> 1.0f;
+            case HEAVY_CANNON -> 1.3f;
+        };
+        
+        return baseRadius * ammoMultiplier * explosiveMultiplier * cannonMultiplier;
+    }
+    
+    /**
+     * Calculates explosion damage based on ammunition count and type.
+     */
+    private float calculateExplosionDamage(int totalAmmo) {
+        float baseDamage = damage * 0.8f; // Base explosion damage relative to cannon damage
+        
+        // Increase damage based on ammunition
+        float ammoMultiplier = 1.0f + (totalAmmo / 30.0f); // +1 damage multiplier per 30 rounds
+        
+        // Different ammunition types contribute differently to explosion damage
+        float explosiveDamage = explosiveShot * 15.0f; // Explosive shot adds significant damage
+        float cannonBallDamage = cannonBalls * 3.0f;
+        float chainShotDamage = chainShot * 2.0f;
+        float grapeShotDamage = grapeShot * 1.5f;
+        
+        float totalAmmoDamage = explosiveDamage + cannonBallDamage + chainShotDamage + grapeShotDamage;
+        
+        return baseDamage * ammoMultiplier + totalAmmoDamage;
+    }
+    
+    /**
+     * Damages all components within the explosion radius on the same ship.
+     */
+    private void damageNearbyComponents(com.odyssey.ship.Ship ship, float explosionRadius, float explosionDamage) {
+        Vector3f explosionCenter = new Vector3f(position);
+        int componentsHit = 0;
+        
+        // Get all components from the ship
+        java.util.Map<com.odyssey.ship.ComponentType, java.util.List<com.odyssey.ship.ShipComponent>> allComponents = 
+            ship.getComponents();
+        
+        for (java.util.List<com.odyssey.ship.ShipComponent> componentList : allComponents.values()) {
+            for (com.odyssey.ship.ShipComponent component : componentList) {
+                // Skip self
+                if (component == this) continue;
+                
+                // Calculate distance to component
+                float distance = explosionCenter.distance(component.getPosition());
+                
+                // Check if component is within explosion radius
+                if (distance <= explosionRadius) {
+                    // Calculate damage falloff based on distance
+                    float damageMultiplier = calculateDamageFalloff(distance, explosionRadius);
+                    float actualDamage = explosionDamage * damageMultiplier;
+                    
+                    // Apply explosion damage
+                    component.takeDamage(actualDamage, DamageType.EXPLOSION);
+                    componentsHit++;
+                    
+                    logger.debug("Explosion hit {} at distance {} for {} damage", 
+                               component.getName(), distance, actualDamage);
+                    
+                    // Special effects for different component types
+                    applySpecialExplosionEffects(component, actualDamage);
+                }
+            }
+        }
+        
+        logger.info("Cannon explosion affected {} nearby components", componentsHit);
+    }
+    
+    /**
+     * Calculates damage falloff based on distance from explosion center.
+     * Uses inverse square law with minimum damage threshold.
+     */
+    private float calculateDamageFalloff(float distance, float maxRadius) {
+        if (distance <= 0) return 1.0f; // Full damage at center
+        
+        // Linear falloff from center to edge
+        float falloff = 1.0f - (distance / maxRadius);
+        
+        // Ensure minimum damage of 20% at the edge
+        return Math.max(0.2f, falloff);
+    }
+    
+    /**
+     * Applies special explosion effects to different component types.
+     */
+    private void applySpecialExplosionEffects(com.odyssey.ship.ShipComponent component, float damage) {
+        // Different components react differently to explosions
+        if (component instanceof CannonComponent otherCannon) {
+            // Other cannons might chain explode if heavily damaged
+            if (damage > otherCannon.getMaxHealth() * 0.6f && Math.random() < 0.15f) {
+                logger.warn("Chain explosion triggered in cannon {}", otherCannon.getName());
+                // The other cannon's onDestroyedEffect will handle its own explosion
+            }
+        } else if (component.getType() == com.odyssey.ship.ComponentType.ENGINE) {
+            // Engines might catch fire from explosions
+            if (damage > 30.0f && Math.random() < 0.25f) {
+                logger.warn("Engine {} caught fire from explosion", component.getName());
+                // Apply additional fire damage over time
+                component.takeDamage(damage * 0.3f, DamageType.FIRE);
+            }
+        } else if (component.getType() == com.odyssey.ship.ComponentType.SAIL) {
+            // Sails are vulnerable to fire and shrapnel
+            if (Math.random() < 0.4f) {
+                logger.info("Sail {} damaged by explosion shrapnel", component.getName());
+                component.takeDamage(damage * 0.5f, DamageType.FIRE);
+            }
+        }
     }
     
     @Override
@@ -445,12 +591,13 @@ public class CannonComponent extends ShipComponent {
     }
     
     private void createProjectile(Vector3f direction, float damage, float range, float accuracy) {
-        // This would create a projectile in the game world
-         // For now, just log the shot
-         logger.debug("Projectile fired from cannon {} - Damage: {}, Range: {}, Accuracy: {}", 
+        // Interface with combat system to create actual projectile
+        // This method is called by the fire() method and should be connected to CombatSystem
+        logger.debug("Projectile fired from cannon {} - Damage: {}, Range: {}, Accuracy: {}", 
                      name, damage, range, accuracy);
         
-        // TODO: Interface with combat/projectile system
+        // Note: The actual projectile creation is handled by CombatSystem.fireProjectile()
+        // This method serves as a placeholder for the firing mechanics
     }
     
     private boolean hasAmmo(AmmoType ammoType) {

@@ -148,6 +148,7 @@ public class GameEngine {
             // Initialize load game menu
             LOGGER.info("Initializing load game menu...");
             loadGameMenu = new LoadGameMenu(saveManager, this);
+            loadGameMenu.setTextRenderer(renderEngine.getRenderer().getTextRenderer());
             loadGameMenu.initialize();
             
             // Set up load game menu in render engine

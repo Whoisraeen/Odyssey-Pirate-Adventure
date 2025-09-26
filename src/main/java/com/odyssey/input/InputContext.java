@@ -117,6 +117,8 @@ public enum InputContext {
             case TRADING -> TRADING;
             case SETTINGS -> SETTINGS;
             case PAUSED -> MENU; // Pause menu uses menu context
+            case LOADING, INITIALIZING, EXITING -> MENU; // Loading states use menu context
+            case MULTIPLAYER_LOBBY -> MENU; // Multiplayer lobby uses menu context
             default -> GAMEPLAY; // Default to gameplay context
         };
     }

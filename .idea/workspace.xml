@@ -5,12 +5,22 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="d108f4bf-3e08-4c61-ba9a-34aa8d8b54fa" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/rendering/AmbientOcclusionRenderer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/rendering/AmbientOcclusionRenderer.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/rendering/FramebufferManager.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/rendering/FramebufferManager.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/rendering/PostProcessingRenderer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/rendering/PostProcessingRenderer.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/combat/CombatManager.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/combat/CombatManager.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/combat/Projectile.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/combat/Projectile.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/core/GameEngine.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/core/GameEngine.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/faction/FactionManager.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/faction/FactionManager.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/input/InputContext.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/input/InputContext.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/rendering/RenderEngine.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/rendering/RenderEngine.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/rendering/Renderer.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/rendering/Renderer.java" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/FramebufferManager.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/FramebufferManager.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/rendering/ShaderManager.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/rendering/ShaderManager.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/ui/LoadGameMenu.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/ui/LoadGameMenu.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/com/odyssey/ui/MainMenu.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/com/odyssey/ui/MainMenu.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/core/GameEngine.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/core/GameEngine.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/RenderEngine.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/RenderEngine.class" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Renderer.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/Renderer.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/ShaderManager$ShaderSource.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/ShaderManager$ShaderSource.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/ShaderManager.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/classes/com/odyssey/rendering/ShaderManager.class" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

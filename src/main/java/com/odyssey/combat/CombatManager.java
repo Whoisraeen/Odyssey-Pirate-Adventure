@@ -5,7 +5,6 @@ import com.odyssey.ship.components.CannonComponent;
 import com.odyssey.util.Logger;
 import com.odyssey.util.MathUtils;
 import org.joml.Vector3f;
-import com.odyssey.world.World;
 
 import java.util.List;
 import java.util.ArrayList;
@@ -24,7 +23,6 @@ public class CombatManager {
     private static final Logger logger = Logger.getLogger(CombatManager.class);
     
     private final CombatSystem combatSystem;
-    private final World world;
     private final Map<String, Ship> activeShips;
     private final List<CombatEngagement> activeEngagements;
     
@@ -34,17 +32,14 @@ public class CombatManager {
     private static final float DAMAGE_MULTIPLIER = 1.0f; // Global damage scaling
     
     /**
-     * Creates a new CombatManager for the specified world.
-     * 
-     * @param world The game world where combat takes place
+     * Creates a new CombatManager.
      */
-    public CombatManager(World world) {
-        this.world = world;
+    public CombatManager() {
         this.combatSystem = new CombatSystem();
         this.activeShips = new ConcurrentHashMap<>();
         this.activeEngagements = new ArrayList<>();
         
-        logger.info("CombatManager initialized for world");
+        logger.info("CombatManager initialized");
     }
     
     /**

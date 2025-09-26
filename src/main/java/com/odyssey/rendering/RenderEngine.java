@@ -55,8 +55,9 @@ public class RenderEngine {
             renderer = new Renderer();
             renderer.initialize(width, height);
             
-            // Initialize main menu
+            // Initialize main menu with shared TextRenderer
         mainMenu = new MainMenu();
+        mainMenu.setTextRenderer(renderer.getTextRenderer());
         mainMenu.initialize();
         
         // Initialize load game menu (will be set up later with SaveManager)
@@ -101,6 +102,16 @@ public class RenderEngine {
             case LOADING -> renderer.renderLoadingScreen("Loading...", 0.5f);
             case PAUSED -> renderer.renderPauseMenu();
             case IN_GAME -> renderer.render(world, null);
+            case SETTINGS -> renderer.renderSettingsMenu();
+            case INVENTORY -> renderer.renderInventoryScreen();
+            case SHIP_BUILDER -> renderer.renderShipBuilderInterface();
+            case MAP_VIEW -> renderer.renderMapView();
+            case TRADING -> renderer.renderTradingInterface();
+            case COMBAT -> renderer.renderCombatInterface();
+            case DIALOGUE -> renderer.renderDialogueInterface();
+            case MULTIPLAYER_LOBBY -> renderer.renderMultiplayerLobby();
+            case INITIALIZING -> renderer.renderLoadingScreen("Initializing...", 0.0f);
+            case EXITING -> renderer.renderLoadingScreen("Shutting down...", 1.0f);
             default -> {
                 // Render the world by default for most game states
                 if (world != null) {

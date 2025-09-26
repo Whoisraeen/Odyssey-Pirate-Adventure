@@ -1,6 +1,5 @@
 package com.odyssey.faction;
 
-import com.odyssey.player.Player;
 import com.odyssey.faction.FactionReputation.ReputationAction;
 import java.util.HashMap;
 import java.util.Map;
@@ -215,6 +214,27 @@ public class FactionManager {
                 break;
             case SPECIAL_REWARD:
                 // Offer unique items or services
+                break;
+            case TRADE_OPPORTUNITY:
+                // Exclusive trading opportunities available
+                break;
+            case DIPLOMATIC_MISSION:
+                // Special diplomatic quest available
+                break;
+            case FACTION_WAR:
+                // War declared between factions
+                break;
+            case PEACE_TREATY:
+                // Peace agreement between factions
+                break;
+            case TERRITORY_EXPANSION:
+                // Faction expands their territory
+                break;
+            case RESOURCE_SHORTAGE:
+                // Faction experiences resource problems
+                break;
+            case CELEBRATION:
+                // Faction celebrates a victory or achievement
                 break;
         }
     }

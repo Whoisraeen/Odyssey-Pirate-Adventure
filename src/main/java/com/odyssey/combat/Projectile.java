@@ -111,10 +111,11 @@ public class Projectile {
         Vector3f windForce = new Vector3f(windVelocity).mul(windResistance * deltaTime);
         velocity.add(windForce);
         
-        // Air drag
+        // Air drag or water drag depending on position
         float speed = velocity.length();
         if (speed > 0) {
-            Vector3f dragForce = new Vector3f(velocity).normalize().mul(-speed * speed * 0.01f * deltaTime);
+            float dragCoefficient = position.y <= 0.0f ? waterDrag : 0.01f; // Use waterDrag when in water
+            Vector3f dragForce = new Vector3f(velocity).normalize().mul(-speed * speed * dragCoefficient * deltaTime);
             velocity.add(dragForce);
         }
         

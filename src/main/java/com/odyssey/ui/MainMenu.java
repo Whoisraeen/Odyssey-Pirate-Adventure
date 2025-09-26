@@ -55,7 +55,17 @@ public class MainMenu {
     }
     
     /**
+     * Set the TextRenderer instance to use for rendering text.
+     * 
+     * @param textRenderer The TextRenderer instance from the Renderer
+     */
+    public void setTextRenderer(TextRenderer textRenderer) {
+        this.textRenderer = textRenderer;
+    }
+    
+    /**
      * Initialize the main menu.
+     * Note: TextRenderer should be set via setTextRenderer() before calling this method.
      */
     public void initialize() {
         if (initialized) {
@@ -65,8 +75,10 @@ public class MainMenu {
         
         LOGGER.info("Initializing MainMenu...");
         
-        textRenderer = new TextRenderer();
-        textRenderer.initialize();
+        if (textRenderer == null) {
+            LOGGER.error("TextRenderer not set! Call setTextRenderer() before initialize()");
+            throw new IllegalStateException("TextRenderer must be set before initialization");
+        }
         
         initialized = true;
         LOGGER.info("MainMenu initialized successfully");

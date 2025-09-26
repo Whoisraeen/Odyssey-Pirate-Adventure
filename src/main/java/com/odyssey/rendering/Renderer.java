@@ -80,6 +80,7 @@ public class Renderer {
 
     // Rendering state
     private boolean initialized = false;
+    private boolean renderingWorld = false; // Track whether world content is being rendered
     private int windowWidth;
     private int windowHeight;
     private float aspectRatio;
@@ -366,12 +367,15 @@ public class Renderer {
         // Render all queued commands
         renderQueues();
 
-        // Apply post-processing using the full render method instead of just processScene
-        postProcessingRenderer.render(
-                framebufferManager.getFramebuffer("scene").getColorTexture(0),
-                framebufferManager.getFramebuffer("scene").getDepthTexture(),
-                0 // velocityTexture - not implemented yet, pass 0
-        );
+        // Only apply post-processing if we're rendering world content
+        if (renderingWorld) {
+            // Apply post-processing using the full render method instead of just processScene
+            postProcessingRenderer.render(
+                    framebufferManager.getFramebuffer("scene").getColorTexture(0),
+                    framebufferManager.getFramebuffer("scene").getDepthTexture(),
+                    0 // velocityTexture - not implemented yet, pass 0
+            );
+        }
 
         performanceTimer.endFrame();
         frameCount++;
@@ -511,6 +515,9 @@ public class Renderer {
         if (world == null) {
             return;
         }
+
+        // Set flag to indicate we're rendering world content
+        renderingWorld = true;
 
         // Start frame profiling
         performanceProfiler.startFrame();
@@ -767,6 +774,10 @@ public class Renderer {
             logger.warn("Renderer not initialized, cannot render main menu");
             return;
         }
+        
+        // Set flag to indicate we're rendering UI content, not world
+        renderingWorld = false;
+        
         mainMenu.render(windowWidth, windowHeight);
     }
 
@@ -775,11 +786,18 @@ public class Renderer {
             logger.warn("Renderer not initialized, cannot render load game menu");
             return;
         }
+        
+        // Set flag to indicate we're rendering UI content, not world
+        renderingWorld = false;
+        
         loadGameMenu.render(windowWidth, windowHeight);
     }
 
     public void renderLoadingScreen(String message, float progress) {
         if (!initialized) return;
+
+        // Set flag to indicate we're rendering UI content, not world
+        renderingWorld = false;
 
         glClearColor(0.05f, 0.1f, 0.2f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -795,6 +813,81 @@ public class Renderer {
         // ...
 
         textRenderer.renderText("PAUSED", windowWidth / 2.0f, windowHeight / 2.0f, 2.0f, new float[]{1,1,1}, windowWidth, windowHeight);
+    }
+
+    /**
+     * Renders the settings menu screen
+     */
+    public void renderSettingsMenu() {
+        if (!initialized) return;
+
+        renderingWorld = false;
+
+        glClearColor(0.05f, 0.1f, 0.2f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        textRenderer.renderText("SETTINGS", windowWidth / 2.0f, windowHeight / 2.0f + 100, 2.0f, new float[]{1,1,1}, windowWidth, windowHeight);
+        // Additional settings UI rendering would go here
+    }
+
+    /**
+     * Renders the inventory screen
+     */
+    public void renderInventoryScreen() {
+        if (!initialized) return;
+
+        renderingWorld = false;
+
+        glClearColor(0.05f, 0.1f, 0.2f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        textRenderer.renderText("INVENTORY", windowWidth / 2.0f, windowHeight / 2.0f + 100, 2.0f, new float[]{1,1,1}, windowWidth, windowHeight);
+        // Additional inventory UI rendering would go here
+    }
+
+    /**
+     * Renders the game over screen
+     */
+    public void renderGameOverScreen() {
+        if (!initialized) return;
+
+        renderingWorld = false;
+
+        glClearColor(0.1f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        textRenderer.renderText("GAME OVER", windowWidth / 2.0f, windowHeight / 2.0f, 2.0f, new float[]{1,0,0}, windowWidth, windowHeight);
+        // Additional game over UI rendering would go here
+    }
+
+    /**
+     * Renders the victory screen
+     */
+    public void renderVictoryScreen() {
+        if (!initialized) return;
+
+        renderingWorld = false;
+
+        glClearColor(0.0f, 0.1f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        textRenderer.renderText("VICTORY!", windowWidth / 2.0f, windowHeight / 2.0f, 2.0f, new float[]{0,1,0}, windowWidth, windowHeight);
+        // Additional victory UI rendering would go here
+    }
+
+    /**
+     * Renders the credits screen
+     */
+    public void renderCreditsScreen() {
+        if (!initialized) return;
+
+        renderingWorld = false;
+
+        glClearColor(0.05f, 0.1f, 0.2f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        textRenderer.renderText("CREDITS", windowWidth / 2.0f, windowHeight / 2.0f + 100, 2.0f, new float[]{1,1,1}, windowWidth, windowHeight);
+        // Additional credits UI rendering would go here
     }
 
     public void clearScreen() {
@@ -1182,5 +1275,77 @@ public class Renderer {
      */
     public AdaptiveQualityManager getAdaptiveQualityManager() {
         return adaptiveQualityManager;
+    }
+
+    /**
+     * Render the ship builder interface.
+     */
+    public void renderShipBuilderInterface() {
+        clearScreen();
+        
+        // TODO: Implement ship builder interface rendering
+        // This should render the ship construction UI, component selection, and preview
+        textRenderer.renderText("Ship Builder Interface", 50, windowHeight - 100, 2.0f, new float[]{1.0f, 1.0f, 1.0f}, windowWidth, windowHeight);
+        textRenderer.renderText("Under Construction", 50, windowHeight - 150, 1.0f, new float[]{0.8f, 0.8f, 0.8f}, windowWidth, windowHeight);
+    }
+    
+    /**
+     * Render the map view interface.
+     */
+    public void renderMapView() {
+        clearScreen();
+        
+        // TODO: Implement map view rendering
+        // This should render the world map, discovered islands, and navigation tools
+        textRenderer.renderText("Map View", 50, windowHeight - 100, 2.0f, new float[]{1.0f, 1.0f, 1.0f}, windowWidth, windowHeight);
+        textRenderer.renderText("Under Construction", 50, windowHeight - 150, 1.0f, new float[]{0.8f, 0.8f, 0.8f}, windowWidth, windowHeight);
+    }
+    
+    /**
+     * Render the trading interface.
+     */
+    public void renderTradingInterface() {
+        clearScreen();
+        
+        // TODO: Implement trading interface rendering
+        // This should render merchant inventories, prices, and trade options
+        textRenderer.renderText("Trading Interface", 50, windowHeight - 100, 2.0f, new float[]{1.0f, 1.0f, 1.0f}, windowWidth, windowHeight);
+        textRenderer.renderText("Under Construction", 50, windowHeight - 150, 1.0f, new float[]{0.8f, 0.8f, 0.8f}, windowWidth, windowHeight);
+    }
+    
+    /**
+     * Render the combat interface.
+     */
+    public void renderCombatInterface() {
+        clearScreen();
+        
+        // TODO: Implement combat interface rendering
+        // This should render ship health, crew status, weapon controls, and tactical view
+        textRenderer.renderText("Combat Interface", 50, windowHeight - 100, 2.0f, new float[]{1.0f, 1.0f, 1.0f}, windowWidth, windowHeight);
+        textRenderer.renderText("Under Construction", 50, windowHeight - 150, 1.0f, new float[]{0.8f, 0.8f, 0.8f}, windowWidth, windowHeight);
+    }
+    
+    /**
+     * Render the dialogue interface.
+     */
+    public void renderDialogueInterface() {
+        clearScreen();
+        
+        // TODO: Implement dialogue interface rendering
+        // This should render NPC conversations, dialogue options, and character portraits
+        textRenderer.renderText("Dialogue Interface", 50, windowHeight - 100, 2.0f, new float[]{1.0f, 1.0f, 1.0f}, windowWidth, windowHeight);
+        textRenderer.renderText("Under Construction", 50, windowHeight - 150, 1.0f, new float[]{0.8f, 0.8f, 0.8f}, windowWidth, windowHeight);
+    }
+    
+    /**
+     * Render the multiplayer lobby interface.
+     */
+    public void renderMultiplayerLobby() {
+        clearScreen();
+        
+        // TODO: Implement multiplayer lobby rendering
+        // This should render server list, player list, and connection status
+        textRenderer.renderText("Multiplayer Lobby", 50, windowHeight - 100, 2.0f, new float[]{1.0f, 1.0f, 1.0f}, windowWidth, windowHeight);
+        textRenderer.renderText("Under Construction", 50, windowHeight - 150, 1.0f, new float[]{0.8f, 0.8f, 0.8f}, windowWidth, windowHeight);
     }
 }

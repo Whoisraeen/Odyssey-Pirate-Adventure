@@ -41,6 +41,15 @@ public class ShaderManager {
     public static final String SHADOW_SHADER = "shadow";
     public static final String POST_PROCESS_SHADER = "post_process";
     
+    // Post-processing shader names
+    public static final String BLOOM_EXTRACT_SHADER = "bloom_extract";
+    public static final String BLOOM_BLUR_SHADER = "bloom_blur";
+    public static final String BLOOM_COMBINE_SHADER = "bloom_combine";
+    public static final String TONE_MAPPING_SHADER = "tone_mapping";
+    public static final String DEPTH_OF_FIELD_SHADER = "depth_of_field";
+    public static final String MOTION_BLUR_SHADER = "motion_blur";
+    public static final String TAA_SHADER = "taa";
+    
     /**
      * Container for shader source code.
      */
@@ -120,6 +129,19 @@ public class ShaderManager {
         loadShader("pbr", "src/main/resources/shaders/pbr.vert", "src/main/resources/shaders/pbr.frag");
         loadShader("csm_shadow", "src/main/resources/shaders/csm_shadow.vert", "src/main/resources/shaders/csm_shadow.frag");
         loadShader("csm_pbr", "src/main/resources/shaders/pbr.vert", "src/main/resources/shaders/csm_pbr.frag");
+        
+        // Load bloom shaders
+        loadShader("bloom_extract", "src/main/resources/shaders/bloom_extract.vert", "src/main/resources/shaders/bloom_extract.frag");
+        loadShader("bloom_blur", "src/main/resources/shaders/bloom_blur.vert", "src/main/resources/shaders/bloom_blur.frag");
+        loadShader("bloom_combine", "src/main/resources/shaders/bloom_combine.vert", "src/main/resources/shaders/bloom_combine.frag");
+        
+        // Load tone mapping shader
+        loadShader("tone_mapping", "src/main/resources/shaders/tone_mapping.vert", "src/main/resources/shaders/tone_mapping.frag");
+        
+        // Load other post-processing shaders
+        loadShader("depth_of_field", "src/main/resources/shaders/depth_of_field.vert", "src/main/resources/shaders/depth_of_field.frag");
+        loadShader("motion_blur", "src/main/resources/shaders/motion_blur.vert", "src/main/resources/shaders/motion_blur.frag");
+        loadShader("taa", "src/main/resources/shaders/taa.vert", "src/main/resources/shaders/taa.frag");
     }
     
     /**

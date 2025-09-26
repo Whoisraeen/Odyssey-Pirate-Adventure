@@ -71,7 +71,17 @@ public class LoadGameMenu {
     }
     
     /**
+     * Set the TextRenderer instance to use for rendering text.
+     * 
+     * @param textRenderer The TextRenderer instance from the Renderer
+     */
+    public void setTextRenderer(TextRenderer textRenderer) {
+        this.textRenderer = textRenderer;
+    }
+    
+    /**
      * Initialize the load game menu.
+     * Note: TextRenderer should be set via setTextRenderer() before calling this method.
      */
     public void initialize() {
         if (initialized) {
@@ -81,8 +91,10 @@ public class LoadGameMenu {
         
         LOGGER.info("Initializing LoadGameMenu...");
         
-        textRenderer = new TextRenderer();
-        textRenderer.initialize();
+        if (textRenderer == null) {
+            LOGGER.error("TextRenderer not set! Call setTextRenderer() before initialize()");
+            throw new IllegalStateException("TextRenderer must be set before initialization");
+        }
         
         refreshSaveList();
         

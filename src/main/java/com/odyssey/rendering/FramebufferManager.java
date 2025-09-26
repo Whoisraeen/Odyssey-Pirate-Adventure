@@ -39,7 +39,7 @@ public class FramebufferManager {
     }
     
     /**
-     * Creates a basic color framebuffer
+     * Creates a basic color framebuffer with normal attachment
      */
     public Framebuffer createColorFramebuffer(String name, int width, int height) {
         if (framebufferCache.containsKey(name)) {
@@ -49,8 +49,9 @@ public class FramebufferManager {
         
         Framebuffer framebuffer = new Framebuffer.Builder()
             .size(width, height)
-            .addColorRGBA8()
-            .depthRbo()
+            .addColorRGBA8()    // Color attachment 0 - main color
+            .addColorRGBA16F()  // Color attachment 1 - normals
+            .depthTexture()
             .build();
             
         framebufferCache.put(name, framebuffer);

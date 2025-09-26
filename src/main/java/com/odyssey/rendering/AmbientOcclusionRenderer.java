@@ -80,11 +80,10 @@ public class AmbientOcclusionRenderer {
     private Shader gtaoShader;
     private Shader bilateralBlurShader;
     
-    // Framebuffers and textures
+    // Framebuffers
     private Framebuffer gBuffer;
     private Framebuffer ssaoBuffer;
     private Framebuffer ssaoBlurBuffer;
-    private Framebuffer ssaoFramebuffer;  // Added missing framebuffer
     private Texture noiseTexture;
 
     // SSAO data
@@ -369,7 +368,17 @@ public class AmbientOcclusionRenderer {
 
         // Render screen-space ambient occlusion
         if (enableSSAO) {
-            switch (currentTechnique) {
+            // Determine technique based on enable flags and current technique
+            AOTechnique techniqueToUse = currentTechnique;
+            if (enableHBAO && currentTechnique == AOTechnique.HBAO) {
+                techniqueToUse = AOTechnique.HBAO;
+            } else if (enableGTAO && currentTechnique == AOTechnique.GTAO) {
+                techniqueToUse = AOTechnique.GTAO;
+            } else if (!enableHBAO && !enableGTAO) {
+                techniqueToUse = AOTechnique.SSAO;
+            }
+            
+            switch (techniqueToUse) {
                 case SSAO:
                     renderSSAO(camera, projectionMatrix, depthTexture, normalTexture);
                     break;
@@ -406,7 +415,7 @@ public class AmbientOcclusionRenderer {
         if (!enableSSAO || ssaoShader == null) return;
         
         // Bind SSAO framebuffer
-        ssaoFramebuffer.bind();
+        ssaoBuffer.bind();
         GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
         
         // Use SSAO shader
@@ -449,7 +458,7 @@ public class AmbientOcclusionRenderer {
         renderFullscreenQuad();
         
         // Unbind framebuffer
-        ssaoFramebuffer.unbind();
+        ssaoBuffer.unbind();
     }
     
     /**
@@ -476,12 +485,12 @@ public class AmbientOcclusionRenderer {
         hbaoShader.setUniform("u_nearPlane", camera.getNearPlane());
         hbaoShader.setUniform("u_farPlane", camera.getFarPlane());
 
-        // Set HBAO parameters
+        // Set HBAO parameters - use constants as fallback if quality settings are not available
         hbaoShader.setUniform("u_radius", SSAO_RADIUS);
         hbaoShader.setUniform("u_bias", HBAO_ANGLE_BIAS);
         hbaoShader.setUniform("u_attenuation", HBAO_ATTENUATION);
-        hbaoShader.setUniform("u_directions", currentQuality.directions);
-        hbaoShader.setUniform("u_steps", currentQuality.steps);
+        hbaoShader.setUniform("u_directions", currentQuality != null ? currentQuality.directions : HBAO_DIRECTIONS);
+        hbaoShader.setUniform("u_steps", currentQuality != null ? currentQuality.steps : HBAO_STEPS);
         hbaoShader.setUniform("u_intensity", ssaoIntensity);
 
         // Set screen parameters
@@ -1310,6 +1319,15 @@ public class AmbientOcclusionRenderer {
     
     public int getSSAOTexture() {
         return ssaoBlurBuffer != null ? ssaoBlurBuffer.getColorTexture(0) : ssaoBuffer.getColorTexture(0);
+    }
+    
+    /**
+     * Gets the G-buffer framebuffer for accessing depth and normal textures.
+     * 
+     * @return The G-buffer framebuffer
+     */
+    public Framebuffer getGBuffer() {
+        return gBuffer;
     }
     
     /**

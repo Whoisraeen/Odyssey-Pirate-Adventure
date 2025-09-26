@@ -187,7 +187,7 @@ public class Renderer {
         waterRenderer = new WaterRenderer();
         aoRenderer = new AmbientOcclusionRenderer();
         textureAtlas = new TextureAtlas();
-        postProcessingRenderer = new PostProcessingRenderer();
+        postProcessingRenderer = new PostProcessingRenderer(shaderManager);
         textRenderer = new TextRenderer();
 
         waterRenderer.initialize(null, null); // Physics systems will be set later
@@ -366,27 +366,12 @@ public class Renderer {
         // Render all queued commands
         renderQueues();
 
-        // Apply post-processing
-        int finalTexture = postProcessingRenderer.processScene(
+        // Apply post-processing using the full render method instead of just processScene
+        postProcessingRenderer.render(
                 framebufferManager.getFramebuffer("scene").getColorTexture(0),
                 framebufferManager.getFramebuffer("scene").getDepthTexture(),
-                0, // velocityTexture - not implemented yet, pass 0
-                performanceTimer.getDeltaTime()
+                0 // velocityTexture - not implemented yet, pass 0
         );
-
-        // Render final texture to screen
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glViewport(0, 0, windowWidth, windowHeight);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        Shader quadShader = shaderManager.getShader("quad");
-        if (quadShader != null) {
-            quadShader.bind();
-            glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, finalTexture);
-
-            renderFullscreenQuad();
-        }
 
         performanceTimer.endFrame();
         frameCount++;
@@ -645,10 +630,11 @@ public class Renderer {
             // Render G-Buffer for SSAO
             aoRenderer.renderGBuffer(currentCamera, projectionMatrix, viewMatrix, opaqueQueue);
 
-            // Render SSAO
-            int depthTexture = framebufferManager.getFramebuffer("scene").getDepthTexture();
-            int normalTexture = framebufferManager.getFramebuffer("scene").getColorTexture(1); // Assuming normal texture is in attachment 1
-            aoRenderer.renderSSAO(currentCamera, projectionMatrix, depthTexture, normalTexture);
+            // Render SSAO using G-buffer textures
+            aoRenderer.renderAO(currentCamera, projectionMatrix, 
+                aoRenderer.getGBuffer().getDepthTexture(),
+                aoRenderer.getGBuffer().getColorTexture(1),
+                framebufferManager.getFramebuffer("scene").getColorTexture(0));
             performanceProfiler.endSection("Ambient Occlusion");
         }
 

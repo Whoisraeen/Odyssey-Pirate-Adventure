@@ -194,11 +194,13 @@ public class PostProcessingRenderer {
     
     /**
      * Creates a new PostProcessingRenderer.
+     * 
+     * @param shaderManager The main shader manager with loaded post-processing shaders
      */
-    public PostProcessingRenderer() {
+    public PostProcessingRenderer(ShaderManager shaderManager) {
         this.processingPasses = new ArrayList<>();
         this.initialized = false;
-        this.shaderManager = new ShaderManager();
+        this.shaderManager = shaderManager;
     }
     
     /**
@@ -401,9 +403,6 @@ public class PostProcessingRenderer {
      */
     private boolean loadShaders() {
         try {
-            // Initialize shader manager
-            shaderManager.initialize();
-            
             // Load bloom shaders
             bloomExtractShader = shaderManager.getShader("bloom_extract");
             if (bloomExtractShader == null) {

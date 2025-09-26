@@ -63,6 +63,30 @@ public class PerformanceProfiler {
     }
     
     /**
+     * Start profiling a specific section
+     * @param name The name of the section to profile
+     */
+    public void startSection(String name) {
+        startProfile(name);
+    }
+    
+    /**
+     * End profiling for a specific section
+     * @param name The name of the section to stop profiling
+     */
+    public void endSection(String name) {
+        endProfile(name);
+    }
+    
+    /**
+     * Cleanup resources used by the performance profiler
+     */
+    public void cleanup() {
+        reset();
+        // Additional cleanup if needed
+    }
+    
+    /**
      * Start profiling a specific operation
      * @param name The name of the operation to profile
      */

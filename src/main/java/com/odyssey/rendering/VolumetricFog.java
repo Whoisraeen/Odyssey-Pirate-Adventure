@@ -1,12 +1,23 @@
 package com.odyssey.rendering;
 
-import org.joml.Matrix4f;
-import org.joml.Vector3f;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL12;
 import org.lwjgl.opengl.GL13;
+import org.lwjgl.opengl.GL15;
+import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.opengl.GL32;
+import org.joml.Matrix4f;
+import org.joml.Vector3f;
 import com.odyssey.util.Logger;
+
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL12.*;
+import static org.lwjgl.opengl.GL13.*;
+import static org.lwjgl.opengl.GL15.*;
+import static org.lwjgl.opengl.GL20.*;
+import static org.lwjgl.opengl.GL30.*;
+import static org.lwjgl.opengl.GL32.*;
 
 /**
  * Advanced volumetric fog renderer using ray-marching with 3D noise textures and light scattering.
@@ -20,7 +31,7 @@ import com.odyssey.util.Logger;
  */
 public class VolumetricFog {
     
-    private static final Logger logger = Logger.getInstance();
+    private static final Logger logger = Logger.getLogger(VolumetricFog.class);
     
     // Rendering resources
     private Shader volumetricFogShader;
@@ -122,8 +133,8 @@ public class VolumetricFog {
         fullscreenQuadVBO = GL30.glGenBuffers();
         
         GL30.glBindVertexArray(fullscreenQuadVAO);
-        GL30.glBindBuffer(GL11.GL_ARRAY_BUFFER, fullscreenQuadVBO);
-        GL30.glBufferData(GL11.GL_ARRAY_BUFFER, quadVertices, GL11.GL_STATIC_DRAW);
+        GL30.glBindBuffer(GL_ARRAY_BUFFER, fullscreenQuadVBO);
+        GL30.glBufferData(GL_ARRAY_BUFFER, quadVertices, GL_STATIC_DRAW);
         
         // Position attribute
         GL30.glEnableVertexAttribArray(0);
@@ -148,16 +159,20 @@ public class VolumetricFog {
         GL11.glTexParameteri(GL32.GL_TEXTURE_3D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
         GL11.glTexParameteri(GL32.GL_TEXTURE_3D, GL11.GL_TEXTURE_WRAP_S, GL11.GL_REPEAT);
         GL11.glTexParameteri(GL32.GL_TEXTURE_3D, GL11.GL_TEXTURE_WRAP_T, GL11.GL_REPEAT);
-        GL11.glTexParameteri(GL32.GL_TEXTURE_3D, GL11.GL_TEXTURE_WRAP_R, GL11.GL_REPEAT);
+        GL11.glTexParameteri(GL32.GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL11.GL_REPEAT);
         
         // Generate 3D Perlin noise data
         byte[] noiseData = new byte[noiseTextureSize * noiseTextureSize * noiseTextureSize];
         generatePerlinNoise3D(noiseData, noiseTextureSize);
         
         // Upload texture data
-        GL32.glTexImage3D(GL32.GL_TEXTURE_3D, 0, GL11.GL_R8, 
+        java.nio.ByteBuffer buffer = org.lwjgl.BufferUtils.createByteBuffer(noiseData.length);
+        buffer.put(noiseData);
+        buffer.flip();
+        
+        GL32.glTexImage3D(GL32.GL_TEXTURE_3D, 0, GL_R8, 
                          noiseTextureSize, noiseTextureSize, noiseTextureSize, 
-                         0, GL11.GL_RED, GL11.GL_UNSIGNED_BYTE, noiseData);
+                         0, GL_RED, GL_UNSIGNED_BYTE, buffer);
         
         GL32.glBindTexture(GL32.GL_TEXTURE_3D, 0);
     }

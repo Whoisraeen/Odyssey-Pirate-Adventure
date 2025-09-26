@@ -29,12 +29,13 @@ public class Texture {
     private int width;
     private int height;
     private int channels;
+    private String filePath;
+    private ByteBuffer imageData; // Store the image data for later access
     private int target;
     private int internalFormat;
     private int format;
     private int type;
     private String name;
-    private String filePath;
     
     // Texture parameters
     private int minFilter = GL_LINEAR_MIPMAP_LINEAR;
@@ -123,6 +124,11 @@ public class Texture {
             
             texture.type = GL_UNSIGNED_BYTE;
             
+            // Store a copy of the image data for later access
+            texture.imageData = BufferUtils.createByteBuffer(imageData.remaining());
+            texture.imageData.put(imageData);
+            texture.imageData.flip();
+            
             // Upload texture data
             glBindTexture(GL_TEXTURE_2D, texture.textureId);
             glTexImage2D(GL_TEXTURE_2D, 0, texture.internalFormat, texture.width, texture.height, 
@@ -138,7 +144,7 @@ public class Texture {
             
             glBindTexture(GL_TEXTURE_2D, 0);
             
-            // Free image data
+            // Free original image data
             STBImage.stbi_image_free(imageData);
             
             logger.info("Loaded texture '{}' ({}x{}, {} channels) from: {}", 
@@ -556,6 +562,16 @@ public class Texture {
     }
     
     /**
+     * Get the stored image data as a ByteBuffer.
+     * This is useful for operations that need access to the raw texture data.
+     * 
+     * @return ByteBuffer containing the image data, or null if not available
+     */
+    public ByteBuffer getByteBuffer() {
+        return imageData;
+    }
+    
+    /**
      * Cleanup texture resources.
      */
     public void cleanup() {
@@ -563,6 +579,11 @@ public class Texture {
             glDeleteTextures(textureId);
             textureId = 0;
             logger.debug("Cleaned up texture: {}", name);
+        }
+        
+        // Clean up stored image data
+        if (imageData != null) {
+            imageData = null;
         }
     }
     

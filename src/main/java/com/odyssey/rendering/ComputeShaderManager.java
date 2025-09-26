@@ -19,7 +19,7 @@ import static org.lwjgl.opengl.GL43.*;
  * Provides optimized implementations for bloom, tone mapping, and other effects
  */
 public class ComputeShaderManager {
-    private static final Logger logger = new Logger(ComputeShaderManager.class);
+    private static final Logger logger = Logger.getLogger(ComputeShaderManager.class);
     
     private Map<String, Integer> computePrograms;
     private Map<String, Integer> computeShaders;

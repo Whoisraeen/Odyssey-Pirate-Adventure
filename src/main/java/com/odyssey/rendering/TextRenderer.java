@@ -10,6 +10,12 @@ import com.odyssey.util.Logger;
 
 import java.nio.ByteBuffer;
 
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL13.*;
+import static org.lwjgl.opengl.GL15.*;
+import static org.lwjgl.opengl.GL20.*;
+import static org.lwjgl.opengl.GL30.*;
+
 /**
  * Text rendering system for The Odyssey.
  * Handles font loading and text rendering using OpenGL.

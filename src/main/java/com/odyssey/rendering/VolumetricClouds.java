@@ -3,10 +3,18 @@ package com.odyssey.rendering;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL12;
 import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.opengl.GL32;
 import com.odyssey.util.Logger;
+
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL12.*;
+import static org.lwjgl.opengl.GL13.*;
+import static org.lwjgl.opengl.GL15.*;
+import static org.lwjgl.opengl.GL30.*;
+import static org.lwjgl.opengl.GL32.*;
 
 /**
  * Advanced volumetric cloud renderer using ray-marching with multiple noise octaves.
@@ -20,7 +28,7 @@ import com.odyssey.util.Logger;
  */
 public class VolumetricClouds {
     
-    private static final Logger logger = Logger.getInstance();
+    private static final Logger logger = Logger.getLogger(VolumetricClouds.class);
     
     // Rendering resources
     private Shader volumetricCloudsShader;
@@ -130,8 +138,8 @@ public class VolumetricClouds {
         fullscreenQuadVBO = GL30.glGenBuffers();
         
         GL30.glBindVertexArray(fullscreenQuadVAO);
-        GL30.glBindBuffer(GL11.GL_ARRAY_BUFFER, fullscreenQuadVBO);
-        GL30.glBufferData(GL11.GL_ARRAY_BUFFER, quadVertices, GL11.GL_STATIC_DRAW);
+        GL30.glBindBuffer(GL_ARRAY_BUFFER, fullscreenQuadVBO);
+        GL30.glBufferData(GL_ARRAY_BUFFER, quadVertices, GL_STATIC_DRAW);
         
         // Position attribute
         GL30.glEnableVertexAttribArray(0);
@@ -166,16 +174,20 @@ public class VolumetricClouds {
         GL11.glTexParameteri(GL32.GL_TEXTURE_3D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
         GL11.glTexParameteri(GL32.GL_TEXTURE_3D, GL11.GL_TEXTURE_WRAP_S, GL11.GL_REPEAT);
         GL11.glTexParameteri(GL32.GL_TEXTURE_3D, GL11.GL_TEXTURE_WRAP_T, GL11.GL_REPEAT);
-        GL11.glTexParameteri(GL32.GL_TEXTURE_3D, GL11.GL_TEXTURE_WRAP_R, GL11.GL_REPEAT);
+        GL11.glTexParameteri(GL32.GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL11.GL_REPEAT);
         
         // Generate Worley noise data for cloud shapes
         byte[] noiseData = new byte[noiseTextureSize * noiseTextureSize * noiseTextureSize * 4];
         generateWorleyNoise3D(noiseData, noiseTextureSize);
         
         // Upload texture data (RGBA format for multiple octaves)
+        java.nio.ByteBuffer buffer = org.lwjgl.BufferUtils.createByteBuffer(noiseData.length);
+        buffer.put(noiseData);
+        buffer.flip();
+        
         GL32.glTexImage3D(GL32.GL_TEXTURE_3D, 0, GL11.GL_RGBA8, 
                          noiseTextureSize, noiseTextureSize, noiseTextureSize, 
-                         0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, noiseData);
+                         0, GL11.GL_RGBA, GL11.GL_UNSIGNED_BYTE, buffer);
         
         GL32.glBindTexture(GL32.GL_TEXTURE_3D, 0);
     }
@@ -192,16 +204,20 @@ public class VolumetricClouds {
         GL11.glTexParameteri(GL32.GL_TEXTURE_3D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
         GL11.glTexParameteri(GL32.GL_TEXTURE_3D, GL11.GL_TEXTURE_WRAP_S, GL11.GL_REPEAT);
         GL11.glTexParameteri(GL32.GL_TEXTURE_3D, GL11.GL_TEXTURE_WRAP_T, GL11.GL_REPEAT);
-        GL11.glTexParameteri(GL32.GL_TEXTURE_3D, GL11.GL_TEXTURE_WRAP_R, GL11.GL_REPEAT);
+        GL11.glTexParameteri(GL32.GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL11.GL_REPEAT);
         
         // Generate Perlin noise data for cloud details
         byte[] noiseData = new byte[noiseTextureSize * noiseTextureSize * noiseTextureSize * 3];
         generatePerlinNoise3D(noiseData, noiseTextureSize);
         
         // Upload texture data (RGB format for 3 octaves)
+        java.nio.ByteBuffer detailBuffer = org.lwjgl.BufferUtils.createByteBuffer(noiseData.length);
+        detailBuffer.put(noiseData);
+        detailBuffer.flip();
+        
         GL32.glTexImage3D(GL32.GL_TEXTURE_3D, 0, GL11.GL_RGB8, 
                          noiseTextureSize, noiseTextureSize, noiseTextureSize, 
-                         0, GL11.GL_RGB, GL11.GL_UNSIGNED_BYTE, noiseData);
+                         0, GL11.GL_RGB, GL11.GL_UNSIGNED_BYTE, detailBuffer);
         
         GL32.glBindTexture(GL32.GL_TEXTURE_3D, 0);
     }
@@ -223,10 +239,15 @@ public class VolumetricClouds {
         byte[] weatherData = new byte[weatherTextureSize * weatherTextureSize * 3];
         generateWeatherPattern(weatherData, weatherTextureSize);
         
+        // Create ByteBuffer for texture upload
+        java.nio.ByteBuffer weatherBuffer = org.lwjgl.BufferUtils.createByteBuffer(weatherData.length);
+        weatherBuffer.put(weatherData);
+        weatherBuffer.flip();
+        
         // Upload texture data (RGB: coverage, type, wetness)
         GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RGB8, 
                          weatherTextureSize, weatherTextureSize, 
-                         0, GL11.GL_RGB, GL11.GL_UNSIGNED_BYTE, weatherData);
+                         0, GL11.GL_RGB, GL11.GL_UNSIGNED_BYTE, weatherBuffer);
         
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
     }
@@ -248,10 +269,15 @@ public class VolumetricClouds {
         byte[] curlData = new byte[weatherTextureSize * weatherTextureSize * 2];
         generateCurlNoise(curlData, weatherTextureSize);
         
+        // Create ByteBuffer for texture upload
+        java.nio.ByteBuffer curlBuffer = org.lwjgl.BufferUtils.createByteBuffer(curlData.length);
+        curlBuffer.put(curlData);
+        curlBuffer.flip();
+        
         // Upload texture data (RG: curl vector field)
-        GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL11.GL_RG8, 
+        GL11.glTexImage2D(GL11.GL_TEXTURE_2D, 0, GL_RG8, 
                          weatherTextureSize, weatherTextureSize, 
-                         0, GL11.GL_RG, GL11.GL_UNSIGNED_BYTE, curlData);
+                         0, GL_RG, GL11.GL_UNSIGNED_BYTE, curlBuffer);
         
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, 0);
     }

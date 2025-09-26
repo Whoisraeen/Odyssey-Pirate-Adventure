@@ -84,12 +84,19 @@ public class AmbientOcclusionRenderer {
     private Framebuffer gBuffer;
     private Framebuffer ssaoBuffer;
     private Framebuffer ssaoBlurBuffer;
+    private Framebuffer ssaoFramebuffer;  // Added missing framebuffer
     private Texture noiseTexture;
-    
+
     // SSAO data
     private FloatBuffer ssaoKernel;
     private FloatBuffer ssaoNoise;
     
+    // SSAO parameters (instance variables for dynamic adjustment)
+    private float ssaoRadius = SSAO_RADIUS;
+    private float ssaoBias = SSAO_BIAS;
+    private int ssaoKernelSize = SSAO_KERNEL_SIZE;
+    private float ssaoPower = SSAO_POWER;
+
     // Voxel AO cache
     private Map<Vector3i, Float> voxelAOCache;
     private int maxCacheSize = 10000;
@@ -389,59 +396,60 @@ public class AmbientOcclusionRenderer {
     }
     
     /**
-     * Renders screen-space ambient occlusion.
-     * 
-     * @param projectionMatrix Projection matrix
+     * Renders Screen Space Ambient Occlusion
+     * @param camera The camera for view calculations
+     * @param projectionMatrix The projection matrix
+     * @param depthTexture The depth texture ID
+     * @param normalTexture The normal texture ID
      */
-    public void renderSSAO(Matrix4f projectionMatrix) {
-        if (!enableSSAO || ssaoShader == null || ssaoBuffer == null) {
-            return;
-        }
+    public void renderSSAO(Camera camera, Matrix4f projectionMatrix, int depthTexture, int normalTexture) {
+        if (!enableSSAO || ssaoShader == null) return;
         
-        // Bind SSAO buffer
-        ssaoBuffer.bind();
-        glClear(GL_COLOR_BUFFER_BIT);
+        // Bind SSAO framebuffer
+        ssaoFramebuffer.bind();
+        GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
         
-        // Bind SSAO shader
-        ssaoShader.bind();
+        // Use SSAO shader
+        ssaoShader.use();
         
         // Set uniforms
-        ssaoShader.setUniform("u_ProjectionMatrix", projectionMatrix);
-        ssaoShader.setUniform("u_SSAORadius", SSAO_RADIUS);
-        ssaoShader.setUniform("u_SSAOBias", SSAO_BIAS);
-        ssaoShader.setUniform("u_SSAOPower", SSAO_POWER);
-        ssaoShader.setUniform("u_SSAOIntensity", ssaoIntensity);
-        ssaoShader.setUniform("u_ScreenSize", new Vector2f((float) screenWidth, (float) screenHeight));
+        ssaoShader.setMatrix4f("projectionMatrix", projectionMatrix);
+        ssaoShader.setMatrix4f("viewMatrix", camera.getViewMatrix());
+        ssaoShader.setFloat("radius", ssaoRadius);
+        ssaoShader.setFloat("bias", ssaoBias);
+        ssaoShader.setInt("kernelSize", ssaoKernelSize);
+        ssaoShader.setFloat("power", ssaoPower);
         
         // Bind textures
-        glActiveTexture(GL_TEXTURE0);
-        gBuffer.bindColorTexture(0, 0);
-        ssaoShader.setUniform("u_PositionTexture", 0);
+        GL13.glActiveTexture(GL13.GL_TEXTURE0);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, depthTexture);
+        ssaoShader.setInt("depthTexture", 0);
         
-        glActiveTexture(GL_TEXTURE1);
-        gBuffer.bindColorTexture(1, 1);
-        ssaoShader.setUniform("u_NormalTexture", 1);
+        GL13.glActiveTexture(GL13.GL_TEXTURE1);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, normalTexture);
+        ssaoShader.setInt("normalTexture", 1);
         
-        glActiveTexture(GL_TEXTURE2);
-        noiseTexture.bind();
-        ssaoShader.setUniform("u_NoiseTexture", 2);
+        GL13.glActiveTexture(GL13.GL_TEXTURE2);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, noiseTexture.getTextureId());
+        ssaoShader.setInt("noiseTexture", 2);
         
         // Set kernel samples
-        for (int i = 0; i < SSAO_KERNEL_SIZE; i++) {
+        int kernelSize = ssaoKernel.capacity() / 3; // Each sample has 3 components (x, y, z)
+        for (int i = 0; i < kernelSize; i++) {
+            int baseIndex = i * 3;
             Vector3f sample = new Vector3f(
-                ssaoKernel.get(i * 3),
-                ssaoKernel.get(i * 3 + 1),
-                ssaoKernel.get(i * 3 + 2)
+                ssaoKernel.get(baseIndex),
+                ssaoKernel.get(baseIndex + 1),
+                ssaoKernel.get(baseIndex + 2)
             );
-            ssaoShader.setUniform("u_Samples[" + i + "]", sample);
+            ssaoShader.setUniform("samples[" + i + "]", sample);
         }
         
         // Render fullscreen quad
         renderFullscreenQuad();
         
-        // Unbind shader and buffer
-        ssaoShader.unbind();
-        Framebuffer.unbind();
+        // Unbind framebuffer
+        ssaoFramebuffer.unbind();
     }
     
     /**
@@ -451,7 +459,7 @@ public class AmbientOcclusionRenderer {
         if (hbaoShader == null) return;
 
         // Bind SSAO framebuffer
-        ssaoFramebuffer.bind();
+        ssaoBuffer.bind();
         GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
         GL11.glViewport(0, 0, screenWidth, screenHeight);
 
@@ -490,7 +498,7 @@ public class AmbientOcclusionRenderer {
         hbaoShader.setUniform("u_normalTexture", 1);
 
         GL13.glActiveTexture(GL13.GL_TEXTURE2);
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, ssaoNoiseTexture);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, noiseTexture.getTextureId());
         hbaoShader.setUniform("u_noiseTexture", 2);
 
         // Render fullscreen quad
@@ -507,7 +515,7 @@ public class AmbientOcclusionRenderer {
         if (gtaoShader == null) return;
 
         // Bind SSAO framebuffer
-        ssaoFramebuffer.bind();
+        ssaoBuffer.bind();
         GL11.glClear(GL11.GL_COLOR_BUFFER_BIT);
         GL11.glViewport(0, 0, screenWidth, screenHeight);
 
@@ -546,7 +554,7 @@ public class AmbientOcclusionRenderer {
         gtaoShader.setUniform("u_normalTexture", 1);
 
         GL13.glActiveTexture(GL13.GL_TEXTURE2);
-        GL11.glBindTexture(GL11.GL_TEXTURE_2D, ssaoNoiseTexture);
+        GL11.glBindTexture(GL11.GL_TEXTURE_2D, noiseTexture.getTextureId());
         gtaoShader.setUniform("u_noiseTexture", 2);
 
         // Render fullscreen quad
@@ -555,7 +563,7 @@ public class AmbientOcclusionRenderer {
         gtaoShader.unbind();
         Framebuffer.unbind();
     }
-     */
+
     private void blurSSAO() {
         if (ssaoBlurShader == null || ssaoBlurBuffer == null) {
             return;
@@ -957,72 +965,290 @@ public class AmbientOcclusionRenderer {
                 "out float FragColor;\n" +
                 "\n" +
                 "void main() {\n" +
-                "    vec2 texelSize = 1.0 / textureSize(u_SSAOTexture, 0);\n" +
+                "    vec2 texelSize = 1.0 / u_ScreenSize;\n" +
                 "    float result = 0.0;\n" +
-                "    float totalWeight = 0.0;\n" +
-                "    vec3 centerPos = texture(u_PositionTexture, v_TexCoord).xyz;\n" +
                 "    \n" +
-                "    for (int x = -2; x < 2; ++x) {\n" +
-                "        for (int y = -2; y < 2; ++y) {\n" +
-                "            vec2 offset = vec2(float(x), float(y)) * texelSize;\n" +
-                "            vec3 samplePos = texture(u_PositionTexture, v_TexCoord + offset).xyz;\n" +
-                "            float depthDiff = abs(centerPos.z - samplePos.z);\n" +
-                "            float weight = exp(-depthDiff * 10.0);\n" +
-                "            result += texture(u_SSAOTexture, v_TexCoord + offset).r * weight;\n" +
+                "    if (u_Horizontal) {\n" +
+                "        for (int i = -2; i <= 2; ++i) {\n" +
+                "            result += texture(u_SSAOTexture, v_TexCoord + vec2(texelSize.x * i, 0.0)).r;\n" +
+                "        }\n" +
+                "        result /= 5.0;\n" +
+                "    } else {\n" +
+                "        for (int i = -2; i <= 2; ++i) {\n" +
+                "            result += texture(u_SSAOTexture, v_TexCoord + vec2(0.0, texelSize.y * i)).r;\n" +
+                "        }\n" +
+                "        result /= 5.0;\n" +
+                "    }\n" +
+                "    \n" +
+                "    FragColor = result;\n" +
+                "}";
+    }
+    
+    /**
+     * Gets the HBAO vertex shader source.
+     */
+    private String getHBAOVertexShader() {
+        return "#version 330 core\n" +
+                "layout (location = 0) in vec2 a_Position;\n" +
+                "layout (location = 1) in vec2 a_TexCoord;\n" +
+                "\n" +
+                "out vec2 v_TexCoord;\n" +
+                "\n" +
+                "void main() {\n" +
+                "    v_TexCoord = a_TexCoord;\n" +
+                "    gl_Position = vec4(a_Position, 0.0, 1.0);\n" +
+                "}";
+    }
+
+    /**
+     * Gets the HBAO fragment shader source.
+     */
+    private String getHBAOFragmentShader() {
+        return "#version 330 core\n" +
+                "in vec2 v_TexCoord;\n" +
+                "\n" +
+                "uniform sampler2D u_PositionTexture;\n" +
+                "uniform sampler2D u_NormalTexture;\n" +
+                "uniform sampler2D u_NoiseTexture;\n" +
+                "uniform mat4 u_ProjectionMatrix;\n" +
+                "uniform float u_HBAORadius;\n" +
+                "uniform float u_HBAOBias;\n" +
+                "uniform float u_HBAOIntensity;\n" +
+                "uniform vec2 u_ScreenSize;\n" +
+                "uniform int u_HBAODirections;\n" +
+                "uniform int u_HBAOSteps;\n" +
+                "\n" +
+                "out float FragColor;\n" +
+                "\n" +
+                "void main() {\n" +
+                "    vec3 position = texture(u_PositionTexture, v_TexCoord).xyz;\n" +
+                "    vec3 normal = normalize(texture(u_NormalTexture, v_TexCoord).xyz);\n" +
+                "    \n" +
+                "    if (length(normal) < 0.1) {\n" +
+                "        FragColor = 1.0;\n" +
+                "        return;\n" +
+                "    }\n" +
+                "    \n" +
+                "    vec2 noiseScale = u_ScreenSize / 4.0;\n" +
+                "    vec3 randomVec = texture(u_NoiseTexture, v_TexCoord * noiseScale).xyz;\n" +
+                "    \n" +
+                "    vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));\n" +
+                "    vec3 bitangent = cross(normal, tangent);\n" +
+                "    mat3 TBN = mat3(tangent, bitangent, normal);\n" +
+                "    \n" +
+                "    float occlusion = 0.0;\n" +
+                "    float angleStep = 6.28318530718 / float(u_HBAODirections);\n" +
+                "    \n" +
+                "    for (int i = 0; i < u_HBAODirections; ++i) {\n" +
+                "        float angle = float(i) * angleStep;\n" +
+                "        vec2 direction = vec2(cos(angle), sin(angle));\n" +
+                "        \n" +
+                "        float maxHorizonAngle = -1.0;\n" +
+                "        \n" +
+                "        for (int j = 1; j <= u_HBAOSteps; ++j) {\n" +
+                "            float stepSize = u_HBAORadius * float(j) / float(u_HBAOSteps);\n" +
+                "            vec2 sampleCoord = v_TexCoord + direction * stepSize / u_ScreenSize;\n" +
+                "            \n" +
+                "            if (sampleCoord.x < 0.0 || sampleCoord.x > 1.0 || sampleCoord.y < 0.0 || sampleCoord.y > 1.0) {\n" +
+                "                break;\n" +
+                "            }\n" +
+                "            \n" +
+                "            vec3 samplePos = texture(u_PositionTexture, sampleCoord).xyz;\n" +
+                "            vec3 sampleDir = samplePos - position;\n" +
+                "            float sampleLength = length(sampleDir);\n" +
+                "            \n" +
+                "            if (sampleLength > u_HBAORadius) {\n" +
+                "                break;\n" +
+                "            }\n" +
+                "            \n" +
+                "            sampleDir /= sampleLength;\n" +
+                "            float horizonAngle = dot(sampleDir, normal);\n" +
+                "            \n" +
+                "            if (horizonAngle > maxHorizonAngle + u_HBAOBias) {\n" +
+                "                maxHorizonAngle = horizonAngle;\n" +
+                "            }\n" +
+                "        }\n" +
+                "        \n" +
+                "        occlusion += max(0.0, maxHorizonAngle);\n" +
+                "    }\n" +
+                "    \n" +
+                "    occlusion /= float(u_HBAODirections);\n" +
+                "    occlusion = 1.0 - occlusion * u_HBAOIntensity;\n" +
+                "    \n" +
+                "    FragColor = occlusion;\n" +
+                "}";
+    }
+
+    /**
+     * Gets the GTAO vertex shader source.
+     */
+    private String getGTAOVertexShader() {
+        return "#version 330 core\n" +
+                "layout (location = 0) in vec2 a_Position;\n" +
+                "layout (location = 1) in vec2 a_TexCoord;\n" +
+                "\n" +
+                "out vec2 v_TexCoord;\n" +
+                "\n" +
+                "void main() {\n" +
+                "    v_TexCoord = a_TexCoord;\n" +
+                "    gl_Position = vec4(a_Position, 0.0, 1.0);\n" +
+                "}";
+    }
+
+    /**
+     * Gets the GTAO fragment shader source.
+     */
+    private String getGTAOFragmentShader() {
+        return "#version 330 core\n" +
+                "in vec2 v_TexCoord;\n" +
+                "\n" +
+                "uniform sampler2D u_PositionTexture;\n" +
+                "uniform sampler2D u_NormalTexture;\n" +
+                "uniform sampler2D u_NoiseTexture;\n" +
+                "uniform mat4 u_ProjectionMatrix;\n" +
+                "uniform float u_GTAORadius;\n" +
+                "uniform float u_GTAOBias;\n" +
+                "uniform float u_GTAOIntensity;\n" +
+                "uniform vec2 u_ScreenSize;\n" +
+                "uniform int u_GTAOSlices;\n" +
+                "uniform int u_GTAOSteps;\n" +
+                "\n" +
+                "out float FragColor;\n" +
+                "\n" +
+                "const float PI = 3.14159265359;\n" +
+                "\n" +
+                "void main() {\n" +
+                "    vec3 position = texture(u_PositionTexture, v_TexCoord).xyz;\n" +
+                "    vec3 normal = normalize(texture(u_NormalTexture, v_TexCoord).xyz);\n" +
+                "    \n" +
+                "    if (length(normal) < 0.1) {\n" +
+                "        FragColor = 1.0;\n" +
+                "        return;\n" +
+                "    }\n" +
+                "    \n" +
+                "    vec2 noiseScale = u_ScreenSize / 4.0;\n" +
+                "    vec3 randomVec = texture(u_NoiseTexture, v_TexCoord * noiseScale).xyz;\n" +
+                "    \n" +
+                "    vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));\n" +
+                "    vec3 bitangent = cross(normal, tangent);\n" +
+                "    mat3 TBN = mat3(tangent, bitangent, normal);\n" +
+                "    \n" +
+                "    float occlusion = 0.0;\n" +
+                "    float sliceAngle = 2.0 * PI / float(u_GTAOSlices);\n" +
+                "    \n" +
+                "    for (int i = 0; i < u_GTAOSlices; ++i) {\n" +
+                "        float angle = float(i) * sliceAngle;\n" +
+                "        vec2 sliceDir = vec2(cos(angle), sin(angle));\n" +
+                "        \n" +
+                "        float maxAngle = -PI;\n" +
+                "        \n" +
+                "        for (int j = 1; j <= u_GTAOSteps; ++j) {\n" +
+                "            float stepSize = u_GTAORadius * float(j) / float(u_GTAOSteps);\n" +
+                "            vec2 sampleCoord = v_TexCoord + sliceDir * stepSize / u_ScreenSize;\n" +
+                "            \n" +
+                "            if (sampleCoord.x < 0.0 || sampleCoord.x > 1.0 || sampleCoord.y < 0.0 || sampleCoord.y > 1.0) {\n" +
+                "                break;\n" +
+                "            }\n" +
+                "            \n" +
+                "            vec3 samplePos = texture(u_PositionTexture, sampleCoord).xyz;\n" +
+                "            vec3 sampleDir = samplePos - position;\n" +
+                "            float sampleLength = length(sampleDir);\n" +
+                "            \n" +
+                "            if (sampleLength > u_GTAORadius) {\n" +
+                "                break;\n" +
+                "            }\n" +
+                "            \n" +
+                "            sampleDir /= sampleLength;\n" +
+                "            float sampleAngle = asin(clamp(dot(sampleDir, normal), -1.0, 1.0));\n" +
+                "            \n" +
+                "            if (sampleAngle > maxAngle + u_GTAOBias) {\n" +
+                "                maxAngle = sampleAngle;\n" +
+                "            }\n" +
+                "        }\n" +
+                "        \n" +
+                "        occlusion += sin(maxAngle) - sin(-PI / 2.0);\n" +
+                "    }\n" +
+                "    \n" +
+                "    occlusion /= float(u_GTAOSlices);\n" +
+                "    occlusion = 1.0 - occlusion * u_GTAOIntensity;\n" +
+                "    \n" +
+                "    FragColor = occlusion;\n" +
+                "}";
+    }
+
+    /**
+     * Gets the bilateral blur vertex shader source.
+     */
+    private String getBilateralBlurVertexShader() {
+        return "#version 330 core\n" +
+                "layout (location = 0) in vec2 a_Position;\n" +
+                "layout (location = 1) in vec2 a_TexCoord;\n" +
+                "\n" +
+                "out vec2 v_TexCoord;\n" +
+                "\n" +
+                "void main() {\n" +
+                "    v_TexCoord = a_TexCoord;\n" +
+                "    gl_Position = vec4(a_Position, 0.0, 1.0);\n" +
+                "}";
+    }
+
+    /**
+     * Gets the bilateral blur fragment shader source.
+     */
+    private String getBilateralBlurFragmentShader() {
+        return "#version 330 core\n" +
+                "in vec2 v_TexCoord;\n" +
+                "\n" +
+                "uniform sampler2D u_SSAOTexture;\n" +
+                "uniform sampler2D u_DepthTexture;\n" +
+                "uniform sampler2D u_NormalTexture;\n" +
+                "uniform vec2 u_ScreenSize;\n" +
+                "uniform vec2 u_BlurDirection;\n" +
+                "uniform float u_BlurRadius;\n" +
+                "uniform float u_DepthThreshold;\n" +
+                "uniform float u_NormalThreshold;\n" +
+                "\n" +
+                "out float FragColor;\n" +
+                "\n" +
+                "void main() {\n" +
+                "    vec2 texelSize = 1.0 / u_ScreenSize;\n" +
+                "    \n" +
+                "    float centerDepth = texture(u_DepthTexture, v_TexCoord).r;\n" +
+                "    vec3 centerNormal = texture(u_NormalTexture, v_TexCoord).xyz;\n" +
+                "    float centerAO = texture(u_SSAOTexture, v_TexCoord).r;\n" +
+                "    \n" +
+                "    float totalWeight = 1.0;\n" +
+                "    float totalAO = centerAO;\n" +
+                "    \n" +
+                "    for (int i = 1; i <= int(u_BlurRadius); ++i) {\n" +
+                "        vec2 offset = u_BlurDirection * texelSize * float(i);\n" +
+                "        \n" +
+                "        // Sample in both directions\n" +
+                "        for (int dir = -1; dir <= 1; dir += 2) {\n" +
+                "            vec2 sampleCoord = v_TexCoord + offset * float(dir);\n" +
+                "            \n" +
+                "            if (sampleCoord.x < 0.0 || sampleCoord.x > 1.0 || sampleCoord.y < 0.0 || sampleCoord.y > 1.0) {\n" +
+                "                continue;\n" +
+                "            }\n" +
+                "            \n" +
+                "            float sampleDepth = texture(u_DepthTexture, sampleCoord).r;\n" +
+                "            vec3 sampleNormal = texture(u_NormalTexture, sampleCoord).xyz;\n" +
+                "            float sampleAO = texture(u_SSAOTexture, sampleCoord).r;\n" +
+                "            \n" +
+                "            // Calculate weights based on depth and normal similarity\n" +
+                "            float depthWeight = exp(-abs(centerDepth - sampleDepth) / u_DepthThreshold);\n" +
+                "            float normalWeight = pow(max(0.0, dot(centerNormal, sampleNormal)), u_NormalThreshold);\n" +
+                "            float weight = depthWeight * normalWeight;\n" +
+                "            \n" +
+                "            totalAO += sampleAO * weight;\n" +
                 "            totalWeight += weight;\n" +
                 "        }\n" +
                 "    }\n" +
                 "    \n" +
-                "    FragColor = result / totalWeight;\n" +
-                "}";
-    }
-    
-    private String getVoxelAOVertexShader() {
-        return "#version 330 core\n" +
-                "layout (location = 0) in vec3 a_Position;\n" +
-                "layout (location = 1) in vec2 a_TexCoord;\n" +
-                "layout (location = 2) in vec3 a_Normal;\n" +
-                "layout (location = 3) in float a_AO;\n" +
-                "\n" +
-                "uniform mat4 u_ProjectionMatrix;\n" +
-                "uniform mat4 u_ViewMatrix;\n" +
-                "uniform mat4 u_ModelMatrix;\n" +
-                "\n" +
-                "out vec2 v_TexCoord;\n" +
-                "out vec3 v_Normal;\n" +
-                "out float v_AO;\n" +
-                "\n" +
-                "void main() {\n" +
-                "    v_TexCoord = a_TexCoord;\n" +
-                "    v_Normal = mat3(u_ModelMatrix) * a_Normal;\n" +
-                "    v_AO = a_AO;\n" +
-                "    \n" +
-                "    gl_Position = u_ProjectionMatrix * u_ViewMatrix * u_ModelMatrix * vec4(a_Position, 1.0);\n" +
+                "    FragColor = totalAO / totalWeight;\n" +
                 "}";
     }
 
-    private String getVoxelAOFragmentShader() {
-        return "#version 330 core\n" +
-                "in vec2 v_TexCoord;\n" +
-                "in vec3 v_Normal;\n" +
-                "in float v_AO;\n" +
-                "\n" +
-                "uniform sampler2D u_Texture;\n" +
-                "uniform float u_VoxelAOIntensity;\n" +
-                "\n" +
-                "out vec4 FragColor;\n" +
-                "\n" +
-                "void main() {\n" +
-                "    vec4 texColor = texture(u_Texture, v_TexCoord);\n" +
-                "    \n" +
-                "    // Apply voxel AO\n" +
-                "    float aoFactor = mix(1.0, v_AO, u_VoxelAOIntensity);\n" +
-                "    texColor.rgb *= aoFactor;\n" +
-                "    \n" +
-                "    FragColor = texColor;\n" +
-                "}";
-    }
-    
     // Getters and setters for configuration
     public void setSSAOQuality(SSAOQuality quality) {
         this.currentQuality = quality;
@@ -1130,5 +1356,103 @@ public class AmbientOcclusionRenderer {
         voxelAOCache.clear();
         
         logger.info("Ambient occlusion renderer cleaned up");
+    }
+
+    /**
+     * Returns the vertex shader source for Voxel AO
+     * @return The vertex shader source code
+     */
+    private String getVoxelAOVertexShader() {
+        return """
+            #version 330 core
+            
+            layout (location = 0) in vec3 aPos;
+            layout (location = 1) in vec2 aTexCoord;
+            
+            out vec2 TexCoord;
+            out vec3 WorldPos;
+            
+            uniform mat4 modelMatrix;
+            uniform mat4 viewMatrix;
+            uniform mat4 projectionMatrix;
+            
+            void main() {
+                WorldPos = vec3(modelMatrix * vec4(aPos, 1.0));
+                TexCoord = aTexCoord;
+                
+                gl_Position = projectionMatrix * viewMatrix * vec4(WorldPos, 1.0);
+            }
+            """;
+    }
+
+    /**
+     * Returns the fragment shader source for Voxel AO
+     * @return The fragment shader source code
+     */
+    private String getVoxelAOFragmentShader() {
+        return """
+            #version 330 core
+            
+            in vec2 TexCoord;
+            in vec3 WorldPos;
+            
+            out vec4 FragColor;
+            
+            uniform sampler2D colorTexture;
+            uniform vec3 cameraPos;
+            uniform float aoIntensity;
+            uniform float aoRadius;
+            uniform int aoSamples;
+            
+            // Voxel world uniforms
+            uniform sampler3D voxelTexture;
+            uniform vec3 worldMin;
+            uniform vec3 worldMax;
+            uniform float voxelSize;
+            
+            float calculateVoxelAO(vec3 worldPos, vec3 normal) {
+                float ao = 0.0;
+                int samples = 0;
+                
+                // Sample around the position in a hemisphere
+                for (int i = 0; i < aoSamples; i++) {
+                    float angle = float(i) / float(aoSamples) * 6.28318;
+                    float radius = aoRadius * (0.5 + 0.5 * sin(angle * 3.0));
+                    
+                    vec3 sampleDir = vec3(cos(angle), sin(angle), 0.0);
+                    sampleDir = normalize(sampleDir + normal * 0.5);
+                    
+                    vec3 samplePos = worldPos + sampleDir * radius;
+                    
+                    // Convert world position to voxel coordinates
+                    vec3 voxelCoord = (samplePos - worldMin) / (worldMax - worldMin);
+                    
+                    if (voxelCoord.x >= 0.0 && voxelCoord.x <= 1.0 &&
+                        voxelCoord.y >= 0.0 && voxelCoord.y <= 1.0 &&
+                        voxelCoord.z >= 0.0 && voxelCoord.z <= 1.0) {
+                        
+                        float voxelDensity = texture(voxelTexture, voxelCoord).r;
+                        ao += voxelDensity;
+                        samples++;
+                    }
+                }
+                
+                return samples > 0 ? ao / float(samples) : 0.0;
+            }
+            
+            void main() {
+                vec4 color = texture(colorTexture, TexCoord);
+                
+                // Calculate surface normal (simplified)
+                vec3 normal = normalize(cross(dFdx(WorldPos), dFdy(WorldPos)));
+                
+                // Calculate voxel-based ambient occlusion
+                float ao = calculateVoxelAO(WorldPos, normal);
+                
+                // Apply AO to the color
+                float aoFactor = 1.0 - (ao * aoIntensity);
+                FragColor = vec4(color.rgb * aoFactor, color.a);
+            }
+            """;
     }
 }

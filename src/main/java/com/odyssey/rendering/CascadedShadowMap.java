@@ -5,6 +5,7 @@ import org.joml.Vector3f;
 import org.joml.Vector4f;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
+import org.lwjgl.opengl.GL13;
 import org.lwjgl.opengl.GL30;
 import com.odyssey.util.Logger;
 
@@ -17,7 +18,7 @@ import java.util.List;
  */
 public class CascadedShadowMap {
     
-    private static final Logger logger = Logger.getInstance();
+    private static final Logger logger = Logger.getLogger(CascadedShadowMap.class);
     
     // Shadow map configuration
     private int[] fbos;
@@ -124,8 +125,8 @@ public class CascadedShadowMap {
                 GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
             }
             
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL12.GL_CLAMP_TO_BORDER);
-            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL12.GL_CLAMP_TO_BORDER);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_S, GL13.GL_CLAMP_TO_BORDER);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_WRAP_T, GL13.GL_CLAMP_TO_BORDER);
             
             // Set border color to white (no shadow)
             float[] borderColor = { 1.0f, 1.0f, 1.0f, 1.0f };

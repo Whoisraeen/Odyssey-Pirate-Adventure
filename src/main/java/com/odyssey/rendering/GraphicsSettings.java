@@ -7,7 +7,7 @@ import com.odyssey.util.Logger;
  * Provides centralized control over all advanced rendering effects with preset quality levels.
  */
 public class GraphicsSettings {
-    private static final Logger logger = new Logger(GraphicsSettings.class);
+    private static final Logger logger = Logger.getLogger(GraphicsSettings.class);
     
     // Quality presets
     public enum QualityPreset {
@@ -299,6 +299,14 @@ public class GraphicsSettings {
     
     // Getters and setters
     public QualityPreset getCurrentPreset() { return currentPreset; }
+    
+    /**
+     * Set the current quality preset
+     * @param preset The quality preset to set
+     */
+    public void setCurrentPreset(QualityPreset preset) { 
+        this.currentPreset = preset; 
+    }
     
     public boolean isPostProcessingEnabled() { return postProcessingEnabled; }
     public void setPostProcessingEnabled(boolean enabled) { 

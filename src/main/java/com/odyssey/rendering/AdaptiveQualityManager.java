@@ -154,13 +154,10 @@ public class AdaptiveQualityManager {
     
     /**
      * Update adaptive quality based on current performance
-     * Call this every frame to monitor and adjust quality
+     * @param currentFPS The current frames per second
      */
-    public void update() {
-        if (!adaptiveQualityEnabled) return;
-        
-        float currentFPS = profiler.getCurrentFPS();
-        if (currentFPS <= 0) return; // Skip if no valid FPS data
+    public void updateQuality(float currentFPS) {
+        if (!adaptiveQualityEnabled || currentFPS <= 0) return;
         
         // Check if enough time has passed since last adjustment
         long currentTime = System.currentTimeMillis();
@@ -195,6 +192,27 @@ public class AdaptiveQualityManager {
             lastAdjustmentTime = currentTime;
             currentStabilityCount = 0;
         }
+    }
+    
+    /**
+     * Cleanup resources used by the adaptive quality manager
+     */
+    public void cleanup() {
+        // Reset state
+        adaptiveQualityEnabled = false;
+        currentStabilityCount = 0;
+        lastAdjustmentTime = 0;
+        lastAverageFPS = 0.0f;
+        
+        logger.info("Adaptive Quality Manager cleaned up");
+    }
+    
+    /**
+     * Update adaptive quality based on current performance
+     * Call this every frame to monitor and adjust quality
+     */
+    public void update() {
+        updateQuality(profiler.getCurrentFPS());
     }
     
     /**

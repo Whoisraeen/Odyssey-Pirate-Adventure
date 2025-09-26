@@ -202,7 +202,7 @@ public class Renderer {
         volumetricFog.initialize();
         volumetricClouds = new VolumetricClouds();
         volumetricClouds.initialize();
-        cascadedShadowMap = new CascadedShadowMap(2048, 3);
+        cascadedShadowMap = new CascadedShadowMap(2048, 3, 256.0f);
         dynamicSky = new DynamicSky();
         hosekWilkieSky = new HosekWilkieSky();
         timeOfDaySystem = new TimeOfDaySystem();
@@ -221,6 +221,15 @@ public class Renderer {
 
         shaderManager.loadShader("opaque", "shaders/opaque.vert", "shaders/opaque.frag");
         shaderManager.loadShader("quad", "shaders/quad.vert", "shaders/quad.frag");
+        
+        // Load post-processing shaders
+        shaderManager.loadShader("bloom_extract", "shaders/bloom_extract.vert", "shaders/bloom_extract.frag");
+        shaderManager.loadShader("bloom_blur", "shaders/bloom_blur.vert", "shaders/bloom_blur.frag");
+        shaderManager.loadShader("bloom_combine", "shaders/bloom_combine.vert", "shaders/bloom_combine.frag");
+        shaderManager.loadShader("tone_mapping", "shaders/tone_mapping.vert", "shaders/tone_mapping.frag");
+        shaderManager.loadShader("depth_of_field", "shaders/depth_of_field.vert", "shaders/depth_of_field.frag");
+        shaderManager.loadShader("motion_blur", "shaders/motion_blur.vert", "shaders/motion_blur.frag");
+        shaderManager.loadShader("taa", "shaders/taa.vert", "shaders/taa.frag");
 
         // Load PBR textures
         loadPBRTextures();
@@ -361,6 +370,7 @@ public class Renderer {
         int finalTexture = postProcessingRenderer.processScene(
                 framebufferManager.getFramebuffer("scene").getColorTexture(0),
                 framebufferManager.getFramebuffer("scene").getDepthTexture(),
+                0, // velocityTexture - not implemented yet, pass 0
                 performanceTimer.getDeltaTime()
         );
 
@@ -528,11 +538,11 @@ public class Renderer {
         viewProjectionMatrix.set(projectionMatrix).mul(viewMatrix);
 
         // Calculate light direction (for now, use a fixed directional light)
-        Vector3f lightDirection = new Vector3f(-0.3f, -0.7f, -0.2f).normalize();
+        Vector3f mainLightDirection = new Vector3f(-0.3f, -0.7f, -0.2f).normalize();
 
         // Render shadow maps first
         performanceProfiler.startSection("Shadow Mapping");
-        renderShadowMap(world, currentCamera, projectionMatrix, viewMatrix, lightDirection);
+        renderShadowMap(world, currentCamera, projectionMatrix, viewMatrix, mainLightDirection);
         performanceProfiler.endSection("Shadow Mapping");
 
         // Bind scene framebuffer
@@ -560,9 +570,9 @@ public class Renderer {
 
         // Set CSM uniforms
         csmPbrShader.setUniform("numCascades", cascadedShadowMap.getNumCascades());
-        csmPbrShader.setUniform("enablePCF", cascadedShadowMap.isEnablePCF());
-        csmPbrShader.setUniform("pcfSamples", cascadedShadowMap.getPcfSamples());
-        csmPbrShader.setUniform("pcfRadius", cascadedShadowMap.getPcfRadius());
+        csmPbrShader.setUniform("enablePCF", cascadedShadowMap.isPCFEnabled());
+        csmPbrShader.setUniform("pcfSamples", cascadedShadowMap.getPCFSamples());
+        csmPbrShader.setUniform("pcfRadius", cascadedShadowMap.getPCFRadius());
         csmPbrShader.setUniform("shadowBias", 0.005f);
         
         // Set cascade splits and light space matrices
@@ -636,7 +646,9 @@ public class Renderer {
             aoRenderer.renderGBuffer(currentCamera, projectionMatrix, viewMatrix, opaqueQueue);
 
             // Render SSAO
-            aoRenderer.renderSSAO(projectionMatrix);
+            int depthTexture = framebufferManager.getFramebuffer("scene").getDepthTexture();
+            int normalTexture = framebufferManager.getFramebuffer("scene").getColorTexture(1); // Assuming normal texture is in attachment 1
+            aoRenderer.renderSSAO(currentCamera, projectionMatrix, depthTexture, normalTexture);
             performanceProfiler.endSection("Ambient Occlusion");
         }
 
@@ -646,31 +658,36 @@ public class Renderer {
         // Render skybox (fallback)
         if (graphicsSettings.isSkyRenderingEnabled()) {
             performanceProfiler.startSection("Sky Rendering");
-            skybox.render(camera, projectionMatrix);
+            skybox.render(currentCamera, projectionMatrix);
         }
 
         // Render volumetric fog
         if (graphicsSettings.isVolumetricFogEnabled()) {
             performanceProfiler.startSection("Volumetric Fog");
-            volumetricFog.render(camera, projectionMatrix, framebufferManager.getFramebuffer("scene").getDepthTexture());
+            Vector3f fogLightDirection = timeOfDaySystem.getSunDirection();
+            Vector3f lightColor = timeOfDaySystem.getSunColor();
+            int depthTexture = framebufferManager.getFramebuffer("scene").getDepthTexture();
+            int colorTexture = framebufferManager.getFramebuffer("scene").getColorTexture(0);
+            volumetricFog.render(currentCamera, projectionMatrix, viewMatrix, fogLightDirection, lightColor, 
+                               depthTexture, colorTexture, performanceTimer.getDeltaTime());
             performanceProfiler.endSection("Volumetric Fog");
         }
 
         // Render volumetric clouds
         if (graphicsSettings.isVolumetricCloudsEnabled()) {
             performanceProfiler.startSection("Volumetric Clouds");
-            Vector3f lightDirection = new Vector3f(0.0f, -1.0f, 0.0f).normalize();
+            Vector3f cloudsLightDirection = new Vector3f(0.0f, -1.0f, 0.0f).normalize();
             Vector3f lightColor = new Vector3f(1.0f, 0.9f, 0.8f);
             Vector3f sunColor = new Vector3f(1.0f, 0.95f, 0.8f);
-            volumetricClouds.render(camera, projectionMatrix, viewMatrix, lightDirection, lightColor, sunColor,
+            volumetricClouds.render(camera, projectionMatrix, viewMatrix, cloudsLightDirection, lightColor, sunColor,
                                    framebufferManager.getFramebuffer("scene").getDepthTexture(),
-                                   framebufferManager.getFramebuffer("scene").getColorTexture(),
-                                   Timer.getDeltaTime());
+                                   framebufferManager.getFramebuffer("scene").getColorTexture(0),
+                                   performanceTimer.getDeltaTime());
             performanceProfiler.endSection("Volumetric Clouds");
         }
 
         // Update time of day system
-        timeOfDaySystem.update(Timer.getDeltaTime());
+        timeOfDaySystem.update(performanceTimer.getDeltaTime());
          
         // Render Hosek-Wilkie sky
         if (graphicsSettings.isSkyRenderingEnabled()) {
@@ -678,10 +695,10 @@ public class Renderer {
             hosekWilkieSky.setSunDirection(sunDirection);
             hosekWilkieSky.setTurbidity(timeOfDaySystem.getTurbidity());
             hosekWilkieSky.setGroundAlbedo(timeOfDaySystem.getAlbedo());
-            hosekWilkieSky.render(camera, projectionMatrix);
+            hosekWilkieSky.render(currentCamera, projectionMatrix);
          
             // Render dynamic sky as fallback
-            dynamicSky.render(camera, projectionMatrix, sunDirection);
+            dynamicSky.render(currentCamera, projectionMatrix, sunDirection);
             performanceProfiler.endSection("Sky Rendering");
         }
         
@@ -690,9 +707,9 @@ public class Renderer {
         adaptiveQualityManager.updateQuality(performanceProfiler.getCurrentFPS());
     }
 
-    private void renderShadowMap(World world, Camera camera, Matrix4f projectionMatrix, Matrix4f viewMatrix, Vector3f lightDirection) {
+    private void renderShadowMap(World world, Camera renderCamera, Matrix4f renderProjectionMatrix, Matrix4f renderViewMatrix, Vector3f lightDirection) {
         // Update CSM light space matrices based on camera frustum
-        cascadedShadowMap.updateLightSpaceMatrices(camera, projectionMatrix, viewMatrix, lightDirection);
+        cascadedShadowMap.updateLightSpaceMatrices(renderCamera, lightDirection);
         
         Shader shadowShader = shaderManager.getShader("csm_shadow");
         if (shadowShader == null) {

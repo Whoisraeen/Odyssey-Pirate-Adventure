@@ -57,6 +57,14 @@ public class Camera {
     private Matrix4f viewMatrix;
     private boolean viewMatrixDirty = true;
     
+    // Projection matrix properties
+    private Matrix4f projectionMatrix;
+    private float fov = 75.0f;
+    private float aspectRatio = 16.0f / 9.0f;
+    private float nearPlane = 0.1f;
+    private float farPlane = 1000.0f;
+    private boolean projectionMatrixDirty = true;
+    
     /**
      * Create a new camera with default settings.
      */
@@ -71,6 +79,7 @@ public class Camera {
         this.targetForward = new Vector3f();
         
         this.viewMatrix = new Matrix4f();
+        this.projectionMatrix = new Matrix4f();
         
         // Initialize angles from forward vector
         updateAnglesFromForward();
@@ -451,6 +460,71 @@ public class Camera {
             updateViewMatrix();
         }
         return new Matrix4f(viewMatrix);
+    }
+    
+    /**
+     * Get projection matrix.
+     */
+    public Matrix4f getProjectionMatrix() {
+        if (projectionMatrixDirty) {
+            updateProjectionMatrix();
+        }
+        return new Matrix4f(projectionMatrix);
+    }
+    
+    /**
+     * Get near plane distance.
+     */
+    public float getNearPlane() {
+        return nearPlane;
+    }
+    
+    /**
+     * Get near plane distance (alias for compatibility).
+     */
+    public float getNear() {
+        return nearPlane;
+    }
+    
+    /**
+     * Get far plane distance.
+     */
+    public float getFarPlane() {
+        return farPlane;
+    }
+    
+    /**
+     * Get far plane distance (alias for compatibility).
+     */
+    public float getFar() {
+        return farPlane;
+    }
+    
+    /**
+     * Set projection parameters.
+     */
+    public void setProjection(float fov, float aspectRatio, float nearPlane, float farPlane) {
+        this.fov = fov;
+        this.aspectRatio = aspectRatio;
+        this.nearPlane = nearPlane;
+        this.farPlane = farPlane;
+        this.projectionMatrixDirty = true;
+    }
+    
+    /**
+     * Set aspect ratio.
+     */
+    public void setAspectRatio(float aspectRatio) {
+        this.aspectRatio = aspectRatio;
+        this.projectionMatrixDirty = true;
+    }
+    
+    /**
+     * Update the internal projection matrix.
+     */
+    private void updateProjectionMatrix() {
+        projectionMatrix.setPerspective((float) Math.toRadians(fov), aspectRatio, nearPlane, farPlane);
+        projectionMatrixDirty = false;
     }
     
     /**

@@ -503,6 +503,34 @@ public class Shader {
         logger.debug("Cleaned up shader '{}'", name);
     }
     
+    /**
+     * Convenience method - alias for bind().
+     */
+    public void use() {
+        bind();
+    }
+    
+    /**
+     * Convenience method for setting Matrix4f uniform.
+     */
+    public void setMatrix4f(String name, Matrix4f matrix) {
+        setUniform(name, matrix);
+    }
+    
+    /**
+     * Convenience method for setting integer uniform.
+     */
+    public void setInt(String name, int value) {
+        setUniform(name, value);
+    }
+    
+    /**
+     * Convenience method for setting float uniform.
+     */
+    public void setFloat(String name, float value) {
+        setUniform(name, value);
+    }
+
     @Override
     public String toString() {
         return String.format("Shader{name='%s', programId=%d, compiled=%s, bound=%s}", 

@@ -143,6 +143,7 @@ public class PostProcessingRenderer {
     private float bloomThreshold = 0.8f;
     private float bloomIntensity = 0.8f;
     private int bloomPasses = 8;
+    private float bloomRadius = 1.0f;
     
     private boolean toneMappingEnabled = true;
     private ToneMappingType toneMappingType = ToneMappingType.ACES;
@@ -188,12 +189,16 @@ public class PostProcessingRenderer {
     // Timing for animated effects
     private float time = 0.0f;
     
+    // Shader manager for loading shaders
+    private ShaderManager shaderManager;
+    
     /**
      * Creates a new PostProcessingRenderer.
      */
     public PostProcessingRenderer() {
         this.processingPasses = new ArrayList<>();
         this.initialized = false;
+        this.shaderManager = new ShaderManager();
     }
     
     /**
@@ -396,48 +401,51 @@ public class PostProcessingRenderer {
      */
     private boolean loadShaders() {
         try {
+            // Initialize shader manager
+            shaderManager.initialize();
+            
             // Load bloom shaders
-            bloomExtractShader = Shader.load("bloom_extract");
+            bloomExtractShader = shaderManager.getShader("bloom_extract");
             if (bloomExtractShader == null) {
                 logger.error("Failed to load bloom extract shader");
                 return false;
             }
             
-            bloomBlurShader = Shader.load("bloom_blur");
+            bloomBlurShader = shaderManager.getShader("bloom_blur");
             if (bloomBlurShader == null) {
                 logger.error("Failed to load bloom blur shader");
                 return false;
             }
             
-            bloomCombineShader = Shader.load("bloom_combine");
+            bloomCombineShader = shaderManager.getShader("bloom_combine");
             if (bloomCombineShader == null) {
                 logger.error("Failed to load bloom combine shader");
                 return false;
             }
             
             // Load tone mapping shader
-            toneMappingShader = Shader.load("tone_mapping");
+            toneMappingShader = shaderManager.getShader("tone_mapping");
             if (toneMappingShader == null) {
                 logger.error("Failed to load tone mapping shader");
                 return false;
             }
             
             // Load depth of field shader
-            depthOfFieldShader = Shader.load("depth_of_field");
+            depthOfFieldShader = shaderManager.getShader("depth_of_field");
             if (depthOfFieldShader == null) {
                 logger.error("Failed to load depth of field shader");
                 return false;
             }
             
             // Load motion blur shader
-            motionBlurShader = Shader.load("motion_blur");
+            motionBlurShader = shaderManager.getShader("motion_blur");
             if (motionBlurShader == null) {
                 logger.error("Failed to load motion blur shader");
                 return false;
             }
             
             // Load TAA shader
-            taaShader = Shader.load("taa");
+            taaShader = shaderManager.getShader("taa");
             if (taaShader == null) {
                 logger.error("Failed to load TAA shader");
                 return false;
@@ -540,10 +548,11 @@ public class PostProcessingRenderer {
      * 
      * @param sceneTexture Input scene texture
      * @param depthTexture Scene depth texture
+     * @param velocityTexture Velocity buffer texture (optional, can be 0)
      * @param deltaTime Time since last frame
      * @return Final processed texture ID
      */
-    public int processScene(int sceneTexture, int depthTexture, float deltaTime) {
+    public int processScene(int sceneTexture, int depthTexture, int velocityTexture, float deltaTime) {
         if (!initialized) {
             logger.warn("PostProcessingRenderer not initialized");
             return sceneTexture;
@@ -574,8 +583,8 @@ public class PostProcessingRenderer {
             currentTexture = applyDepthOfField(currentTexture, depthTexture);
         }
         
-        if (motionBlurEnabled) {
-            currentTexture = applyMotionBlur(currentTexture);
+        if (motionBlurEnabled && velocityTexture != 0) {
+            currentTexture = applyMotionBlur(currentTexture, velocityTexture);
         }
 
         if (ssrEnabled) {
@@ -781,9 +790,10 @@ public class PostProcessingRenderer {
      * Applies motion blur effect.
      * 
      * @param colorTexture The color texture
+     * @param velocityTexture The velocity texture for motion vectors
      * @return The motion blurred texture
      */
-    private int applyMotionBlur(int colorTexture) {
+    private int applyMotionBlur(int colorTexture, int velocityTexture) {
         if (!motionBlurEnabled || motionBlurShader == null) {
             return colorTexture;
         }
@@ -794,6 +804,7 @@ public class PostProcessingRenderer {
         
         motionBlurShader.bind();
         motionBlurShader.setUniform("u_ColorTexture", 0);
+        motionBlurShader.setUniform("u_VelocityTexture", 1);
         motionBlurShader.setUniform("u_Strength", motionBlurStrength);
         motionBlurShader.setUniform("u_Samples", motionBlurSamples);
         motionBlurShader.setUniform("u_MaxRadius", maxBlurRadius);
@@ -801,6 +812,8 @@ public class PostProcessingRenderer {
         
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, colorTexture);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, velocityTexture);
         
         renderFullscreenQuad();
         Framebuffer.unbind();
@@ -1042,7 +1055,7 @@ public class PostProcessingRenderer {
         
         // Apply motion blur
         if (motionBlurEnabled && velocityTexture != 0) {
-            currentTexture = applyMotionBlur(currentTexture);
+            currentTexture = applyMotionBlur(currentTexture, velocityTexture);
         }
         
         // Combine bloom with scene if enabled
@@ -1149,7 +1162,7 @@ public class PostProcessingRenderer {
         return taaEnabled;
     }
     
-    public void setTAASettings(float blendFactor, boolean varianceClipping) {
+    public void setTAASettings(float blendFactor, float varianceClipping) {
         this.taaBlendFactor = blendFactor;
         this.taaVarianceClipping = varianceClipping;
     }

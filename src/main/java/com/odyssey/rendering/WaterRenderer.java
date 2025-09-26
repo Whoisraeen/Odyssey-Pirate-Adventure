@@ -40,6 +40,9 @@ public class WaterRenderer {
     private Texture foamTexture;
     private Texture reflectionTexture;
     private Texture refractionTexture;
+    private Texture dudvTexture;
+    private Texture normalTexture;
+    private Texture causticsTexture;
     
     // Physics integration
     private OceanPhysics oceanPhysics;
@@ -251,7 +254,7 @@ public class WaterRenderer {
             waterShader.setFloat("waveAmplitudes[" + i + "]", wave.getAmplitude());
             waterShader.setFloat("waveFrequencies[" + i + "]", wave.getFrequency());
             waterShader.setFloat("wavePhases[" + i + "]", wave.getPhase());
-            waterShader.setVec2("waveDirections[" + i + "]", wave.getDirection());
+            waterShader.setUniform("waveDirections[" + i + "]", wave.getDirection());
             waterShader.setFloat("waveSteepness[" + i + "]", wave.getSteepness());
             waterShader.setFloat("waveSpeeds[" + i + "]", wave.getSpeed());
         }
@@ -273,7 +276,6 @@ public class WaterRenderer {
         if (waterShader == null || waterMesh == null) return;
         
         // Update time for wave animation
-        time += deltaTime;
         animationTime += deltaTime;
         
         // Update normal map offset for animation
@@ -288,21 +290,21 @@ public class WaterRenderer {
         waterShader.use();
         
         // Update matrices
-        waterShader.setMat4("projection", projectionMatrix);
-        waterShader.setMat4("view", viewMatrix);
-        waterShader.setMat4("model", modelMatrix);
+        waterShader.setUniform("projection", projectionMatrix);
+        waterShader.setUniform("view", viewMatrix);
+        waterShader.setUniform("model", modelMatrix);
         
         // Update lighting
-        waterShader.setVec3("cameraPos", cameraPos);
-        waterShader.setVec3("lightPos", lightPos);
-        waterShader.setVec3("lightColor", lightColor);
+        waterShader.setUniform("cameraPos", cameraPos);
+        waterShader.setUniform("lightPos", lightPos);
+        waterShader.setUniform("lightColor", lightColor);
         
         // Update time
-        waterShader.setFloat("time", time);
+        waterShader.setFloat("time", animationTime);
         
         // Update water colors
-        waterShader.setVec3("waterColor", waterColor);
-        waterShader.setVec3("deepWaterColor", deepWaterColor);
+        waterShader.setUniform("waterColor", waterColor);
+        waterShader.setUniform("deepWaterColor", deepWaterColor);
         
         // Update wave parameters
         updateWaveUniforms();
@@ -545,7 +547,7 @@ public class WaterRenderer {
         float totalHeight = 0.0f;
         
         for (GerstnerWave wave : gerstnerWaves) {
-            Vector3f displacement = wave.calculateDisplacement(x, z, time);
+            Vector3f displacement = wave.calculateDisplacement(x, z, animationTime);
             totalHeight += displacement.y * waveStrength;
         }
         
@@ -559,7 +561,7 @@ public class WaterRenderer {
         Vector3f totalNormal = new Vector3f(0.0f, 1.0f, 0.0f);
         
         for (GerstnerWave wave : gerstnerWaves) {
-            Vector3f waveNormal = wave.calculateNormal(x, z, time);
+            Vector3f waveNormal = wave.calculateNormal(x, z, animationTime);
             totalNormal.add(waveNormal);
         }
         
@@ -907,314 +909,7 @@ public class WaterRenderer {
         if (refractionTexture != null) {
             refractionTexture.cleanup();
         }
-        if (dudvTexture != null) {
-            dudvTexture.cleanup();
-        }
-        if (causticsTexture != null) {
-            causticsTexture.cleanup();
-        }
         
         logger.info("Water renderer cleaned up");
     }
-}
-
-
-/**
- * Initialize water shaders with Gerstner wave support
- */
-private void initializeShaders() {
-    try {
-        waterShader = shaderManager.loadShader("water", "water.vert", "water.frag");
-        
-        // Set up uniform locations for Gerstner waves
-        waterShader.use();
-        
-        // Set texture uniforms
-        waterShader.setInt("reflectionTexture", 0);
-        waterShader.setInt("refractionTexture", 1);
-        waterShader.setInt("dudvMap", 2);
-        waterShader.setInt("normalMap", 3);
-        waterShader.setInt("foamTexture", 4);
-        waterShader.setInt("depthMap", 5);
-        waterShader.setInt("causticsTexture", 6);
-        
-        // Set default water parameters
-        waterShader.setFloat("waterTransparency", waterTransparency);
-        waterShader.setFloat("reflectionStrength", reflectionStrength);
-        waterShader.setFloat("refractionStrength", refractionStrength);
-        waterShader.setFloat("waveStrength", waveStrength);
-        waterShader.setFloat("foamThreshold", foamThreshold);
-        waterShader.setFloat("shininess", 32.0f);
-        waterShader.setFloat("specularStrength", 0.5f);
-        
-        // Screen-space reflection parameters
-        waterShader.setFloat("ssrMaxDistance", 50.0f);
-        waterShader.setInt("ssrMaxSteps", 32);
-        waterShader.setFloat("ssrStepSize", 0.5f);
-        
-        // Caustics parameters
-        waterShader.setFloat("causticsStrength", 0.3f);
-        waterShader.setFloat("causticsScale", 0.1f);
-        waterShader.setFloat("causticsSpeed", 1.0f);
-        
-        // Depth parameters
-        waterShader.setFloat("nearPlane", 0.1f);
-        waterShader.setFloat("farPlane", 1000.0f);
-        
-        waterShader.unbind();
-        
-    } catch (Exception e) {
-        System.err.println("Failed to initialize water shaders: " + e.getMessage());
-        e.printStackTrace();
-    }
-}
-
-
-/**
- * Update Gerstner wave parameters in shader
- */
-private void updateWaveUniforms() {
-    if (waterShader == null) return;
-    
-    waterShader.use();
-    
-    // Set number of active waves
-    int numWaves = Math.min(gerstnerWaves.size(), 8);
-    waterShader.setInt("numWaves", numWaves);
-    
-    // Update wave parameters
-    for (int i = 0; i < numWaves; i++) {
-        GerstnerWave wave = gerstnerWaves.get(i);
-        
-        waterShader.setFloat("waveAmplitudes[" + i + "]", wave.amplitude);
-        waterShader.setFloat("waveFrequencies[" + i + "]", wave.frequency);
-        waterShader.setFloat("wavePhases[" + i + "]", wave.phase);
-        waterShader.setVec2("waveDirections[" + i + "]", wave.direction);
-        waterShader.setFloat("waveSteepness[" + i + "]", wave.steepness);
-        waterShader.setFloat("waveSpeeds[" + i + "]", wave.speed);
-    }
-    
-    // Clear unused wave slots
-    for (int i = numWaves; i < 8; i++) {
-        waterShader.setFloat("waveAmplitudes[" + i + "]", 0.0f);
-    }
-    
-    waterShader.unbind();
-}
-
-/**
- * Render water surface with Gerstner waves and advanced effects
- */
-public void render(Matrix4f projectionMatrix, Matrix4f viewMatrix, Matrix4f modelMatrix, 
-                  Vector3f cameraPos, Vector3f lightPos, Vector3f lightColor, float deltaTime) {
-    
-    if (waterShader == null || waterMesh == null) return;
-    
-    // Update time for wave animation
-    time += deltaTime;
-    animationTime += deltaTime;
-    
-    // Update normal map offset for animation
-    normalMapOffset.x += normalMapSpeed * deltaTime;
-    normalMapOffset.y += normalMapSpeed * 0.7f * deltaTime;
-    
-    // Enable blending for transparency
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    
-    // Use water shader
-    waterShader.use();
-    
-    // Update matrices
-    waterShader.setMat4("projection", projectionMatrix);
-    waterShader.setMat4("view", viewMatrix);
-    waterShader.setMat4("model", modelMatrix);
-    
-    // Update lighting
-    waterShader.setVec3("cameraPos", cameraPos);
-    waterShader.setVec3("lightPos", lightPos);
-    waterShader.setVec3("lightColor", lightColor);
-    
-    // Update time
-    waterShader.setFloat("time", time);
-    
-    // Update water colors
-    waterShader.setVec3("waterColor", waterColor);
-    waterShader.setVec3("deepWaterColor", deepWaterColor);
-    
-    // Update wave parameters
-    updateWaveUniforms();
-    
-    // Bind textures
-    bindWaterTextures();
-    
-    // Render water mesh
-    waterMesh.render();
-    
-    // Cleanup
-    unbindTextures();
-    waterShader.unbind();
-    glDisable(GL_BLEND);
-}
-
-/**
- * Bind all water-related textures
- */
-private void bindWaterTextures() {
-    // Reflection texture (slot 0)
-    glActiveTexture(GL_TEXTURE0);
-    if (reflectionTexture != null) {
-        glBindTexture(GL_TEXTURE_2D, reflectionTexture.getTextureId());
-    }
-    
-    // Refraction texture (slot 1)
-    glActiveTexture(GL_TEXTURE1);
-    if (refractionTexture != null) {
-        glBindTexture(GL_TEXTURE_2D, refractionTexture.getTextureId());
-    }
-    
-    // DuDv map (slot 2)
-    glActiveTexture(GL_TEXTURE2);
-    if (dudvTexture != null) {
-        glBindTexture(GL_TEXTURE_2D, dudvTexture.getTextureId());
-    }
-    
-    // Normal map (slot 3)
-    glActiveTexture(GL_TEXTURE3);
-    if (normalTexture != null) {
-        glBindTexture(GL_TEXTURE_2D, normalTexture.getTextureId());
-    }
-    
-    // Foam texture (slot 4)
-    glActiveTexture(GL_TEXTURE4);
-    if (foamTexture != null) {
-        glBindTexture(GL_TEXTURE_2D, foamTexture.getTextureId());
-    }
-    
-    // Depth map (slot 5) - should be provided by the main renderer
-    glActiveTexture(GL_TEXTURE5);
-    // Depth texture binding would be handled by the main rendering pipeline
-    
-    // Caustics texture (slot 6)
-    glActiveTexture(GL_TEXTURE6);
-    if (causticsTexture != null) {
-        glBindTexture(GL_TEXTURE_2D, causticsTexture.getTextureId());
-    }
-}
-
-/**
- * Unbind all textures
- */
-private void unbindTextures() {
-    for (int i = 0; i < 7; i++) {
-        glActiveTexture(GL_TEXTURE0 + i);
-        glBindTexture(GL_TEXTURE_2D, 0);
-    }
-}
-
-/**
- * Add a new Gerstner wave to the water system
- */
-public void addGerstnerWave(GerstnerWave wave) {
-    if (gerstnerWaves.size() < 8) { // Maximum 8 waves for shader compatibility
-        gerstnerWaves.add(wave);
-    }
-}
-
-/**
- * Remove a Gerstner wave from the water system
- */
-public void removeGerstnerWave(int index) {
-    if (index >= 0 && index < gerstnerWaves.size()) {
-        gerstnerWaves.remove(index);
-    }
-}
-
-/**
- * Clear all Gerstner waves
- */
-public void clearGerstnerWaves() {
-    gerstnerWaves.clear();
-}
-
-/**
- * Get the current list of Gerstner waves
- */
-public List<GerstnerWave> getGerstnerWaves() {
-    return new ArrayList<>(gerstnerWaves);
-}
-
-/**
- * Calculate water height at a specific world position using Gerstner waves
- */
-public float getWaterHeightAt(float x, float z) {
-    float totalHeight = 0.0f;
-    
-    for (GerstnerWave wave : gerstnerWaves) {
-        Vector3f displacement = wave.calculateDisplacement(x, z, time);
-        totalHeight += displacement.y * waveStrength;
-    }
-    
-    return totalHeight;
-}
-
-/**
- * Calculate water normal at a specific world position using Gerstner waves
- */
-public Vector3f getWaterNormalAt(float x, float z) {
-    Vector3f totalNormal = new Vector3f(0.0f, 1.0f, 0.0f);
-    
-    for (GerstnerWave wave : gerstnerWaves) {
-        Vector3f waveNormal = wave.calculateNormal(x, z, time);
-        totalNormal.add(waveNormal);
-    }
-    
-    return totalNormal.normalize();
-}
-
-/**
- * Initialize default Gerstner waves for realistic ocean simulation
- */
-private void initializeDefaultWaves() {
-    gerstnerWaves.clear();
-    
-    // Large primary wave
-    gerstnerWaves.add(new GerstnerWave(
-        2.0f,                           // amplitude
-        0.1f,                           // frequency
-        0.0f,                           // phase
-        new Vector2f(1.0f, 0.0f),      // direction
-        0.8f,                           // steepness
-        5.0f                            // speed
-    ));
-    
-    // Medium secondary wave
-    gerstnerWaves.add(new GerstnerWave(
-        1.2f,                           // amplitude
-        0.15f,                          // frequency
-        1.5f,                           // phase
-        new Vector2f(0.7f, 0.7f),      // direction
-        0.6f,                           // steepness
-        4.0f                            // speed
-    ));
-    
-    // Small detail wave
-    gerstnerWaves.add(new GerstnerWave(
-        0.8f,                           // amplitude
-        0.25f,                          // frequency
-        3.0f,                           // phase
-        new Vector2f(-0.5f, 0.8f),     // direction
-        0.4f,                           // steepness
-        3.0f                            // speed
-    ));
-    
-    // High-frequency ripples
-    gerstnerWaves.add(new GerstnerWave(
-        0.3f,                           // amplitude
-        0.5f,                           // frequency
-        2.2f,                           // phase
-        new Vector2f(0.3f, -0.9f),     // direction
-        0.2f,                           // steepness
-        2.0f                            // speed
-    ));
 }

@@ -70,6 +70,23 @@ public class TimeOfDaySystem {
     }
     
     /**
+     * Initialize the time-of-day system
+     */
+    public void initialize() {
+        // Initialize any resources or systems needed
+        updateLighting();
+        updateEnvironment();
+    }
+    
+    /**
+     * Cleanup resources used by the time-of-day system
+     */
+    public void cleanup() {
+        // Cleanup any resources if needed
+        // Currently no resources to cleanup
+    }
+    
+    /**
      * Update the time-of-day system
      * @param deltaTime Time elapsed since last update in seconds
      */
@@ -251,7 +268,7 @@ public class TimeOfDaySystem {
                 return period;
             }
         }
-        return TimePeriod.DAY; // Fallback
+        return TimePeriod.NOON; // Fallback
     }
     
     /**

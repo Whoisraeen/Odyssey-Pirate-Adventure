@@ -172,4 +172,29 @@ public class GerstnerWave {
         
         updateDerivedParameters();
     }
+    
+    // Getter methods for wave parameters
+    public float getAmplitude() {
+        return amplitude;
+    }
+    
+    public float getFrequency() {
+        return frequency;
+    }
+    
+    public float getPhase() {
+        return phase;
+    }
+    
+    public Vector2f getDirection() {
+        return new Vector2f(direction);
+    }
+    
+    public float getSteepness() {
+        return steepness;
+    }
+    
+    public float getSpeed() {
+        return speed;
+    }
 }

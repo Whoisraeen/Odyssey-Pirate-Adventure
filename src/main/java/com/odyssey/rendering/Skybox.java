@@ -11,8 +11,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.lwjgl.opengl.GL11.*;
-import static org.lwjgl.opengl.GL13.GL_TEXTURE_CUBE_MAP;
-import static org.lwjgl.opengl.GL13.GL_TEXTURE_CUBE_MAP_POSITIVE_X;
+import static org.lwjgl.opengl.GL12.*;
+import static org.lwjgl.opengl.GL13.*;
+import static org.lwjgl.opengl.GL15.*;
+import static org.lwjgl.opengl.GL30.*;
 
 public class Skybox {
 
@@ -71,8 +73,8 @@ public class Skybox {
         vbo = GL30.glGenBuffers();
 
         GL30.glBindVertexArray(vao);
-        GL30.glBindBuffer(GL11.GL_ARRAY_BUFFER, vbo);
-        GL30.glBufferData(GL11.GL_ARRAY_BUFFER, vertices, GL11.GL_STATIC_DRAW);
+        GL30.glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        GL30.glBufferData(GL_ARRAY_BUFFER, vertices, GL_STATIC_DRAW);
         GL30.glEnableVertexAttribArray(0);
         GL30.glVertexAttribPointer(0, 3, GL11.GL_FLOAT, false, 3 * 4, 0);
 
@@ -87,7 +89,33 @@ public class Skybox {
         textureId = loadCubemap(faces);
 
         shader = new Shader("skybox");
-        shader.compile();
+        // Load shader sources from ShaderManager or use built-in skybox shader
+        try {
+            String vertexSource = "#version 330 core\n" +
+                "layout (location = 0) in vec3 a_Position;\n" +
+                "uniform mat4 u_ViewMatrix;\n" +
+                "uniform mat4 u_ProjectionMatrix;\n" +
+                "out vec3 v_TexCoord;\n" +
+                "void main() {\n" +
+                "    v_TexCoord = a_Position;\n" +
+                "    vec4 pos = u_ProjectionMatrix * u_ViewMatrix * vec4(a_Position, 1.0);\n" +
+                "    gl_Position = pos.xyww;\n" +
+                "}";
+            
+            String fragmentSource = "#version 330 core\n" +
+                "in vec3 v_TexCoord;\n" +
+                "uniform samplerCube u_Skybox;\n" +
+                "out vec4 FragColor;\n" +
+                "void main() {\n" +
+                "    FragColor = texture(u_Skybox, v_TexCoord);\n" +
+                "}";
+            
+            shader.compileVertexShader(vertexSource);
+            shader.compileFragmentShader(fragmentSource);
+            shader.link();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     public void render(Camera camera, Matrix4f projection) {
@@ -110,7 +138,7 @@ public class Skybox {
 
         for (int i = 0; i < faces.size(); i++) {
             try {
-                Texture texture = ResourceManager.getInstance().loadTexture(faces.get(i));
+                Texture texture = Texture.loadFromFile("skybox_face_" + i, faces.get(i));
                 GL11.glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL11.GL_RGB, texture.getWidth(), texture.getHeight(), 0, GL11.GL_RGB, GL11.GL_UNSIGNED_BYTE, texture.getByteBuffer());
             } catch (Exception e) {
                 e.printStackTrace();

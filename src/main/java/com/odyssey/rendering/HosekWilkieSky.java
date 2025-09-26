@@ -7,6 +7,11 @@ import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
 
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL15.*;
+import static org.lwjgl.opengl.GL20.*;
+import static org.lwjgl.opengl.GL30.*;
+
 /**
  * Hosek-Wilkie physically-based sky model implementation.
  * Provides realistic atmospheric scattering with proper solar calculations.
@@ -330,6 +335,11 @@ public class HosekWilkieSky {
     }
     
     public Vector3f getSunDirection() { return new Vector3f(sunDirection); }
+    public void setSunDirection(Vector3f sunDirection) { 
+        this.sunDirection.set(sunDirection);
+        computeCoefficients();
+    }
+    
     public Vector3f getSunColor() { return new Vector3f(sunColor); }
     
     /**

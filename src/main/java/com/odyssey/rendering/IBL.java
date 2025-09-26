@@ -3,6 +3,7 @@ package com.odyssey.rendering;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
 import org.lwjgl.opengl.GL13;
+import org.lwjgl.opengl.GL15;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
 import org.lwjgl.opengl.GL32;
@@ -10,12 +11,20 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import com.odyssey.util.Logger;
 
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL12.*;
+import static org.lwjgl.opengl.GL13.*;
+import static org.lwjgl.opengl.GL15.*;
+import static org.lwjgl.opengl.GL20.*;
+import static org.lwjgl.opengl.GL30.*;
+import static org.lwjgl.opengl.GL32.*;
+
 /**
  * Image-Based Lighting (IBL) implementation for physically-based rendering.
  * Handles HDR environment map processing, irradiance convolution, and BRDF lookup table generation.
  */
 public class IBL {
-    private static final Logger logger = Logger.getInstance();
+    private static final Logger logger = Logger.getLogger(IBL.class);
     
     private int environmentMap;
     private int irradianceMap;
@@ -60,7 +69,7 @@ public class IBL {
         
         GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, captureFBO);
         GL30.glBindRenderbuffer(GL30.GL_RENDERBUFFER, captureRBO);
-        GL30.glRenderbufferStorage(GL30.GL_RENDERBUFFER, GL11.GL_DEPTH_COMPONENT24, 512, 512);
+        GL30.glRenderbufferStorage(GL30.GL_RENDERBUFFER, GL30.GL_DEPTH_COMPONENT24, 512, 512);
         GL30.glFramebufferRenderbuffer(GL30.GL_FRAMEBUFFER, GL30.GL_DEPTH_ATTACHMENT, GL30.GL_RENDERBUFFER, captureRBO);
     }
     
@@ -502,7 +511,7 @@ public class IBL {
     private void generateBRDFLUT() {
         GL30.glBindFramebuffer(GL30.GL_FRAMEBUFFER, captureFBO);
         GL30.glBindRenderbuffer(GL30.GL_RENDERBUFFER, captureRBO);
-        GL30.glRenderbufferStorage(GL30.GL_RENDERBUFFER, GL11.GL_DEPTH_COMPONENT24, 512, 512);
+        GL30.glRenderbufferStorage(GL30.GL_RENDERBUFFER, GL30.GL_DEPTH_COMPONENT24, 512, 512);
         GL30.glFramebufferTexture2D(GL30.GL_FRAMEBUFFER, GL30.GL_COLOR_ATTACHMENT0, GL11.GL_TEXTURE_2D, brdfLUTTexture, 0);
         
         GL11.glViewport(0, 0, 512, 512);

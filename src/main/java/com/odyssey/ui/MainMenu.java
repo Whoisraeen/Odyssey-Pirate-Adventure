@@ -5,6 +5,9 @@ import com.odyssey.core.GameState;
 import com.odyssey.rendering.TextRenderer;
 import com.odyssey.util.Logger;
 
+import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL20.*;
+
 /**
  * Main menu UI for The Odyssey.
  * Handles the display and interaction of the main menu screen.
@@ -84,6 +87,15 @@ public class MainMenu {
         }
         
         try {
+            // Clear the screen with a dark ocean blue background
+            glClearColor(0.1f, 0.2f, 0.4f, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            
+            // Set up OpenGL state for UI rendering
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glDisable(GL_DEPTH_TEST);
+            
             // Render main menu title
             textRenderer.renderText("THE ODYSSEY", 
                                   width / 2 - 120, height / 2 + 100, 
@@ -110,6 +122,10 @@ public class MainMenu {
                                   width / 2 - 60, height / 2 - 100, 
                                   1.0f, new float[]{0.8f, 0.8f, 0.8f}, 
                                   width, height);
+            
+            // Restore OpenGL state
+            glEnable(GL_DEPTH_TEST);
+            glDisable(GL_BLEND);
             
             LOGGER.info("MainMenu text rendering completed successfully");
             
